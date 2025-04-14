@@ -42,6 +42,7 @@ export interface ParsedProduct {
 export interface ParsedPedido {
   clienteId: string;
   vendedor: string;
+  pedidoId: string;
   productos: ParsedProduct[];
   items: number;
   totalProductos: number;

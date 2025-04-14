@@ -8,19 +8,47 @@ export function parsePedidoText(text: string): ParsedPedido {
     throw new Error("El texto no contiene suficiente información");
   }
   
-  // Find client ID - usually within the first few lines
+  // Find client ID and pedido ID within the first few lines
   let clienteId = "";
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    // Look for client id which is usually a number in the first few lines
-    const clientMatch = lines[i].match(/(\d{4,})/);
-    if (clientMatch) {
-      clienteId = clientMatch[1];
-      break;
+  let pedidoId = "";
+  
+  // Buscar datos en las primeras líneas (típicamente Código del cliente y número de pedido)
+  const firstLineData = lines[0].match(/(?:Codigo|Código|Code):\s*(\d+)/i);
+  const secondLineData = lines[0].match(/(?:Pedido|Numero|Número|Order):\s*(\d+)/i) || 
+                        lines[1].match(/(?:Pedido|Numero|Número|Order):\s*(\d+)/i);
+  
+  if (firstLineData) {
+    clienteId = firstLineData[1];
+  } else {
+    // Fallback method - look for any number in the first few lines
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const clientMatch = lines[i].match(/(\d{4,})/);
+      if (clientMatch) {
+        clienteId = clientMatch[1];
+        break;
+      }
+    }
+  }
+  
+  if (secondLineData) {
+    pedidoId = secondLineData[1];
+  } else {
+    // Fallback method - look for any short number in the first few lines
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const pedidoMatch = lines[i].match(/\b(\d{1,3})\b/);
+      if (pedidoMatch && pedidoMatch[1] !== clienteId) {
+        pedidoId = pedidoMatch[1];
+        break;
+      }
     }
   }
   
   if (!clienteId) {
     throw new Error("No se pudo encontrar el ID del cliente");
+  }
+  
+  if (!pedidoId) {
+    pedidoId = "1"; // Default if we can't find a pedido number
   }
   
   // Find vendedor - usually appears after "Vendedor:" or similar text
@@ -92,6 +120,7 @@ export function parsePedidoText(text: string): ParsedPedido {
   return {
     clienteId,
     vendedor,
+    pedidoId,
     productos,
     items,
     totalProductos,
