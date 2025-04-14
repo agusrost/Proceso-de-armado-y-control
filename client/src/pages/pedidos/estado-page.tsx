@@ -20,9 +20,9 @@ export default function PedidosEstadoPage() {
   
   // Filter states
   const [filterFecha, setFilterFecha] = useState("");
-  const [filterEstado, setFilterEstado] = useState("");
+  const [filterEstado, setFilterEstado] = useState("todos");
   const [filterVendedor, setFilterVendedor] = useState("");
-  const [filterArmador, setFilterArmador] = useState("");
+  const [filterArmador, setFilterArmador] = useState("todos");
 
   // Fetch armadores for the filter dropdown
   const { data: armadores = [] } = useQuery({
@@ -86,7 +86,7 @@ export default function PedidosEstadoPage() {
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="pendiente">Pendiente</SelectItem>
                     <SelectItem value="en-proceso">En Proceso</SelectItem>
                     <SelectItem value="completado">Completado</SelectItem>
@@ -109,7 +109,7 @@ export default function PedidosEstadoPage() {
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="todos">Todos</SelectItem>
                     {armadores.map((armador) => (
                       <SelectItem key={armador.id} value={armador.id.toString()}>
                         {armador.firstName || armador.username}
