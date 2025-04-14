@@ -4,9 +4,12 @@ import {
   StockSolicitud, InsertStockSolicitud
 } from "@shared/schema";
 import { UserRole } from "@shared/types";
+import session from "express-session";
 
 // Define the storage interface with all required methods
 export interface IStorage {
+  // Sesión
+  sessionStore: session.Store;
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -55,6 +58,8 @@ export class MemStorage implements IStorage {
   private pausaCurrentId: number;
   private stockSolicitudCurrentId: number;
 
+  sessionStore: session.Store;
+
   constructor() {
     this.users = new Map();
     this.pedidos = new Map();
@@ -67,6 +72,11 @@ export class MemStorage implements IStorage {
     this.productoCurrentId = 1;
     this.pausaCurrentId = 1;
     this.stockSolicitudCurrentId = 1;
+    
+    const MemoryStore = require('memorystore')(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
   }
 
   // User methods
@@ -308,4 +318,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { DatabaseStorage } from './database-storage';
+
+// Cambiar entre almacenamiento en memoria y base de datos
+// export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
