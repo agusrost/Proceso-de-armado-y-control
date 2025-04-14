@@ -144,11 +144,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/pedidos", requireAuth, async (req, res, next) => {
     try {
       const { fecha, estado, vendedor, armadorId } = req.query;
+      
+      // Si estado es "todos", convertimos a undefined para el filtro
+      const filteredEstado = estado === "todos" ? undefined : estado as string;
+      
+      // Si armadorId es "todos", convertimos a undefined para el filtro
+      const filteredArmadorId = armadorId === "todos" ? 
+        undefined : 
+        armadorId ? parseInt(armadorId as string) : undefined;
+      
       const pedidos = await storage.getPedidos({ 
         fecha: fecha as string,
-        estado: estado as string,
+        estado: filteredEstado,
         vendedor: vendedor as string,
-        armadorId: armadorId ? parseInt(armadorId as string) : undefined
+        armadorId: filteredArmadorId
       });
       res.json(pedidos);
     } catch (error) {

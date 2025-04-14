@@ -19,7 +19,7 @@ export interface IStorage {
   // Pedido methods
   createPedido(pedido: InsertPedido): Promise<Pedido>;
   getPedidoById(id: number): Promise<Pedido | undefined>;
-  getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number }): Promise<Pedido[]>;
+  getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string }): Promise<Pedido[]>;
   updatePedido(id: number, pedidoData: Partial<Pedido>): Promise<Pedido | undefined>;
   getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined>;
   
@@ -126,7 +126,7 @@ export class MemStorage implements IStorage {
     return this.pedidos.get(id);
   }
 
-  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number }): Promise<Pedido[]> {
+  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string }): Promise<Pedido[]> {
     let pedidos = Array.from(this.pedidos.values());
     
     if (filters.fecha) {
@@ -136,7 +136,7 @@ export class MemStorage implements IStorage {
       });
     }
     
-    if (filters.estado) {
+    if (filters.estado && filters.estado !== "todos") {
       pedidos = pedidos.filter(p => p.estado === filters.estado);
     }
     
@@ -146,8 +146,18 @@ export class MemStorage implements IStorage {
       );
     }
     
-    if (filters.armadorId) {
-      pedidos = pedidos.filter(p => p.armadorId === filters.armadorId);
+    if (filters.armadorId && filters.armadorId !== "todos") {
+      // Si es numérico, compara directamente
+      if (typeof filters.armadorId === 'number') {
+        pedidos = pedidos.filter(p => p.armadorId === filters.armadorId);
+      } 
+      // Si es string pero no es "todos", convierte a número y compara
+      else if (filters.armadorId !== "todos") {
+        const armadorIdNum = parseInt(filters.armadorId as string);
+        if (!isNaN(armadorIdNum)) {
+          pedidos = pedidos.filter(p => p.armadorId === armadorIdNum);
+        }
+      }
     }
     
     return pedidos;
