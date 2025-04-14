@@ -11,7 +11,7 @@ import PedidosCargaPage from "@/pages/pedidos/carga-page";
 import PedidosEstadoPage from "@/pages/pedidos/estado-page";
 import StockPage from "@/pages/stock-page";
 import ConfigPage from "@/pages/config-page";
-import ArmadorPage from "@/pages/armador-page";
+import ArmadoPage from "@/pages/armado-page";
 import ControlPage from "@/pages/control-page";
 
 function Router() {
@@ -22,7 +22,7 @@ function Router() {
       <ProtectedRoute path="/pedidos/estado" component={PedidosEstadoPage} />
       <ProtectedRoute path="/stock" component={StockPage} />
       <ProtectedRoute path="/config" component={ConfigPage} />
-      <ProtectedRoute path="/armador" component={ArmadorPage} />
+      <ProtectedRoute path="/armador" component={ArmadoPage} />
       <ProtectedRoute path="/control" component={ControlPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />

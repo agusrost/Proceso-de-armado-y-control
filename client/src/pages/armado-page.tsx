@@ -41,11 +41,15 @@ export default function ArmadoPage() {
   const [mostrarEstadoPedido, setMostrarEstadoPedido] = useState(false);
 
   // Obtener el próximo pedido pendiente
-  const { data: proximoPedido, isLoading: isLoadingPedido } = useQuery<Pedido>({
-    queryKey: ["/api/pedidos/siguiente"],
+  const { data: proximoPedido, isLoading: isLoadingPedido } = useQuery<Pedido | null>({
+    queryKey: ["/api/pedido-para-armador"],
     queryFn: async () => {
-      const res = await fetch(`/api/pedidos/siguiente${user ? `?armadorId=${user.id}` : ""}`);
+      const res = await fetch(`/api/pedido-para-armador`);
       if (!res.ok) {
+        if (res.status === 404) {
+          // No hay pedidos pendientes, no es un error
+          return null;
+        }
         throw new Error("Error al obtener el próximo pedido");
       }
       return res.json();
