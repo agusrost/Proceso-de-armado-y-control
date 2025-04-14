@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, LogOut, User } from "lucide-react";
+import konectaLogo from "@/assets/konecta-logo.svg";
 
 export function Header() {
   const { user, logoutMutation } = useAuth();
@@ -22,12 +23,15 @@ export function Header() {
   return (
     <header className="bg-primary text-white shadow-md z-10">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <h1 
-          className="text-xl font-semibold cursor-pointer" 
+        <div 
+          className="flex items-center cursor-pointer" 
           onClick={() => setLocation("/")}
         >
-          Sistema de Gestión de Pedidos
-        </h1>
+          <img src={konectaLogo} alt="Konecta Repuestos" className="h-10 mr-3" />
+          <h1 className="text-xl font-semibold hidden sm:block">
+            Sistema de Gestión de Pedidos
+          </h1>
+        </div>
         
         {user && (
           <div className="relative">

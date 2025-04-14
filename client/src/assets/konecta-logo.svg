@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 150">
+  <style>
+    .konecta-text { font-family: Arial, sans-serif; font-style: italic; font-weight: bold; }
+  </style>
+  <g fill="#000000">
+    <path d="M80 30 L110 30 L150 70 L110 110 L80 110 L120 70 L80 30 Z" />
+    <path d="M160 30 L190 30 L230 70 L190 110 L160 110 L200 70 L160 30 Z" />
+    <text x="240" y="90" class="konecta-text" font-size="40">onecta</text>
+    <text x="240" y="120" class="konecta-text" font-size="20">Repuestos</text>
+  </g>
+</svg>
