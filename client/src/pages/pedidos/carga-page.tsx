@@ -48,7 +48,7 @@ export default function PedidosCargaPage() {
       if (!parsedPedido) throw new Error("No hay datos de pedido para procesar");
       
       const pedidoData = {
-        pedidoId: "", // Will be automatically generated on the server
+        pedidoId: parsedPedido.pedidoId || new Date().getTime().toString().slice(-4), // Usar el ID parseado o generar uno
         clienteId: parsedPedido.clienteId,
         fecha: new Date(),
         items: parsedPedido.items,
@@ -149,6 +149,7 @@ export default function PedidosCargaPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p><span className="font-medium">Cliente:</span> <span>{parsedPedido.clienteId}</span></p>
+                    <p><span className="font-medium">Pedido:</span> <span>{parsedPedido.pedidoId || "Auto"}</span></p>
                     <p><span className="font-medium">Vendedor:</span> <span>{parsedPedido.vendedor}</span></p>
                   </div>
                   <div>

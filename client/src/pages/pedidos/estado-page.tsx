@@ -129,6 +129,7 @@ export default function PedidosEstadoPage() {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">ID</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Items</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Puntaje</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Vendedor</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Armador</th>
@@ -161,6 +162,9 @@ export default function PedidosEstadoPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {pedido.totalProductos}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-semibold">
+                          {pedido.puntaje || 0}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {pedido.vendedor}

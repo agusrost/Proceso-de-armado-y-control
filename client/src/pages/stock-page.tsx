@@ -27,7 +27,12 @@ export default function StockPage() {
   const { data: solicitudes = [], isLoading } = useQuery<StockSolicitudWithDetails[]>({
     queryKey: [
       "/api/stock", 
-      { fecha: filterFecha, estado: filterEstado, motivo: filterMotivo, solicitadoPor: filterSolicitado }
+      { 
+        fecha: filterFecha, 
+        estado: filterEstado === "todos" ? "" : filterEstado, 
+        motivo: filterMotivo, 
+        solicitadoPor: filterSolicitado 
+      }
     ],
   });
 
@@ -91,7 +96,7 @@ export default function StockPage() {
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="pendiente">Pendiente</SelectItem>
                     <SelectItem value="realizado">Realizado</SelectItem>
                     <SelectItem value="no-hay">No hay, realizar NC</SelectItem>
