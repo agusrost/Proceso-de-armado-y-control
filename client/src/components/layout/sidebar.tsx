@@ -53,6 +53,13 @@ export function Sidebar() {
       href: "/config",
       active: location === "/config",
       show: hasAccess("config"),
+    },
+    {
+      title: "Mi Perfil",
+      icon: UserCircle,
+      href: "/mi-perfil",
+      active: location === "/mi-perfil",
+      show: true,
     }
   ];
 

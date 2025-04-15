@@ -6,8 +6,11 @@ import {
   insertPedidoSchema, 
   insertProductoSchema, 
   insertPausaSchema, 
-  insertStockSolicitudSchema 
+  insertStockSolicitudSchema,
+  insertUserSchema
 } from "@shared/schema";
+import { z } from "zod";
+import { comparePasswords, hashPassword } from "./auth";
 import { AccessPermission } from "@shared/types";
 
 // Middleware to check authentication
@@ -137,6 +140,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Usuario no encontrado" });
       }
       res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Actualizar perfil de usuario (incluyendo contraseña)
+  app.put("/api/users/:id/perfil", requireAuth, async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      // Solo el propio usuario puede actualizar su perfil
+      if (req.user.id !== userId) {
+        return res.status(403).json({ message: "Solo puedes actualizar tu propio perfil" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Verificar la contraseña actual
+      const { currentPassword, password, ...updateData } = req.body;
+      
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Se requiere la contraseña actual" });
+      }
+
+      const passwordValid = await comparePasswords(currentPassword, user.password);
+      if (!passwordValid) {
+        return res.status(400).json({ message: "Contraseña actual incorrecta" });
+      }
+      
+      // Si se proporciona nueva contraseña, actualizarla
+      if (password) {
+        updateData.password = await hashPassword(password);
+      }
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+      res.json(updatedUser);
     } catch (error) {
       next(error);
     }
