@@ -7,7 +7,7 @@ export type UserRole = 'admin-plus' | 'admin-gral' | 'stock' | 'armador' | 'cont
 export type AccessPermission = 'pedidos' | 'stock' | 'control' | 'config';
 
 // Estado de pedido types
-export type PedidoEstado = 'pendiente' | 'en-proceso' | 'completado';
+export type PedidoEstado = 'pendiente' | 'en-proceso' | 'pre-finalizado' | 'completado';
 
 // Estado de solicitud de stock types
 export type StockSolicitudEstado = 'pendiente' | 'realizado' | 'no-hay';

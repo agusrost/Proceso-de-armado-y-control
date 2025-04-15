@@ -73,6 +73,7 @@ export function getEstadoLabel(estado: string): string {
   const estados: Record<string, string> = {
     'pendiente': 'Pendiente',
     'en-proceso': 'En Proceso',
+    'pre-finalizado': 'Pre-finalizado, falta transferencia',
     'completado': 'Completado',
     'realizado': 'Realizado',
     'no-hay': 'No hay, realizar NC'
@@ -85,6 +86,7 @@ export function getEstadoColor(estado: string): string {
   const colors: Record<string, string> = {
     'pendiente': 'bg-orange-500 text-white',
     'en-proceso': 'bg-blue-500 text-white',
+    'pre-finalizado': 'bg-amber-500 text-white',
     'completado': 'bg-green-500 text-white',
     'realizado': 'bg-green-500 text-white',
     'no-hay': 'bg-purple-500 text-white'
