@@ -41,20 +41,27 @@ export default function ArmadoPage() {
   const [mostrarEstadoPedido, setMostrarEstadoPedido] = useState(false);
 
   // Obtener el próximo pedido pendiente
-  const { data: proximoPedido, isLoading: isLoadingPedido } = useQuery<Pedido | null>({
+  const { data: proximoPedido, isLoading: isLoadingPedido, error: pedidoError, refetch: refetchPedido } = useQuery<Pedido | null>({
     queryKey: ["/api/pedido-para-armador"],
     queryFn: async () => {
-      const res = await fetch(`/api/pedido-para-armador`);
-      if (!res.ok) {
-        if (res.status === 404) {
-          // No hay pedidos pendientes, no es un error
-          return null;
+      try {
+        const res = await fetch(`/api/pedido-para-armador`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            // No hay pedidos pendientes, no es un error
+            return null;
+          }
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Error al obtener el próximo pedido");
         }
-        throw new Error("Error al obtener el próximo pedido");
+        return res.json();
+      } catch (error) {
+        console.error("Error fetching pedido:", error);
+        throw error;
       }
-      return res.json();
     },
     enabled: !currentPedido,
+    retry: false,
   });
 
   // Obtener productos de un pedido específico
@@ -119,8 +126,8 @@ export default function ArmadoPage() {
         // Es el último producto, verificar si el pedido está completo
         const todosRecolectados = productos.every(p => 
           p.id === updatedProducto.id 
-            ? updatedProducto.recolectado > 0 
-            : p.recolectado > 0
+            ? updatedProducto.recolectado !== null && updatedProducto.recolectado > 0 
+            : p.recolectado !== null && p.recolectado > 0
         );
         
         // Mostrar alerta de finalización
@@ -197,14 +204,6 @@ export default function ArmadoPage() {
     }
 
     try {
-      // Asignar el pedido al armador actual
-      if (user) {
-        await asignarPedidoMutation.mutateAsync({ 
-          pedidoId: proximoPedido.id, 
-          armadorId: user.id 
-        });
-      }
-
       // Cargar productos del pedido
       const productosData = await fetchProductos(proximoPedido.id);
       
@@ -216,6 +215,7 @@ export default function ArmadoPage() {
       // Mostrar alerta de inicio
       setMostrarAlertaInicio(true);
     } catch (error) {
+      console.error("Error al comenzar pedido:", error);
       toast({
         title: "Error",
         description: "Error al comenzar el pedido",
@@ -285,7 +285,7 @@ export default function ArmadoPage() {
         <h1 className="text-4xl font-bold mb-12">KONECTA</h1>
         <Button
           size="lg"
-          className="w-full max-w-xs text-xl py-8 mb-16"
+          className="w-full max-w-xs text-xl py-6 mb-16 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
           onClick={comenzarPedido}
           disabled={isLoadingPedido || !proximoPedido}
         >
@@ -297,8 +297,31 @@ export default function ArmadoPage() {
             "COMENZAR"
           )}
         </Button>
-        <div className="text-base">
-          Usuario: <span className="font-bold">{user.username}</span>
+        <div className="flex flex-col items-center gap-2 text-base">
+          <div>
+            Usuario: <span className="font-bold">{user.username}</span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-white hover:text-white hover:bg-gray-700"
+            onClick={() => {
+              // Cerrar sesión
+              fetch("/api/logout", { method: "POST" })
+                .then(() => {
+                  window.location.href = "/auth";
+                })
+                .catch(err => {
+                  toast({
+                    title: "Error",
+                    description: "No se pudo cerrar sesión",
+                    variant: "destructive",
+                  });
+                });
+            }}
+          >
+            Cerrar sesión
+          </Button>
         </div>
       </div>
     );
@@ -321,7 +344,7 @@ export default function ArmadoPage() {
               key={producto.id}
               producto={producto}
               isActive={index === currentProductoIndex}
-              isCompleted={producto.recolectado > 0}
+              isCompleted={producto.recolectado !== null && producto.recolectado > 0}
               isPending={index > currentProductoIndex}
             />
           ))}
@@ -449,13 +472,13 @@ export default function ArmadoPage() {
               <span className="block text-center">Enhorabuena, has finalizado el pedido</span>
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {productos.some(p => p.recolectado < p.cantidad) && (
+              {productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad) && (
                 <div className="mt-4">
                   <p className="font-semibold">Se registraron los siguientes productos faltantes:</p>
                   <ul className="mt-2 text-sm">
-                    {productos.filter(p => p.recolectado < p.cantidad).map(p => (
+                    {productos.filter(p => p.recolectado !== null && p.recolectado < p.cantidad).map(p => (
                       <li key={p.id}>
-                        {p.codigo} - {p.descripcion}: {p.cantidad - p.recolectado} unidades faltantes ({p.motivo})
+                        {p.codigo} - {p.descripcion}: {p.cantidad - (p.recolectado || 0)} unidades faltantes ({p.motivo})
                       </li>
                     ))}
                   </ul>
