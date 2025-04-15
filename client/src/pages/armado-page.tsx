@@ -194,11 +194,20 @@ export default function ArmadoPage() {
         // Mostrar alerta de finalización
         setMostrarAlertaFinal(true);
         
-        // Siempre finalizar el pedido cuando se termina el último producto,
-        // sin importar si hay faltantes o no
+        // Verificar si hay faltantes para determinar el estado
+        const hayFaltantes = productos.some(p => {
+          // Para el producto actual, usar el valor actualizado
+          if (p.id === updatedProducto.id) {
+            return updatedProducto.recolectado !== null && updatedProducto.recolectado < updatedProducto.cantidad;
+          }
+          // Para los demás productos, usar sus valores originales
+          return p.recolectado !== null && p.recolectado < p.cantidad;
+        });
+        
+        // Si hay faltantes, marcar como "pre-finalizado", de lo contrario "completado"
         finalizarPedidoMutation.mutate({ 
           pedidoId: currentPedido!.id, 
-          estado: "completado"
+          estado: hayFaltantes ? "pre-finalizado" : "completado"
         });
       }
     },
