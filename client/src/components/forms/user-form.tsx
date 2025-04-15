@@ -94,9 +94,8 @@ export default function UserForm({ isOpen, onClose, user }: UserFormProps) {
         const res = await apiRequest("PUT", `/api/users/${user.id}`, data);
         return await res.json();
       } else {
-        // Creating new user
-        const { confirmPassword, ...data } = userData;
-        const res = await apiRequest("POST", "/api/register", data);
+        // Creating new user - include confirmPassword field
+        const res = await apiRequest("POST", "/api/register", userData);
         return await res.json();
       }
     },
