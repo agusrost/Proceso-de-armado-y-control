@@ -296,4 +296,41 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return solicitud;
   }
+  
+  // Métodos de eliminación
+  async deletePedido(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(pedidos)
+        .where(eq(pedidos.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar pedido:', error);
+      return false;
+    }
+  }
+  
+  async deleteProducto(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(productos)
+        .where(eq(productos.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+      return false;
+    }
+  }
+  
+  async deletePausa(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(pausas)
+        .where(eq(pausas.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar pausa:', error);
+      return false;
+    }
+  }
 }

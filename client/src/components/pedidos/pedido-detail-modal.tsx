@@ -9,8 +9,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Edit, Check } from "lucide-react";
+import { Loader2, Edit, Check, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -28,6 +39,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   const isAdmin = user?.role === 'admin-plus' || user?.role === 'admin-gral';
   const [editingArmador, setEditingArmador] = useState(false);
   const [selectedArmadorId, setSelectedArmadorId] = useState<string>("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   
   // Fetch pedido details
   const { data: pedido, isLoading } = useQuery<PedidoWithDetails>({
@@ -67,6 +79,31 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     }
   });
   
+  // Delete pedido mutation
+  const deletePedidoMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/pedidos/${pedidoId}`);
+      return res;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pedido eliminado",
+        description: "El pedido ha sido eliminado correctamente",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
+      setDeleteConfirmOpen(false);
+      onClose();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al eliminar",
+        description: error.message,
+        variant: "destructive",
+      });
+      setDeleteConfirmOpen(false);
+    }
+  });
+  
   // Set the selected armador when pedido is loaded
   useEffect(() => {
     if (pedido) {
@@ -75,6 +112,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   }, [pedido]);
   
   const canEditArmador = isAdmin && pedido && pedido.estado === "pendiente";
+  const canDelete = isAdmin && pedido && pedido.estado !== "en-proceso";
   
   if (!isOpen) return null;
 
@@ -261,7 +299,39 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
           </>
         )}
         
-        <DialogFooter>
+        <DialogFooter className="flex items-center justify-between gap-4">
+          {canDelete && (
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={deletePedidoMutation.isPending}>
+                  {deletePedidoMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Eliminar Pedido
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Eliminar Pedido</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    ¿Estás seguro que deseas eliminar este pedido? Esta acción no se puede deshacer 
+                    y eliminará todos los productos y pausas asociados a este pedido.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => deletePedidoMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <Button onClick={onClose}>Cerrar</Button>
         </DialogFooter>
       </DialogContent>

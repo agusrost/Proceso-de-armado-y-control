@@ -24,6 +24,7 @@ export interface IStorage {
   getPedidoById(id: number): Promise<Pedido | undefined>;
   getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string }): Promise<Pedido[]>;
   updatePedido(id: number, pedidoData: Partial<Pedido>): Promise<Pedido | undefined>;
+  deletePedido(id: number): Promise<boolean>;
   getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined>;
   
   // Producto methods
@@ -31,12 +32,14 @@ export interface IStorage {
   getProductoById(id: number): Promise<Producto | undefined>;
   getProductosByPedidoId(pedidoId: number): Promise<Producto[]>;
   updateProducto(id: number, productoData: Partial<Producto>): Promise<Producto | undefined>;
+  deleteProducto(id: number): Promise<boolean>;
   
   // Pausa methods
   createPausa(pausa: InsertPausa): Promise<Pausa>;
   getPausaById(id: number): Promise<Pausa | undefined>;
   getPausasByPedidoId(pedidoId: number): Promise<Pausa[]>;
   updatePausa(id: number, pausaData: Partial<Pausa>): Promise<Pausa | undefined>;
+  deletePausa(id: number): Promise<boolean>;
   
   // Stock methods
   createStockSolicitud(solicitud: InsertStockSolicitud): Promise<StockSolicitud>;
@@ -315,6 +318,19 @@ export class MemStorage implements IStorage {
     const updatedSolicitud: StockSolicitud = { ...solicitud, ...solicitudData };
     this.stockSolicitudes.set(id, updatedSolicitud);
     return updatedSolicitud;
+  }
+  
+  // Métodos de eliminación
+  async deletePedido(id: number): Promise<boolean> {
+    return this.pedidos.delete(id);
+  }
+  
+  async deleteProducto(id: number): Promise<boolean> {
+    return this.productos.delete(id);
+  }
+  
+  async deletePausa(id: number): Promise<boolean> {
+    return this.pausas.delete(id);
   }
 }
 

@@ -517,6 +517,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Eliminar pedido
+  app.delete("/api/pedidos/:id", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      
+      // Verificar que el usuario tenga permisos adecuados
+      if (req.user.role !== 'admin-plus' && req.user.role !== 'admin-gral') {
+        return res.status(403).json({ message: "No tienes permiso para eliminar pedidos" });
+      }
+      
+      // Verificar que el pedido exista
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Obtener y eliminar los productos asociados primero
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      for (const producto of productos) {
+        await storage.deleteProducto(producto.id);
+      }
+      
+      // Obtener y eliminar las pausas asociadas
+      const pausas = await storage.getPausasByPedidoId(pedidoId);
+      for (const pausa of pausas) {
+        await storage.deletePausa(pausa.id);
+      }
+      
+      // Eliminar el pedido
+      await storage.deletePedido(pedidoId);
+      
+      res.status(200).json({ message: "Pedido eliminado correctamente" });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Stock routes
   app.get("/api/stock", requireAccess('stock'), async (req, res, next) => {
     try {
