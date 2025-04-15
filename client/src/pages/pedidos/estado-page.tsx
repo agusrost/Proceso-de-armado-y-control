@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PedidoWithDetails } from "@shared/types";
-import { getEstadoColor, getEstadoLabel, formatDate } from "@/lib/utils";
+import { getEstadoColor, getEstadoLabel, formatDate, formatTimeHM } from "@/lib/utils";
 import { Eye } from "lucide-react";
 import PedidoDetailModal from "@/components/pedidos/pedido-detail-modal";
 

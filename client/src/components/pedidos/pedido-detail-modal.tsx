@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PedidoWithDetails } from "@shared/types";
-import { getEstadoColor, getEstadoLabel, formatDate } from "@/lib/utils";
+import { getEstadoColor, getEstadoLabel, formatDate, formatTimeHM } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -212,8 +212,28 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                 <p className="font-semibold">{pedido.puntaje}</p>
               </div>
               <div>
+                <p className="text-sm font-medium text-neutral-500">Inicio</p>
+                <p className="font-semibold">
+                  {pedido.inicio ? new Date(pedido.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-neutral-500">Fin</p>
+                <p className="font-semibold">
+                  {pedido.finalizado ? new Date(pedido.finalizado).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-neutral-500">Tiempo Bruto</p>
+                <p className="font-semibold">
+                  {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : '-'}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm font-medium text-neutral-500">Tiempo Neto</p>
-                <p className="font-semibold">{pedido.tiempoNeto || '-'}</p>
+                <p className="font-semibold">
+                  {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : '-'}
+                </p>
               </div>
             </div>
             
@@ -295,7 +315,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                             {pausa.fin ? new Date(pausa.fin).toLocaleTimeString() : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {pausa.duracion || '-'}
+                            {pausa.duracion ? formatTimeHM(pausa.duracion) : '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-neutral-800">
                             {pausa.motivo}

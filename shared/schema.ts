@@ -24,9 +24,10 @@ export const pedidos = pgTable("pedidos", {
   estado: text("estado").notNull().default("pendiente"), // pendiente, en-proceso, completado
   puntaje: integer("puntaje").notNull(),
   armadorId: integer("armador_id").references(() => users.id),
-  tiempoBruto: text("tiempo_bruto"), // HH:MM format
-  tiempoNeto: text("tiempo_neto"), // HH:MM format
+  tiempoBruto: integer("tiempo_bruto"), // tiempo en segundos
+  tiempoNeto: integer("tiempo_neto"), // tiempo en segundos
   numeroPausas: integer("numero_pausas").default(0),
+  inicio: timestamp("inicio"),
   finalizado: timestamp("finalizado"),
   rawText: text("raw_text").notNull(),
 });
@@ -37,7 +38,7 @@ export const pausas = pgTable("pausas", {
   inicio: timestamp("inicio").notNull(),
   fin: timestamp("fin"),
   motivo: text("motivo").notNull(),
-  duracion: text("duracion"), // HH:MM:SS format
+  duracion: integer("duracion"), // duración en segundos
 });
 
 export const productos = pgTable("productos", {
