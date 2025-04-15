@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   UserCircle
 } from "lucide-react";
+import konectaLogo from "@/assets/konecta-logo.svg";
 
 export function Sidebar() {
   const { user } = useAuth();
@@ -65,6 +66,15 @@ export function Sidebar() {
 
   return (
     <aside className="w-56 bg-neutral-800 text-white">
+      <div className="p-4 flex justify-center border-b border-neutral-700 mb-2">
+        <img 
+          src={konectaLogo} 
+          alt="Konecta Repuestos" 
+          className="h-16" 
+          onClick={() => setLocation("/")}
+          style={{ cursor: 'pointer' }}
+        />
+      </div>
       <nav className="p-4">
         <ul className="space-y-1">
           {navItems.filter(item => item.show).map((item) => (

@@ -5,6 +5,7 @@ import RegisterForm from "@/components/forms/register-form";
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
+import konectaLogo from "@/assets/konecta-logo.svg";
 
 export default function AuthPage() {
   const { user, isLoading } = useAuth();
@@ -27,6 +28,9 @@ export default function AuthPage() {
       <div className="w-full max-w-4xl mx-auto flex flex-col md:flex-row shadow-md">
         {/* Hero section */}
         <div className="bg-primary p-8 text-white flex flex-col justify-center md:w-1/2 rounded-l-lg">
+          <div className="flex items-center justify-center mb-6">
+            <img src={konectaLogo} alt="Konecta Repuestos" className="h-20" />
+          </div>
           <h1 className="text-3xl font-semibold mb-4">Sistema de Gestión de Pedidos</h1>
           <p className="text-white/90 mb-6">
             Plataforma integral para la gestión de pedidos, seguimiento de armado y control de stock.
