@@ -183,6 +183,7 @@ export default function PedidosCargaPage() {
                           <tr>
                             <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Código</th>
                             <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Cant.</th>
+                            <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Ubicación</th>
                             <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Descripción</th>
                           </tr>
                         </thead>
@@ -191,6 +192,7 @@ export default function PedidosCargaPage() {
                             <tr key={index} className={index % 2 === 0 ? 'bg-neutral-50' : 'bg-white'}>
                               <td className="px-2 py-1 text-xs font-mono">{producto.codigo}</td>
                               <td className="px-2 py-1 text-xs">{producto.cantidad}</td>
+                              <td className="px-2 py-1 text-xs font-medium text-blue-600">{producto.ubicacion || "-"}</td>
                               <td className="px-2 py-1 text-xs truncate max-w-xs">{producto.descripcion}</td>
                             </tr>
                           ))}

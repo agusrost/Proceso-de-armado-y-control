@@ -36,6 +36,7 @@ export interface ParsedProduct {
   codigo: string;
   cantidad: number;
   descripcion: string;
+  ubicacion?: string;
 }
 
 // Parsed pedido from raw text

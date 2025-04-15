@@ -83,19 +83,31 @@ export function parsePedidoText(text: string): ParsedPedido {
     if (!line) continue;
     
     // Check if this line contains a product code and quantities
-    // The format is: CODE#QTY#DESCRIPTION
+    // Formato 1: CODE#QTY#DESCRIPTION
+    // Formato 2: CODE#QTY#LOCATION#DESCRIPTION
+    
     const productMatch = line.match(/([A-Za-z0-9]+)#(\d+)#(.+)/);
     
     if (productMatch) {
       startedProducts = true;
       const codigo = productMatch[1];
       const cantidad = parseInt(productMatch[2]);
-      const descripcion = productMatch[3].trim();
+      let descripcion = productMatch[3].trim();
+      let ubicacion = "";
+      
+      // Verificar si el formato incluye ubicación (tiene 3 símbolos #)
+      if (line.split('#').length >= 4) {
+        // El formato es: CODE#QTY#LOCATION#DESCRIPTION
+        const parts = line.split('#');
+        ubicacion = parts[2];
+        descripcion = parts.slice(3).join('#').trim();
+      }
       
       productos.push({
         codigo,
         cantidad,
-        descripcion
+        descripcion,
+        ubicacion
       });
     } 
     // If we already started finding products but this line doesn't match the pattern,

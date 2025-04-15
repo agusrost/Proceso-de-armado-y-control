@@ -546,7 +546,13 @@ export default function ArmadoPage() {
             <div className="mb-4">
               <p className="font-bold">Código SKU: {currentProducto.codigo}</p>
               <p className="mt-1">Cantidad: {currentProducto.cantidad}</p>
-              <p className="mt-1">Ubicación: {currentProducto.ubicacion || "No especificada"}</p>
+              {currentProducto.ubicacion ? (
+                <p className="mt-1 text-blue-700 font-medium bg-blue-50 px-3 py-1 rounded-md">
+                  Ubicación: {currentProducto.ubicacion}
+                </p>
+              ) : (
+                <p className="mt-1">Ubicación: No especificada</p>
+              )}
               <p className="mt-1">Descripción: {currentProducto.descripcion}</p>
             </div>
             

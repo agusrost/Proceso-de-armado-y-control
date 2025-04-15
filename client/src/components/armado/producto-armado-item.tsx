@@ -45,7 +45,7 @@ export default function ProductoArmadoItem({
         <div className="text-right">
           <p className="font-bold">{cantidadDisplay}</p>
           {producto.ubicacion && (
-            <p className="text-xs text-gray-600">{producto.ubicacion}</p>
+            <p className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-1 rounded-md mt-1">{producto.ubicacion}</p>
           )}
         </div>
       </div>
