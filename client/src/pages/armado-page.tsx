@@ -205,27 +205,51 @@ export default function ArmadoPage() {
 
     try {
       // Iniciar el pedido (asignar armador)
+      console.log(`Iniciando petición para comenzar pedido ID ${proximoPedido.id}`);
       const iniciarResponse = await fetch(`/api/pedidos/${proximoPedido.id}/iniciar`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
       
+      // Siempre intentar obtener texto primero
+      const responseText = await iniciarResponse.text();
+      console.log("Respuesta texto:", responseText.substring(0, 200)); // Log para debugging
+      
       if (!iniciarResponse.ok) {
         let errorMessage = "Error al comenzar el pedido";
-        try {
-          const errorData = await iniciarResponse.json();
-          if (errorData && errorData.message) {
-            errorMessage = errorData.message;
+        
+        // Intentar parsear como JSON si parece JSON
+        if (responseText.trim().startsWith('{')) {
+          try {
+            const errorData = JSON.parse(responseText);
+            if (errorData && errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } catch (parseError) {
+            console.error("Error al analizar respuesta como JSON:", parseError);
+            // Si no es JSON, usar el texto como mensaje de error
+            if (responseText) {
+              errorMessage = "El servidor respondió con un error: " + responseText.substring(0, 100);
+            }
           }
-        } catch (parseError) {
-          console.error("Error al analizar respuesta JSON:", parseError);
-          // Fallback para cuando no podemos analizar la respuesta como JSON
-          const text = await iniciarResponse.text();
-          console.log("Respuesta texto:", text.substring(0, 200)); // Log the first 200 chars for debugging
+        } else {
+          // Si la respuesta no parece JSON, mostrar mensaje genérico
+          errorMessage = "El servidor respondió con un formato inesperado. Por favor, inténtalo nuevamente.";
         }
+        
         throw new Error(errorMessage);
+      }
+      
+      let pedidoData;
+      // Intentar parsear la respuesta como JSON
+      try {
+        pedidoData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Error al analizar respuesta JSON después de éxito:", parseError);
+        throw new Error("Error al procesar la respuesta del servidor");
       }
       
       // Actualizar el estado del pedido en la caché de React-Query

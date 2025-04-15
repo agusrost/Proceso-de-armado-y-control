@@ -12,34 +12,65 @@ import { AccessPermission } from "@shared/types";
 
 // Middleware to check authentication
 function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "No autenticado" });
+  try {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "No autenticado", error: true });
+    }
+    next();
+  } catch (error) {
+    console.error("Error en middleware requireAuth:", error);
+    return res.status(500).json({ message: "Error de autenticación", error: true });
   }
-  next();
 }
 
 // Middleware to check user has specific access
 function requireAccess(access: AccessPermission) {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "No autenticado" });
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "No autenticado", error: true });
+      }
+      
+      if (!req.user || !req.user.access || !req.user.access.includes(access)) {
+        return res.status(403).json({ 
+          message: "No tienes permiso para acceder a este recurso", 
+          error: true 
+        });
+      }
+      
+      next();
+    } catch (error) {
+      console.error("Error en middleware requireAccess:", error);
+      return res.status(500).json({ 
+        message: "Error al verificar permisos de acceso", 
+        error: true 
+      });
     }
-    if (!req.user.access.includes(access)) {
-      return res.status(403).json({ message: "No tienes permiso para acceder a este recurso" });
-    }
-    next();
   };
 }
 
 // Middleware to check if user has admin role
 function requireAdminPlus(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "No autenticado" });
+  try {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "No autenticado", error: true });
+    }
+    
+    if (!req.user || req.user.role !== 'admin-plus') {
+      return res.status(403).json({ 
+        message: "Se requiere rol de admin plus", 
+        error: true 
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Error en middleware requireAdminPlus:", error);
+    return res.status(500).json({ 
+      message: "Error al verificar rol administrativo", 
+      error: true 
+    });
   }
-  if (req.user.role !== 'admin-plus') {
-    return res.status(403).json({ message: "Se requiere rol de admin plus" });
-  }
-  next();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {

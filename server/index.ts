@@ -41,10 +41,13 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const message = err.message || "Error del servidor";
 
-    res.status(status).json({ message });
-    throw err;
+    // Asegurar que siempre enviemos un JSON, nunca HTML
+    if (!res.headersSent) {
+      res.status(status).json({ message, error: true });
+    }
+    console.error("Error en middleware:", err);
   });
 
   // importantly only setup vite in development and after
@@ -59,7 +62,7 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 5001; // Cambiado temporalmente de 5000 para evitar EADDRINUSE
   server.listen({
     port,
     host: "0.0.0.0",
