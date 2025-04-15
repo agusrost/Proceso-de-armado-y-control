@@ -5,7 +5,7 @@ import RegisterForm from "@/components/forms/register-form";
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
-import konectaLogo from "@/assets/konecta-logo.svg";
+import konectaLogo from "@/assets/konecta-logo.jpg";
 
 export default function AuthPage() {
   const { user, isLoading } = useAuth();

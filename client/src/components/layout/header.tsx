@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, LogOut, User } from "lucide-react";
-import konectaLogo from "@/assets/konecta-logo.svg";
+import konectaLogo from "@/assets/konecta-logo.jpg";
 
 export function Header() {
   const { user, logoutMutation } = useAuth();

@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   UserCircle
 } from "lucide-react";
-import konectaLogo from "@/assets/konecta-logo.svg";
+import konectaLogo from "@/assets/konecta-logo.jpg";
 
 export function Sidebar() {
   const { user } = useAuth();
