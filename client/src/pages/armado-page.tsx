@@ -16,6 +16,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -39,6 +47,12 @@ export default function ArmadoPage() {
   const [mostrarAlertaInicio, setMostrarAlertaInicio] = useState(false);
   const [mostrarAlertaFinal, setMostrarAlertaFinal] = useState(false);
   const [mostrarEstadoPedido, setMostrarEstadoPedido] = useState(false);
+  
+  // Estado para manejo de pausas
+  const [mostrarModalPausa, setMostrarModalPausa] = useState(false);
+  const [motivoPausa, setMotivoPausa] = useState("");
+  const [pausaActiva, setPausaActiva] = useState(false);
+  const [pausaActualId, setPausaActualId] = useState<number | null>(null);
 
   // Obtener el próximo pedido pendiente
   const { data: proximoPedido, isLoading: isLoadingPedido, error: pedidoError, refetch: refetchPedido } = useQuery<Pedido | null>({
@@ -170,7 +184,7 @@ export default function ArmadoPage() {
         setRecolectados(productos[nextProductIndex].cantidad);
         setMotivo("");
       } else {
-        // Es el último producto, verificar si el pedido está completo
+        // Es el último producto, verificar si todos los productos tienen recolectado
         const todosRecolectados = productos.every(p => 
           p.id === updatedProducto.id 
             ? updatedProducto.recolectado !== null && updatedProducto.recolectado > 0 
@@ -180,19 +194,74 @@ export default function ArmadoPage() {
         // Mostrar alerta de finalización
         setMostrarAlertaFinal(true);
         
-        // Si todos tienen al menos 1 recolectado, marcar como completado
-        if (todosRecolectados) {
-          finalizarPedidoMutation.mutate({ 
-            pedidoId: currentPedido!.id, 
-            estado: "completado"
-          });
-        }
+        // Siempre finalizar el pedido cuando se termina el último producto,
+        // sin importar si hay faltantes o no
+        finalizarPedidoMutation.mutate({ 
+          pedidoId: currentPedido!.id, 
+          estado: "completado"
+        });
       }
     },
     onError: (error: Error) => {
       console.error("Error en actualizarProductoMutation:", error);
       toast({
         title: "Error al actualizar producto",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Pausar pedido
+  const pausarPedidoMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentPedido || !motivoPausa) return null;
+      
+      const res = await apiRequest("POST", "/api/pausas", {
+        pedidoId: currentPedido.id,
+        motivo: motivoPausa,
+      });
+      return res.json();
+    },
+    onSuccess: (pausa) => {
+      setPausaActiva(true);
+      setPausaActualId(pausa.id);
+      setMostrarModalPausa(false);
+      
+      toast({
+        title: "Pedido pausado",
+        description: "El pedido ha sido pausado correctamente",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al pausar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reanudar pedido
+  const reanudarPedidoMutation = useMutation({
+    mutationFn: async () => {
+      if (!pausaActualId) return null;
+      
+      const res = await apiRequest("PUT", `/api/pausas/${pausaActualId}/fin`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      setPausaActiva(false);
+      setPausaActualId(null);
+      
+      toast({
+        title: "Pedido reanudado",
+        description: "El pedido ha sido reanudado correctamente",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al reanudar",
         description: error.message,
         variant: "destructive",
       });
@@ -526,20 +595,44 @@ export default function ArmadoPage() {
               <Button 
                 onClick={continuarSiguiente} 
                 className="w-full"
-                disabled={actualizarProductoMutation.isPending}
+                disabled={actualizarProductoMutation.isPending || pausaActiva}
               >
                 {actualizarProductoMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : "CONTINUAR"}
               </Button>
               
-              <Button 
-                variant="outline" 
-                onClick={() => setMostrarEstadoPedido(true)}
-                className="w-full"
-              >
-                Ver Estado del Pedido
-              </Button>
+              <div className="flex gap-2 w-full">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setMostrarEstadoPedido(true)}
+                  className="flex-1"
+                  disabled={pausaActiva}
+                >
+                  Ver Estado del Pedido
+                </Button>
+                
+                {pausaActiva ? (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => reanudarPedidoMutation.mutate()}
+                    disabled={reanudarPedidoMutation.isPending}
+                    className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
+                  >
+                    {reanudarPedidoMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : "Reanudar"} 
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setMostrarModalPausa(true)}
+                    className="flex-1 text-amber-600 border-amber-600 hover:bg-amber-50"
+                  >
+                    Pausar
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -598,6 +691,51 @@ export default function ArmadoPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Pausa */}
+      <Dialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pausar Armado</DialogTitle>
+            <DialogDescription>
+              Selecciona el motivo por el cual deseas pausar el armado del pedido.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <Select
+              value={motivoPausa}
+              onValueChange={setMotivoPausa}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un motivo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Motivos sanitarios">Motivos sanitarios</SelectItem>
+                <SelectItem value="Hora de almuerzo">Hora de almuerzo</SelectItem>
+                <SelectItem value="Otro motivo">Otro motivo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMostrarModalPausa(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => pausarPedidoMutation.mutate()}
+              disabled={!motivoPausa || pausarPedidoMutation.isPending}
+            >
+              {pausarPedidoMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : "Confirmar Pausa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

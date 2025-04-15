@@ -348,6 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Productos routes
+  
   // Obtener productos por pedido id
   app.get("/api/productos/pedido/:id", requireAuth, async (req, res, next) => {
     try {
@@ -467,6 +468,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.status(201).json(pausa);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Obtener pausas de un pedido
+  app.get("/api/pausas/pedido/:id", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      const pausas = await storage.getPausasByPedidoId(pedidoId);
+      res.json(pausas);
     } catch (error) {
       next(error);
     }

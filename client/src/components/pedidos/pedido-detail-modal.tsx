@@ -243,11 +243,22 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                             {producto.descripcion}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
-                            }`}>
-                              {producto.recolectado}/{producto.cantidad}
-                            </span>
+                            {producto.recolectado !== null ? (
+                              <div>
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
+                                }`}>
+                                  {producto.recolectado}/{producto.cantidad}
+                                </span>
+                                {producto.recolectado < producto.cantidad && producto.motivo && (
+                                  <div className="mt-1 text-xs text-red-600">
+                                    Faltante: {producto.motivo}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">No recolectado</span>
+                            )}
                           </td>
                         </tr>
                       ))
