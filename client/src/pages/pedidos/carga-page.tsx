@@ -48,15 +48,14 @@ export default function PedidosCargaPage() {
       if (!parsedPedido) throw new Error("No hay datos de pedido para procesar");
       
       // Generar un ID único para el pedido si no tiene uno o si es solo un número
-      const timestamp = new Date().getTime().toString().slice(-8);
       let uniquePedidoId;
       
       if (!parsedPedido.pedidoId) {
-        // Si no hay ID, generar uno con formato PED-TIMESTAMP
-        uniquePedidoId = `PED-${timestamp}`;
+        // Si no hay ID, generar uno con formato PED y número
+        uniquePedidoId = `PED-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
       } else if (/^\d+$/.test(parsedPedido.pedidoId)) {
-        // Si es solo un número, añadir un prefijo específico
-        uniquePedidoId = `P${parsedPedido.pedidoId}-${timestamp}`;
+        // Si es solo un número, añadir un prefijo P y formatear con ceros a la izquierda
+        uniquePedidoId = `P${parsedPedido.pedidoId.toString().padStart(4, '0')}`;
       } else {
         // Si ya tiene un formato con letras, usarlo como está
         uniquePedidoId = parsedPedido.pedidoId;
