@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { PedidoWithDetails } from "@shared/types";
 import { getEstadoColor, getEstadoLabel, formatDate } from "@/lib/utils";
 import {
@@ -10,7 +10,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Edit, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface PedidoDetailModalProps {
   pedidoId: number;
@@ -19,11 +23,58 @@ interface PedidoDetailModalProps {
 }
 
 export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoDetailModalProps) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin-plus' || user?.role === 'admin-gral';
+  const [editingArmador, setEditingArmador] = useState(false);
+  const [selectedArmadorId, setSelectedArmadorId] = useState<string>("");
+  
   // Fetch pedido details
   const { data: pedido, isLoading } = useQuery<PedidoWithDetails>({
     queryKey: [`/api/pedidos/${pedidoId}`],
     enabled: isOpen && !!pedidoId,
   });
+  
+  // Fetch armadores for the dropdown
+  const { data: armadores = [] } = useQuery({
+    queryKey: ["/api/users/armadores"],
+    enabled: isOpen && isAdmin,
+  });
+  
+  // Update pedido mutation
+  const updatePedidoMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/pedidos/${pedidoId}`, {
+        armadorId: selectedArmadorId === "aleatorio" ? null : parseInt(selectedArmadorId),
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pedido actualizado",
+        description: "El armador ha sido actualizado correctamente",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
+      setEditingArmador(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al actualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Set the selected armador when pedido is loaded
+  useEffect(() => {
+    if (pedido) {
+      setSelectedArmadorId(pedido.armadorId ? String(pedido.armadorId) : "aleatorio");
+    }
+  }, [pedido]);
+  
+  const canEditArmador = isAdmin && pedido && pedido.estado === "pendiente";
   
   if (!isOpen) return null;
 
@@ -71,7 +122,52 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
               </div>
               <div>
                 <p className="text-sm font-medium text-neutral-500">Armador</p>
-                <p className="font-semibold">{pedido.armador?.firstName || pedido.armador?.username || '-'}</p>
+                {canEditArmador && editingArmador ? (
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={selectedArmadorId}
+                      onValueChange={setSelectedArmadorId}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Aleatorio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="aleatorio">Aleatorio</SelectItem>
+                        {armadores.map((armador) => (
+                          <SelectItem key={armador.id} value={armador.id.toString()}>
+                            {armador.firstName || armador.username}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => updatePedidoMutation.mutate()}
+                      disabled={updatePedidoMutation.isPending}
+                    >
+                      {updatePedidoMutation.isPending ? 
+                        <Loader2 className="h-4 w-4 animate-spin" /> : 
+                        <Check className="h-4 w-4" />
+                      }
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">
+                      {pedido.armadorId ? (pedido.armador?.firstName || pedido.armador?.username) : "Aleatorio"}
+                    </p>
+                    {canEditArmador && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setEditingArmador(true)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <p className="text-sm font-medium text-neutral-500">Puntaje</p>

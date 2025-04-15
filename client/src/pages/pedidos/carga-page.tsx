@@ -47,8 +47,23 @@ export default function PedidosCargaPage() {
     mutationFn: async () => {
       if (!parsedPedido) throw new Error("No hay datos de pedido para procesar");
       
+      // Generar un ID único para el pedido si no tiene uno o si es solo un número
+      const timestamp = new Date().getTime().toString().slice(-8);
+      let uniquePedidoId;
+      
+      if (!parsedPedido.pedidoId) {
+        // Si no hay ID, generar uno con formato PED-TIMESTAMP
+        uniquePedidoId = `PED-${timestamp}`;
+      } else if (/^\d+$/.test(parsedPedido.pedidoId)) {
+        // Si es solo un número, añadir un prefijo específico
+        uniquePedidoId = `P${parsedPedido.pedidoId}-${timestamp}`;
+      } else {
+        // Si ya tiene un formato con letras, usarlo como está
+        uniquePedidoId = parsedPedido.pedidoId;
+      }
+      
       const pedidoData = {
-        pedidoId: parsedPedido.pedidoId || new Date().getTime().toString().slice(-4), // Usar el ID parseado o generar uno
+        pedidoId: uniquePedidoId,
         clienteId: parsedPedido.clienteId,
         fecha: new Date(),
         items: parsedPedido.items,
@@ -158,6 +173,32 @@ export default function PedidosCargaPage() {
                     <p><span className="font-medium">Puntaje:</span> <span className="font-semibold">{parsedPedido.puntaje}</span></p>
                   </div>
                 </div>
+                
+                {parsedPedido.productos && parsedPedido.productos.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Productos ({parsedPedido.productos.length})</h4>
+                    <div className="max-h-40 overflow-y-auto">
+                      <table className="min-w-full divide-y divide-neutral-200">
+                        <thead className="bg-neutral-200">
+                          <tr>
+                            <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Código</th>
+                            <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Cant.</th>
+                            <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">Descripción</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-neutral-200">
+                          {parsedPedido.productos.map((producto, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-neutral-50' : 'bg-white'}>
+                              <td className="px-2 py-1 text-xs font-mono">{producto.codigo}</td>
+                              <td className="px-2 py-1 text-xs">{producto.cantidad}</td>
+                              <td className="px-2 py-1 text-xs truncate max-w-xs">{producto.descripcion}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
