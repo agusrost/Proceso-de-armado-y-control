@@ -249,9 +249,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Pedido para armador
   app.get("/api/pedido-para-armador", requireAuth, async (req, res, next) => {
     try {
-      // Verificar que el usuario sea un armador
-      if (req.user.role !== 'armador') {
-        return res.status(403).json({ message: "Esta funcionalidad es solo para armadores" });
+      // Verificar que el usuario sea un armador o admin-plus
+      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
+        return res.status(403).json({ message: "Esta funcionalidad es solo para armadores o admin-plus" });
       }
       
       // Obtener el próximo pedido pendiente por FIFO
@@ -336,9 +336,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Pausas routes
   app.post("/api/pausas", requireAuth, async (req, res, next) => {
     try {
-      // Solo armadores pueden crear pausas
-      if (req.user.role !== 'armador') {
-        return res.status(403).json({ message: "Solo los armadores pueden registrar pausas" });
+      // Solo armadores o admin-plus pueden crear pausas
+      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
+        return res.status(403).json({ message: "Solo los armadores o admin-plus pueden registrar pausas" });
       }
       
       const validation = insertPausaSchema.safeParse(req.body);
@@ -352,7 +352,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
-      if (pedido.armadorId !== req.user.id) {
+      // Admin-plus puede registrar pausas en cualquier pedido, armadores solo en los suyos
+      if (req.user.role !== 'admin-plus' && pedido.armadorId !== req.user.id) {
         return res.status(403).json({ message: "No tienes permiso para registrar pausas en este pedido" });
       }
       
@@ -377,9 +378,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const pausaId = parseInt(req.params.id);
       
-      // Solo armadores pueden finalizar pausas
-      if (req.user.role !== 'armador') {
-        return res.status(403).json({ message: "Solo los armadores pueden finalizar pausas" });
+      // Solo armadores o admin-plus pueden finalizar pausas
+      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
+        return res.status(403).json({ message: "Solo los armadores o admin-plus pueden finalizar pausas" });
       }
       
       const pausa = await storage.getPausaById(pausaId);
@@ -389,7 +390,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verificar que el pedido esté siendo armado por este usuario
       const pedido = await storage.getPedidoById(pausa.pedidoId);
-      if (!pedido || pedido.armadorId !== req.user.id) {
+      // Admin-plus puede finalizar cualquier pausa, pero armadores solo las suyas
+      if (!pedido || (req.user.role !== 'admin-plus' && pedido.armadorId !== req.user.id)) {
         return res.status(403).json({ message: "No tienes permiso para finalizar esta pausa" });
       }
       
@@ -426,9 +428,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const pedidoId = parseInt(req.params.id);
       
-      // Solo armadores pueden finalizar pedidos
-      if (req.user.role !== 'armador') {
-        return res.status(403).json({ message: "Solo los armadores pueden finalizar pedidos" });
+      // Solo armadores o admin-plus pueden finalizar pedidos
+      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
+        return res.status(403).json({ message: "Solo los armadores o admin-plus pueden finalizar pedidos" });
       }
       
       const pedido = await storage.getPedidoById(pedidoId);
@@ -436,7 +438,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
-      if (pedido.armadorId !== req.user.id) {
+      // Admin-plus puede finalizar cualquier pedido, pero armadores solo los suyos
+      if (req.user.role !== 'admin-plus' && pedido.armadorId !== req.user.id) {
         return res.status(403).json({ message: "No tienes permiso para finalizar este pedido" });
       }
       
