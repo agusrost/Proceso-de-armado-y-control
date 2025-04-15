@@ -66,6 +66,8 @@ export const stockSolicitudes = pgTable("stock_solicitudes", {
   motivo: text("motivo").notNull(),
   estado: text("estado").notNull().default("pendiente"), // pendiente, realizado, no-hay
   solicitadoPor: integer("solicitado_por").references(() => users.id),
+  realizadoPor: integer("realizado_por").references(() => users.id),
+  solicitante: text("solicitante"), // Para guardar nombre de quien solicita (usuario Administración Gral)
 });
 
 // Schemas for validation and insertion

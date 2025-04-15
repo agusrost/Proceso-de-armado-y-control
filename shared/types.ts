@@ -21,6 +21,7 @@ export interface PedidoWithDetails extends Pedido {
 
 export interface StockSolicitudWithDetails extends StockSolicitud {
   solicitante?: User;
+  realizador?: User;
 }
 
 // Timer structure for armador view

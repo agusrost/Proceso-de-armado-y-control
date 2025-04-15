@@ -653,17 +653,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         solicitadoPor: solicitadoPor ? parseInt(solicitadoPor as string) : undefined
       });
       
-      // Obtener información de solicitantes
+      // Obtener información de solicitantes y realizadores
       const solicitudesWithDetails = await Promise.all(
         solicitudes.map(async (solicitud) => {
           let solicitante = null;
+          let realizador = null;
+          
           if (solicitud.solicitadoPor) {
             solicitante = await storage.getUser(solicitud.solicitadoPor);
           }
           
+          if (solicitud.realizadoPor) {
+            realizador = await storage.getUser(solicitud.realizadoPor);
+          }
+          
           return {
             ...solicitud,
-            solicitante
+            solicitante,
+            realizador
           };
         })
       );
@@ -703,7 +710,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Se requiere el estado" });
       }
       
-      const solicitud = await storage.updateStockSolicitud(solicitudId, { estado });
+      // Si el estado es 'realizado' o 'no-hay', registramos quién lo realizó
+      const updateData: any = { estado };
+      if ((estado === 'realizado' || estado === 'no-hay') && req.user) {
+        updateData.realizadoPor = req.user.id;
+      }
+      
+      const solicitud = await storage.updateStockSolicitud(solicitudId, updateData);
       if (!solicitud) {
         return res.status(404).json({ message: "Solicitud de stock no encontrada" });
       }
