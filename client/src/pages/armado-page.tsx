@@ -204,6 +204,19 @@ export default function ArmadoPage() {
     }
 
     try {
+      // Iniciar el pedido (asignar armador)
+      const iniciarResponse = await fetch(`/api/pedidos/${proximoPedido.id}/iniciar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!iniciarResponse.ok) {
+        const errorData = await iniciarResponse.json();
+        throw new Error(errorData.message || "Error al comenzar el pedido");
+      }
+      
       // Cargar productos del pedido
       const productosData = await fetchProductos(proximoPedido.id);
       
@@ -218,7 +231,7 @@ export default function ArmadoPage() {
       console.error("Error al comenzar pedido:", error);
       toast({
         title: "Error",
-        description: "Error al comenzar el pedido",
+        description: error instanceof Error ? error.message : "Error al comenzar el pedido",
         variant: "destructive",
       });
     }

@@ -260,19 +260,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "No hay pedidos pendientes" });
       }
       
-      // Obtener productos del pedido
-      const productos = await storage.getProductosByPedidoId(pedido.id);
+      // Solo retornar el pedido sin modificarlo todavía
+      res.json(pedido);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Iniciar un pedido (asignar armador y cambiar estado)
+  app.post("/api/pedidos/:id/iniciar", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      
+      // Verificar que el usuario sea un armador o admin-plus
+      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
+        return res.status(403).json({ message: "Esta funcionalidad es solo para armadores o admin-plus" });
+      }
+      
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      if (pedido.estado !== 'pendiente') {
+        return res.status(400).json({ message: "El pedido ya no está pendiente" });
+      }
       
       // Actualizar estado del pedido a en-proceso
-      await storage.updatePedido(pedido.id, { 
+      const updatedPedido = await storage.updatePedido(pedidoId, { 
         estado: 'en-proceso',
         armadorId: req.user.id
       });
       
-      res.json({
-        ...pedido,
-        productos
-      });
+      return res.json(updatedPedido);
     } catch (error) {
       next(error);
     }
