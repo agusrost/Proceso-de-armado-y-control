@@ -272,6 +272,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const pedidoId = parseInt(req.params.id);
       
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
       // Verificar que el usuario sea un armador o admin-plus
       if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
         return res.status(403).json({ message: "Esta funcionalidad es solo para armadores o admin-plus" });
@@ -286,15 +290,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "El pedido ya no está pendiente" });
       }
       
-      // Actualizar estado del pedido a en-proceso
-      const updatedPedido = await storage.updatePedido(pedidoId, { 
-        estado: 'en-proceso',
-        armadorId: req.user.id
-      });
-      
-      return res.json(updatedPedido);
+      try {
+        // Actualizar estado del pedido a en-proceso
+        const updatedPedido = await storage.updatePedido(pedidoId, { 
+          estado: 'en-proceso',
+          armadorId: req.user.id
+        });
+        
+        if (!updatedPedido) {
+          return res.status(500).json({ message: "Error al actualizar el pedido" });
+        }
+        
+        return res.json(updatedPedido);
+      } catch (updateError) {
+        console.error("Error al actualizar pedido:", updateError);
+        return res.status(500).json({ message: "Error interno al procesar el pedido" });
+      }
     } catch (error) {
-      next(error);
+      console.error("Error en endpoint iniciar pedido:", error);
+      // Manejo específico para errores
+      if (error instanceof Error) {
+        return res.status(500).json({ message: error.message });
+      }
+      return res.status(500).json({ message: "Error desconocido al procesar el pedido" });
     }
   });
 

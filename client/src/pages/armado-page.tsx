@@ -213,9 +213,23 @@ export default function ArmadoPage() {
       });
       
       if (!iniciarResponse.ok) {
-        const errorData = await iniciarResponse.json();
-        throw new Error(errorData.message || "Error al comenzar el pedido");
+        let errorMessage = "Error al comenzar el pedido";
+        try {
+          const errorData = await iniciarResponse.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (parseError) {
+          console.error("Error al analizar respuesta JSON:", parseError);
+          // Fallback para cuando no podemos analizar la respuesta como JSON
+          const text = await iniciarResponse.text();
+          console.log("Respuesta texto:", text.substring(0, 200)); // Log the first 200 chars for debugging
+        }
+        throw new Error(errorMessage);
       }
+      
+      // Actualizar el estado del pedido en la caché de React-Query
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       
       // Cargar productos del pedido
       const productosData = await fetchProductos(proximoPedido.id);
