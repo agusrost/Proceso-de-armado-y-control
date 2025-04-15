@@ -322,10 +322,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        // Actualizar estado del pedido a en-proceso
+        // Actualizar estado del pedido a en-proceso y registrar hora de inicio
         const updatedPedido = await storage.updatePedido(pedidoId, { 
           estado: 'en-proceso',
-          armadorId: req.user.id
+          armadorId: req.user.id,
+          inicio: new Date()
         });
         
         if (!updatedPedido) {
@@ -560,50 +561,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calcular tiempo bruto
       const finalizado = new Date();
-      let iniciado;
       
-      // Buscar la primera pausa para saber cuándo se inició el armado
-      // o usar la fecha del pedido si no hay pausas
-      const pausas = await storage.getPausasByPedidoId(pedidoId);
-      if (pausas.length > 0) {
-        // Ordenar por inicio y tomar la primera
-        pausas.sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
-        iniciado = new Date(pausas[0].inicio);
-        
-        // Restar las pausas para calcular tiempo neto
+      // Usar el campo inicio que se estableció cuando se comenzó el pedido
+      let iniciado;
+      if (pedido.inicio) {
+        iniciado = new Date(pedido.inicio);
       } else {
-        // Si no hay pausas, usar la fecha del pedido
+        // Fallback: usar la fecha del pedido si no hay campo inicio
         iniciado = new Date(pedido.fecha);
       }
       
-      // Calcular tiempo bruto en minutos
-      const tiempoBrutoMinutos = Math.floor((finalizado.getTime() - iniciado.getTime()) / 60000);
-      const tiempoBrutoHoras = Math.floor(tiempoBrutoMinutos / 60);
-      const tiempoBrutoMinutosRestantes = tiempoBrutoMinutos % 60;
-      const tiempoBruto = `${tiempoBrutoHoras.toString().padStart(2, '0')}:${tiempoBrutoMinutosRestantes.toString().padStart(2, '0')}`;
+      // Obtener todas las pausas para calcular el tiempo neto
+      const pausas = await storage.getPausasByPedidoId(pedidoId);
       
-      // Calcular tiempo de pausas total en minutos
-      let tiempoPausasTotalMinutos = 0;
+      // Calcular tiempo bruto en segundos
+      const tiempoBrutoMs = finalizado.getTime() - iniciado.getTime();
+      const tiempoBrutoSegundos = Math.floor(tiempoBrutoMs / 1000);
+      
+      // Calcular tiempo de pausas total en segundos
+      let tiempoPausasTotalSegundos = 0;
       for (const pausa of pausas) {
         if (pausa.fin) {
           const inicio = new Date(pausa.inicio);
           const fin = new Date(pausa.fin);
-          tiempoPausasTotalMinutos += Math.floor((fin.getTime() - inicio.getTime()) / 60000);
+          tiempoPausasTotalSegundos += Math.floor((fin.getTime() - inicio.getTime()) / 1000);
         }
       }
       
       // Calcular tiempo neto
-      const tiempoNetoMinutos = tiempoBrutoMinutos - tiempoPausasTotalMinutos;
-      const tiempoNetoHoras = Math.floor(tiempoNetoMinutos / 60);
-      const tiempoNetoMinutosRestantes = tiempoNetoMinutos % 60;
-      const tiempoNeto = `${tiempoNetoHoras.toString().padStart(2, '0')}:${tiempoNetoMinutosRestantes.toString().padStart(2, '0')}`;
+      const tiempoNetoSegundos = tiempoBrutoSegundos - tiempoPausasTotalSegundos;
       
       // Actualizar pedido
       const updatedPedido = await storage.updatePedido(pedidoId, {
         estado: 'completado',
         finalizado,
-        tiempoBruto,
-        tiempoNeto
+        tiempoBruto: tiempoBrutoSegundos,
+        tiempoNeto: tiempoNetoSegundos
       });
       
       res.json(updatedPedido);
