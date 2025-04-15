@@ -135,17 +135,18 @@ export default function StockPage() {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitado por</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Realizado por</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-4 text-center">Cargando...</td>
+                      <td colSpan={9} className="px-4 py-4 text-center">Cargando...</td>
                     </tr>
                   ) : solicitudes.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-4 text-center">No hay solicitudes que coincidan con los filtros</td>
+                      <td colSpan={9} className="px-4 py-4 text-center">No hay solicitudes que coincidan con los filtros</td>
                     </tr>
                   ) : (
                     solicitudes.map((solicitud) => (
@@ -172,6 +173,9 @@ export default function StockPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {solicitud.solicitante?.firstName || solicitud.solicitante?.username || "-"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                          {solicitud.realizador ? (solicitud.realizador.firstName || solicitud.realizador.username) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {solicitud.estado === 'pendiente' ? (

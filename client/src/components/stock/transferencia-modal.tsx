@@ -38,6 +38,7 @@ const transferSchema = z.object({
     return !isNaN(num) && num > 0;
   }, "La cantidad debe ser un número mayor a 0"),
   motivo: z.string().min(1, "El motivo es requerido"),
+  solicitante: z.string().optional(),
 });
 
 type TransferFormValues = z.infer<typeof transferSchema>;
@@ -50,6 +51,7 @@ interface TransferenciaModalProps {
 export default function TransferenciaModal({ isOpen, onClose }: TransferenciaModalProps) {
   const { toast } = useToast();
   const [motivoPersonalizado, setMotivoPersonalizado] = useState(false);
+  const [showSolicitante, setShowSolicitante] = useState(false);
   
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferSchema),
@@ -57,16 +59,22 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
       codigo: "",
       cantidad: "",
       motivo: "",
+      solicitante: "",
     },
   });
   
   const createSolicitudMutation = useMutation({
     mutationFn: async (data: TransferFormValues) => {
-      const solicitudData = {
+      const solicitudData: any = {
         codigo: data.codigo,
         cantidad: parseInt(data.cantidad),
         motivo: data.motivo,
       };
+      
+      // Si el motivo es facturación y hay un solicitante, lo incluimos
+      if (data.motivo === "Se necesita para facturar un pedido" && data.solicitante) {
+        solicitudData.solicitante = data.solicitante;
+      }
       
       const res = await apiRequest("POST", "/api/stock", solicitudData);
       return await res.json();
