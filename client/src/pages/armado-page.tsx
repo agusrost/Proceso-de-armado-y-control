@@ -226,16 +226,55 @@ export default function ArmadoPage() {
     mutationFn: async () => {
       if (!currentPedido || !motivoPausa) return null;
       
-      const res = await apiRequest("POST", "/api/pausas", {
+      console.log(`Pausando pedido ${currentPedido.id} con motivo: "${motivoPausa}"`);
+      
+      const pausaData = {
         pedidoId: currentPedido.id,
         motivo: motivoPausa,
+      };
+      
+      // Usar fetch directamente para tener mayor control sobre la respuesta
+      const res = await fetch("/api/pausas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(pausaData)
       });
-      return res.json();
+      
+      // Obtener texto primero para diagnosticar problemas
+      const responseText = await res.text();
+      console.log("Respuesta pausar pedido:", responseText.substring(0, 200));
+      
+      if (!res.ok) {
+        let errorMsg = "Error al pausar pedido";
+        try {
+          if (responseText && responseText.trim().startsWith('{')) {
+            const errorData = JSON.parse(responseText);
+            if (errorData && errorData.message) {
+              errorMsg = errorData.message;
+            }
+          }
+        } catch (e) {
+          console.error("Error al parsear respuesta:", e);
+        }
+        throw new Error(errorMsg);
+      }
+      
+      try {
+        return JSON.parse(responseText);
+      } catch (e) {
+        console.error("Error al parsear respuesta como JSON:", e);
+        throw new Error("Error al procesar la respuesta del servidor");
+      }
     },
     onSuccess: (pausa) => {
+      console.log("Pausa creada exitosamente:", pausa);
       setPausaActiva(true);
       setPausaActualId(pausa.id);
       setMostrarModalPausa(false);
+      setMotivoPausa(""); // Limpiar el motivo después de pausar
       
       toast({
         title: "Pedido pausado",
@@ -243,6 +282,7 @@ export default function ArmadoPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Error en pausarPedidoMutation:", error);
       toast({
         title: "Error al pausar",
         description: error.message,

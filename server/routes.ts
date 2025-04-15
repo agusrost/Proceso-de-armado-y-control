@@ -569,9 +569,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Solo los armadores o admin-plus pueden registrar pausas" });
       }
       
+      console.log("Datos de pausa recibidos:", req.body);
+      
       const validation = insertPausaSchema.safeParse(req.body);
       if (!validation.success) {
-        return res.status(400).json({ errors: validation.error.format() });
+        console.error("Error en validación de datos de pausa:", validation.error.format());
+        return res.status(400).json({ 
+          message: "Datos de pausa inválidos", 
+          errors: validation.error.format() 
+        });
       }
       
       // Verificar que el pedido exista y esté siendo armado por este usuario
@@ -585,11 +591,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "No tienes permiso para registrar pausas en este pedido" });
       }
       
+      console.log("Creando pausa con motivo:", validation.data.motivo);
+      
       // Iniciar una pausa
-      const pausa = await storage.createPausa({
-        ...validation.data,
-        inicio: new Date()
-      });
+      const pausaData = {
+        pedidoId: validation.data.pedidoId,
+        motivo: validation.data.motivo,
+        inicio: new Date(),
+        fin: null,
+        duracion: null
+      };
+      
+      const pausa = await storage.createPausa(pausaData);
+      console.log("Pausa creada:", pausa);
       
       // Incrementar contador de pausas en el pedido
       await storage.updatePedido(validation.data.pedidoId, {
@@ -598,6 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(pausa);
     } catch (error) {
+      console.error("Error al crear pausa:", error);
       next(error);
     }
   });

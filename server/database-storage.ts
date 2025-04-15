@@ -206,16 +206,32 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Pausa methods
-  async createPausa(insertPausa: InsertPausa): Promise<Pausa> {
-    const [pausa] = await db
-      .insert(pausas)
-      .values({
-        ...insertPausa,
-        fin: null,
-        duracion: null
-      })
-      .returning();
-    return pausa;
+  async createPausa(pausaData: any): Promise<Pausa> {
+    console.log("Creando pausa en DatabaseStorage:", pausaData);
+    
+    // Asegurarnos de que tenemos todos los campos necesarios
+    const dataToInsert = {
+      pedidoId: pausaData.pedidoId,
+      motivo: pausaData.motivo,
+      inicio: pausaData.inicio || new Date(),
+      fin: null,
+      duracion: null
+    };
+    
+    console.log("Datos formateados para inserción:", dataToInsert);
+    
+    try {
+      const [pausa] = await db
+        .insert(pausas)
+        .values(dataToInsert)
+        .returning();
+      
+      console.log("Pausa creada con éxito:", pausa);
+      return pausa;
+    } catch (error) {
+      console.error("Error al crear pausa en BD:", error);
+      throw error;
+    }
   }
   
   async getPausaById(id: number): Promise<Pausa | undefined> {
