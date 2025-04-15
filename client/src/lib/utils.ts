@@ -24,9 +24,17 @@ export function formatTime(seconds: number): string {
   ].join(':');
 }
 
-export function formatTimeHM(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
+export function formatTimeHM(seconds: number | string | null | undefined): string {
+  if (seconds === null || seconds === undefined) return "--:--";
+  
+  // Si es un string, intentamos parsear a número
+  const secs = typeof seconds === 'string' ? parseInt(seconds) : seconds;
+  
+  // Si no es un número válido después de parsear
+  if (isNaN(secs)) return "--:--";
+  
+  const hours = Math.floor(secs / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
   
   return [
     hours.toString().padStart(2, '0'),

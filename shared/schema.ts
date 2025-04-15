@@ -24,8 +24,8 @@ export const pedidos = pgTable("pedidos", {
   estado: text("estado").notNull().default("pendiente"), // pendiente, en-proceso, completado
   puntaje: integer("puntaje").notNull(),
   armadorId: integer("armador_id").references(() => users.id),
-  tiempoBruto: integer("tiempo_bruto"), // tiempo en segundos
-  tiempoNeto: integer("tiempo_neto"), // tiempo en segundos
+  tiempoBruto: text("tiempo_bruto"), // formato HH:MM
+  tiempoNeto: text("tiempo_neto"), // formato HH:MM
   numeroPausas: integer("numero_pausas").default(0),
   inicio: timestamp("inicio"),
   finalizado: timestamp("finalizado"),
