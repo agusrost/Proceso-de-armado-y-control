@@ -146,6 +146,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Actualizar perfil de usuario (incluyendo contraseña)
+  // Eliminar usuario
+  app.delete("/api/users/:id", requireAuth, async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      // Solo admin-plus puede eliminar usuarios
+      if (req.user.role !== 'admin-plus') {
+        return res.status(403).json({ message: "Solo admin plus puede eliminar usuarios" });
+      }
+      
+      // No permitir eliminar el propio usuario
+      if (req.user.id === userId) {
+        return res.status(400).json({ message: "No puedes eliminar tu propio usuario" });
+      }
+      
+      // Verificar que el usuario exista
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      
+      // Eliminar usuario
+      await storage.deleteUser(userId);
+      
+      res.status(200).json({ message: "Usuario eliminado correctamente" });
+    } catch (error) {
+      next(error);
+    }
+  });
+  
   app.put("/api/users/:id/perfil", requireAuth, async (req, res, next) => {
     try {
       const userId = parseInt(req.params.id);
@@ -287,6 +317,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.json(pedido);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/pedidos/:id", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const updateData = req.body;
+      
+      // Verificar que el pedido exista
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Si el estado es 'completado', calculamos tiempos
+      if (updateData.estado === 'completado' || updateData.finalizado) {
+        // Establecer la fecha de finalización
+        const finalizado = updateData.finalizado ? new Date(updateData.finalizado) : new Date();
+        updateData.finalizado = finalizado;
+        
+        // Usar el campo inicio que se estableció cuando se comenzó el pedido
+        let iniciado;
+        if (pedido.inicio) {
+          iniciado = new Date(pedido.inicio);
+        } else {
+          // Fallback: usar la fecha del pedido si no hay campo inicio
+          iniciado = new Date(pedido.fecha);
+        }
+        
+        // Obtener todas las pausas para calcular el tiempo neto
+        const pausas = await storage.getPausasByPedidoId(pedidoId);
+        
+        // Calcular tiempo bruto en segundos
+        const tiempoBrutoMs = finalizado.getTime() - iniciado.getTime();
+        const tiempoBrutoSegundos = Math.floor(tiempoBrutoMs / 1000);
+        updateData.tiempoBruto = tiempoBrutoSegundos;
+        
+        // Calcular tiempo de pausas total en segundos
+        let tiempoPausasTotalSegundos = 0;
+        for (const pausa of pausas) {
+          if (pausa.fin) {
+            const inicio = new Date(pausa.inicio);
+            const fin = new Date(pausa.fin);
+            tiempoPausasTotalSegundos += Math.floor((fin.getTime() - inicio.getTime()) / 1000);
+          }
+        }
+        
+        // Calcular tiempo neto
+        const tiempoNetoSegundos = tiempoBrutoSegundos - tiempoPausasTotalSegundos;
+        updateData.tiempoNeto = tiempoNetoSegundos;
+      }
+      
+      const updatedPedido = await storage.updatePedido(pedidoId, updateData);
+      res.json(updatedPedido);
     } catch (error) {
       next(error);
     }

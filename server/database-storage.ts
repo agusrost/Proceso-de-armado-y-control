@@ -333,4 +333,16 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
   }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(users)
+        .where(eq(users.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar usuario:', error);
+      return false;
+    }
+  }
 }
