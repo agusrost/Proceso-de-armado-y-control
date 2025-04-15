@@ -112,7 +112,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   }, [pedido]);
   
   const canEditArmador = isAdmin && pedido && pedido.estado === "pendiente";
-  const canDelete = isAdmin && pedido && pedido.estado !== "en-proceso";
+  const canDelete = isAdmin; // Permitir eliminar pedidos en cualquier estado para administradores
   
   if (!isOpen) return null;
 

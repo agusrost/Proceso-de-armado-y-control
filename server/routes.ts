@@ -317,6 +317,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Productos routes
+  // Obtener productos por pedido id
+  app.get("/api/productos/pedido/:id", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el pedido exista
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      res.json(productos);
+    } catch (error) {
+      console.error("Error al obtener productos por pedido ID:", error);
+      if (error instanceof Error) {
+        return res.status(500).json({ message: error.message });
+      }
+      return res.status(500).json({ message: "Error desconocido al obtener productos" });
+    }
+  });
+  
   app.put("/api/productos/:id", requireAuth, async (req, res, next) => {
     try {
       const productoId = parseInt(req.params.id);
