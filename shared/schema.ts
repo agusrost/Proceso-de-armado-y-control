@@ -83,6 +83,8 @@ export const loginSchema = z.object({
 // Extended user schema for registration and profile updates
 export const extendedUserSchema = insertUserSchema.extend({
   confirmPassword: z.string().min(1, { message: "Confirmar contraseña es requerido" }),
+  role: z.string().optional(),
+  access: z.array(z.string()).optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Las contraseñas no coinciden",
   path: ["confirmPassword"],

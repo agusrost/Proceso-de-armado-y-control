@@ -268,12 +268,12 @@ export default function ArmadoPage() {
     queryClient.invalidateQueries({ queryKey: ["/api/pedidos/siguiente"] });
   };
 
-  // Si no hay usuario o no es armador, mostrar mensaje
-  if (!user || user.role !== "armador") {
+  // Si no hay usuario o no tiene rol adecuado, mostrar mensaje
+  if (!user || (user.role !== "armador" && user.role !== "admin-plus")) {
     return (
       <div className="container py-6">
         <h1 className="text-2xl font-bold mb-4">Armado de Pedidos</h1>
-        <p>Solo los usuarios con rol 'armador' pueden acceder a esta sección.</p>
+        <p>Solo los usuarios con rol 'armador' o 'admin-plus' pueden acceder a esta sección.</p>
       </div>
     );
   }
