@@ -378,6 +378,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const productoId = parseInt(req.params.id);
       const { recolectado, motivo } = req.body;
       
+      console.log(`PUT /api/productos/${productoId} - Datos recibidos:`, req.body);
+      
       if (recolectado === undefined) {
         return res.status(400).json({ message: "Se requiere la cantidad recolectada" });
       }
@@ -393,7 +395,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido asociado no encontrado" });
       }
       
-      if (req.user.role !== 'armador' && !['admin-plus', 'admin-gral'].includes(req.user.role)) {
+      // Verificar que el usuario tenga los permisos necesarios
+      if (req.user && req.user.role !== 'armador' && !['admin-plus', 'admin-gral'].includes(req.user.role)) {
         return res.status(403).json({ message: "No tienes permiso para actualizar productos" });
       }
       
@@ -409,18 +412,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Si hay faltantes, crear solicitud de stock automáticamente
-      if (recolectado < producto.cantidad) {
+      if (recolectado < producto.cantidad && req.user) {
         await storage.createStockSolicitud({
           codigo: producto.codigo,
           cantidad: producto.cantidad - recolectado,
           motivo: `Pedido ID ${pedido.pedidoId}`,
           solicitadoPor: req.user.id,
-          fecha: new Date(),
+          fecha: new Date().toISOString(),
           horario: new Date(),
           estado: 'pendiente'
         });
       }
       
+      console.log(`Producto ${productoId} actualizado exitosamente:`, updatedProducto);
       res.json(updatedProducto);
     } catch (error) {
       next(error);

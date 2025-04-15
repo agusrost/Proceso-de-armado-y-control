@@ -34,7 +34,7 @@ export default function ArmadoPage() {
   const [currentPedido, setCurrentPedido] = useState<Pedido | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
-  const [recolectados, setRecolectados] = useState(0);
+  const [recolectados, setRecolectados] = useState<number>(0);
   const [motivo, setMotivo] = useState<string>("");
   const [mostrarAlertaInicio, setMostrarAlertaInicio] = useState(false);
   const [mostrarAlertaFinal, setMostrarAlertaFinal] = useState(false);
@@ -107,11 +107,56 @@ export default function ArmadoPage() {
       recolectado: number; 
       motivo?: string;
     }) => {
-      const res = await apiRequest("PATCH", `/api/productos/${productoId}`, {
-        recolectado,
-        motivo: recolectado < productos[currentProductoIndex].cantidad ? motivo : "",
+      console.log(`Actualizando producto ID ${productoId} con recolectado: ${recolectado}, motivo: ${motivo}`);
+      
+      // Usar fetch directamente para mayor control sobre la respuesta
+      const res = await fetch(`/api/productos/${productoId}`, {
+        method: 'PUT', // Asegurarse que sea PUT y no PATCH
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          recolectado,
+          motivo
+        })
       });
-      return res.json();
+      
+      // Obtener el texto primero para debug
+      const responseText = await res.text();
+      console.log("Respuesta actualizar producto:", responseText.substring(0, 200));
+      
+      if (!res.ok) {
+        let errorMessage = "Error al actualizar producto";
+        
+        // Intentar parsear como JSON si parece JSON
+        if (responseText.trim().startsWith('{')) {
+          try {
+            const errorData = JSON.parse(responseText);
+            if (errorData && errorData.message) {
+              errorMessage = errorData.message;
+            }
+          } catch (parseError) {
+            console.error("Error al analizar respuesta como JSON:", parseError);
+            if (responseText) {
+              errorMessage = "Error del servidor: " + responseText.substring(0, 100);
+            }
+          }
+        } else {
+          // Si no es JSON, mostrar parte del texto
+          errorMessage = "Error inesperado. Por favor, inténtalo de nuevo.";
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      // Parsear la respuesta como JSON
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Error al parsear respuesta como JSON:", parseError);
+        throw new Error("Error al procesar la respuesta del servidor");
+      }
     },
     onSuccess: (updatedProducto) => {
       setProductos(productos.map(p => 
@@ -120,7 +165,9 @@ export default function ArmadoPage() {
       
       if (currentProductoIndex < productos.length - 1) {
         setCurrentProductoIndex(currentProductoIndex + 1);
-        setRecolectados(0);
+        // Usar la cantidad del siguiente producto como valor inicial
+        const nextProductIndex = currentProductoIndex + 1;
+        setRecolectados(productos[nextProductIndex].cantidad);
         setMotivo("");
       } else {
         // Es el último producto, verificar si el pedido está completo
@@ -143,8 +190,9 @@ export default function ArmadoPage() {
       }
     },
     onError: (error: Error) => {
+      console.error("Error en actualizarProductoMutation:", error);
       toast({
-        title: "Error",
+        title: "Error al actualizar producto",
         description: error.message,
         variant: "destructive",
       });
@@ -261,7 +309,13 @@ export default function ArmadoPage() {
       setCurrentPedido(proximoPedido);
       setProductos(productosData);
       setCurrentProductoIndex(0);
-      setRecolectados(0);
+      
+      // Establecer la cantidad inicial igual a la cantidad solicitada del primer producto
+      if (productosData.length > 0) {
+        setRecolectados(productosData[0].cantidad);
+      } else {
+        setRecolectados(0);
+      }
       
       // Mostrar alerta de inicio
       setMostrarAlertaInicio(true);
