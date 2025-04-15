@@ -6,7 +6,8 @@ import {
   Package, 
   CheckSquare, 
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  UserCircle
 } from "lucide-react";
 
 export function Sidebar() {

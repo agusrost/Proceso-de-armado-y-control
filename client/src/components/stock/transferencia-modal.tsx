@@ -164,8 +164,15 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
                         onValueChange={(value) => {
                           if (value === "otro") {
                             setMotivoPersonalizado(true);
+                            setShowSolicitante(false);
                             field.onChange("");
+                          } else if (value === "Se necesita para facturar un pedido") {
+                            setMotivoPersonalizado(false);
+                            setShowSolicitante(true);
+                            field.onChange(value);
                           } else {
+                            setMotivoPersonalizado(false);
+                            setShowSolicitante(false);
                             field.onChange(value);
                           }
                         }}
@@ -199,6 +206,25 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
                 </FormItem>
               )}
             />
+            
+            {showSolicitante && (
+              <FormField
+                control={form.control}
+                name="solicitante"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Solicitado por (usuario de Admin. Gral)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Nombre del solicitante" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             
             <DialogFooter>
               <Button 
