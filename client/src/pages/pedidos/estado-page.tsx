@@ -133,6 +133,8 @@ export default function PedidosEstadoPage() {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Vendedor</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Armador</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Hora Inicio</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Hora Fin</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Tiempo Bruto</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pausas</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Tiempo Neto</th>
@@ -142,11 +144,11 @@ export default function PedidosEstadoPage() {
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={11} className="px-4 py-4 text-center">Cargando...</td>
+                      <td colSpan={13} className="px-4 py-4 text-center">Cargando...</td>
                     </tr>
                   ) : pedidos.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="px-4 py-4 text-center">No hay pedidos que coincidan con los filtros</td>
+                      <td colSpan={13} className="px-4 py-4 text-center">No hay pedidos que coincidan con los filtros</td>
                     </tr>
                   ) : (
                     pedidos.map((pedido) => (
@@ -178,13 +180,19 @@ export default function PedidosEstadoPage() {
                           {pedido.armador?.firstName || pedido.armador?.username || "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.tiempoBruto || "-"}
+                          {pedido.inicio ? new Date(pedido.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.numeroPausas || "-"}
+                          {pedido.finalizado ? new Date(pedido.finalizado).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.tiempoNeto || "-"}
+                          {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : "-"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                          {pedido.pausas?.length || 0}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                          {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           <button 

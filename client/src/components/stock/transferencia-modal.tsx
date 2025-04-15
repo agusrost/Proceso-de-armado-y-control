@@ -49,6 +49,7 @@ interface TransferenciaModalProps {
 
 export default function TransferenciaModal({ isOpen, onClose }: TransferenciaModalProps) {
   const { toast } = useToast();
+  const [motivoPersonalizado, setMotivoPersonalizado] = useState(false);
   
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferSchema),
@@ -141,8 +142,51 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
                 <FormItem>
                   <FormLabel>Motivo</FormLabel>
                   <FormControl>
-                    <Input placeholder="Motivo de la solicitud" {...field} />
+                    {motivoPersonalizado ? (
+                      <Input 
+                        placeholder="Escriba el motivo personalizado" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                        }}
+                      />
+                    ) : (
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) => {
+                          if (value === "otro") {
+                            setMotivoPersonalizado(true);
+                            field.onChange("");
+                          } else {
+                            field.onChange(value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione un motivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Se necesita para facturar un pedido">Se necesita para facturar un pedido</SelectItem>
+                          <SelectItem value="otro">Otro motivo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </FormControl>
+                  {motivoPersonalizado && (
+                    <div className="flex justify-end">
+                      <Button 
+                        type="button" 
+                        variant="link" 
+                        className="h-auto p-0 text-xs"
+                        onClick={() => {
+                          setMotivoPersonalizado(false);
+                          field.onChange("");
+                        }}
+                      >
+                        Volver a opciones predefinidas
+                      </Button>
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
