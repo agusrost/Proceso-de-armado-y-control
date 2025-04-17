@@ -190,7 +190,7 @@ export default function PedidosEstadoPage() {
                           {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.pausas?.length || 0}
+                          {pedido.numeroPausas || pedido.pausas?.length || 0}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : "-"}

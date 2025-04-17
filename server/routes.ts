@@ -286,11 +286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         armador = await storage.getUser(pedido.armadorId);
       }
       
+      // Calcular el número de pausas
+      const numeroPausas = pausas ? pausas.length : 0;
+      
       res.json({
         ...pedido,
         productos,
         pausas,
-        armador
+        armador,
+        numeroPausas
       });
     } catch (error) {
       next(error);
