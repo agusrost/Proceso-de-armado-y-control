@@ -159,6 +159,12 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                 </p>
               </div>
               <div>
+                <p className="text-sm font-medium text-neutral-500">Pausas</p>
+                <p className="font-semibold">
+                  {pedido.numeroPausas || 0} {pedido.numeroPausas === 1 ? 'pausa' : 'pausas'}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm font-medium text-neutral-500">Armador</p>
                 {canEditArmador && editingArmador ? (
                   <div className="flex items-center gap-2">
@@ -279,7 +285,10 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                 {producto.motivo && (
                                   <div className={`mt-1 text-xs ${producto.motivo.includes('Completado por stock') ? 'text-green-600' : 'text-red-600'}`}>
                                     {producto.motivo.includes('Completado por stock') ? (
-                                      producto.motivo
+                                      <span className="flex items-center gap-1">
+                                        <Check className="h-3 w-3" />
+                                        {producto.motivo}
+                                      </span>
                                     ) : (
                                       `Faltante: ${producto.motivo}`
                                     )}

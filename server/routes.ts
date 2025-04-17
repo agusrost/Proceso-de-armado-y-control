@@ -889,6 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Buscar el pedido en estado pre-finalizado que tenga un producto con ese código
           const pedidos = await storage.getPedidos({ estado: 'pre-finalizado' });
+          console.log(`Encontrados ${pedidos.length} pedidos en estado pre-finalizado`);
           
           for (const pedido of pedidos) {
             const productos = await storage.getProductosByPedidoId(pedido.id);
@@ -897,17 +898,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const productoSolicitado = productos.find(p => p.codigo === solicitud.codigo);
             
             if (productoSolicitado) {
-              console.log(`Encontrado pedido ${pedido.id} con el producto solicitado. Actualizando estado.`);
+              console.log(`Encontrado pedido ${pedido.id} con el producto solicitado ${solicitud.codigo}. Actualizando estado.`);
+              
+              // Obtener información del usuario que realizó la transferencia
+              const realizador = req.user ? req.user.username : 'Usuario de stock';
               
               // Actualizar el producto con la información de quien lo completó
               await storage.updateProducto(productoSolicitado.id, {
                 recolectado: solicitud.cantidad,
-                motivo: `Completado por stock: ${req.user.username}`
+                motivo: `Completado por stock: ${realizador}`
               });
+              
+              console.log(`Producto ${productoSolicitado.codigo} actualizado. Recolectado: ${solicitud.cantidad}, Cantidad total: ${productoSolicitado.cantidad}`);
               
               // Verificar si todos los productos del pedido están completos
               const todosProductos = await storage.getProductosByPedidoId(pedido.id);
-              const todosCompletos = todosProductos.every(p => p.recolectado === p.cantidad);
+              const todosCompletos = todosProductos.every(p => p.recolectado >= p.cantidad);
               
               if (todosCompletos) {
                 console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
@@ -917,6 +923,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   estado: 'completado',
                   finalizado: new Date()
                 });
+                
+                console.log(`Pedido ${pedido.id} marcado como completado.`);
+              } else {
+                console.log(`No todos los productos del pedido ${pedido.id} están completos. El estado sigue en 'pre-finalizado'.`);
+                // Listar productos pendientes
+                const pendientes = todosProductos.filter(p => p.recolectado < p.cantidad);
+                console.log('Productos pendientes:', pendientes.map(p => `${p.codigo} (${p.recolectado}/${p.cantidad})`));
               }
             }
           }
