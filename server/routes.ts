@@ -609,9 +609,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pausa = await storage.createPausa(pausaData);
       console.log("Pausa creada:", pausa);
       
-      // Incrementar contador de pausas en el pedido
+      // Obtener el número actual de pausas directamente de la base de datos
+      const pausas = await storage.getPausasByPedidoId(validation.data.pedidoId);
+      const nuevoCantidadPausas = pausas.length;
+      
+      console.log(`Actualizando número de pausas para pedido ${validation.data.pedidoId} a ${nuevoCantidadPausas}`);
+      
+      // Actualizar contador de pausas en el pedido
       await storage.updatePedido(validation.data.pedidoId, {
-        numeroPausas: (pedido.numeroPausas || 0) + 1
+        numeroPausas: nuevoCantidadPausas
       });
       
       res.status(201).json(pausa);
