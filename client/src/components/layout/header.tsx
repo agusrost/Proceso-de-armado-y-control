@@ -22,7 +22,7 @@ export function Header() {
 
   return (
     <header className="bg-primary text-white shadow-md z-10">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div className="px-4 py-3 flex justify-between items-center">
         <div 
           className="flex items-center cursor-pointer" 
           onClick={() => setLocation("/")}
