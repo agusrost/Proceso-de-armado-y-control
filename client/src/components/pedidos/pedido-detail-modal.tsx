@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Edit, Check, Trash2 } from "lucide-react";
+import { Loader2, Edit, Check, CheckCircle2, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -285,12 +285,16 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                 {producto.motivo && (
                                   <div className={`mt-1 text-xs ${producto.motivo.includes('Completado por stock') ? 'text-green-600' : 'text-red-600'}`}>
                                     {producto.motivo.includes('Completado por stock') ? (
-                                      <span className="flex items-center gap-1">
-                                        <Check className="h-3 w-3" />
-                                        {producto.motivo}
-                                      </span>
+                                      <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded p-1">
+                                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                        <span className="font-medium">
+                                          {producto.motivo}
+                                        </span>
+                                      </div>
                                     ) : (
-                                      `Faltante: ${producto.motivo}`
+                                      <div className="flex items-center gap-1">
+                                        <span className="font-medium">Faltante:</span> {producto.motivo}
+                                      </div>
                                     )}
                                   </div>
                                 )}
