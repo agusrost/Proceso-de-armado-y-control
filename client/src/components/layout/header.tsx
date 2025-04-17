@@ -27,7 +27,10 @@ export function Header() {
           className="flex items-center cursor-pointer" 
           onClick={() => setLocation("/")}
         >
-          <img src={konectaLogo} alt="Konecta Repuestos" className="h-10 mr-3" />
+          <div className="bg-white p-2 rounded-md flex items-center mr-2">
+            <img src={konectaLogo} alt="Konecta Repuestos" className="h-9" />
+            <span className="text-primary font-bold ml-1">Repuestos</span>
+          </div>
           <h1 className="text-xl font-semibold hidden sm:block">
             Sistema de Gestión de Pedidos
           </h1>

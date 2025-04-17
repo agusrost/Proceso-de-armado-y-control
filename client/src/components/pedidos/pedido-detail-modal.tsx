@@ -235,6 +235,12 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                   {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : '-'}
                 </p>
               </div>
+              <div>
+                <p className="text-sm font-medium text-neutral-500">Número de Pausas</p>
+                <p className="font-semibold">
+                  {pedido.numeroPausas || 0}
+                </p>
+              </div>
             </div>
             
             <div className="mb-6">
@@ -270,9 +276,13 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                 }`}>
                                   {producto.recolectado}/{producto.cantidad}
                                 </span>
-                                {producto.recolectado < producto.cantidad && producto.motivo && (
-                                  <div className="mt-1 text-xs text-red-600">
-                                    Faltante: {producto.motivo}
+                                {producto.motivo && (
+                                  <div className={`mt-1 text-xs ${producto.motivo.includes('Completado por stock') ? 'text-green-600' : 'text-red-600'}`}>
+                                    {producto.motivo.includes('Completado por stock') ? (
+                                      producto.motivo
+                                    ) : (
+                                      `Faltante: ${producto.motivo}`
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -315,7 +325,19 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                             {pausa.fin ? new Date(pausa.fin).toLocaleTimeString() : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {pausa.duracion ? formatTimeHM(pausa.duracion) : '-'}
+                            {pausa.duracion || 
+                              (pausa.fin && pausa.inicio ? 
+                                (() => {
+                                  const inicio = new Date(pausa.inicio);
+                                  const fin = new Date(pausa.fin);
+                                  const duracionMs = fin.getTime() - inicio.getTime();
+                                  const minutos = Math.floor(duracionMs / 60000);
+                                  const segundos = Math.floor((duracionMs % 60000) / 1000);
+                                  return `${minutos}m ${segundos}s`;
+                                })() : 
+                                '-'
+                              )
+                            }
                           </td>
                           <td className="px-4 py-3 text-sm text-neutral-800">
                             {pausa.motivo}

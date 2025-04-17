@@ -853,6 +853,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Se requiere el estado" });
       }
       
+      // Obtener la solicitud antes de actualizarla
+      const solicitudOriginal = await storage.getStockSolicitudById(solicitudId);
+      if (!solicitudOriginal) {
+        return res.status(404).json({ message: "Solicitud de stock no encontrada" });
+      }
+      
+      console.log(`Actualizando solicitud ${solicitudId} con estado: ${estado}`);
+      
       // Si el estado es 'realizado' o 'no-hay', registramos quién lo realizó
       const updateData: any = { estado };
       if ((estado === 'realizado' || estado === 'no-hay') && req.user) {
@@ -864,8 +872,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Solicitud de stock no encontrada" });
       }
       
+      // Si el estado cambió a 'realizado', necesitamos actualizar el estado del pedido
+      if (estado === 'realizado') {
+        try {
+          console.log(`Buscando pedido relacionado con código: ${solicitud.codigo}`);
+          
+          // Buscar el pedido en estado pre-finalizado que tenga un producto con ese código
+          const pedidos = await storage.getPedidos({ estado: 'pre-finalizado' });
+          
+          for (const pedido of pedidos) {
+            const productos = await storage.getProductosByPedidoId(pedido.id);
+            
+            // Verificar si el pedido tiene el producto que se solicitó
+            const productoSolicitado = productos.find(p => p.codigo === solicitud.codigo);
+            
+            if (productoSolicitado) {
+              console.log(`Encontrado pedido ${pedido.id} con el producto solicitado. Actualizando estado.`);
+              
+              // Actualizar el producto con la información de quien lo completó
+              await storage.updateProducto(productoSolicitado.id, {
+                recolectado: solicitud.cantidad,
+                motivo: `Completado por stock: ${req.user.username}`
+              });
+              
+              // Verificar si todos los productos del pedido están completos
+              const todosProductos = await storage.getProductosByPedidoId(pedido.id);
+              const todosCompletos = todosProductos.every(p => p.recolectado === p.cantidad);
+              
+              if (todosCompletos) {
+                console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
+                
+                // Si todos los productos están completos, cambiar estado a completado
+                await storage.updatePedido(pedido.id, {
+                  estado: 'completado',
+                  finalizado: new Date()
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error al actualizar pedido relacionado:", error);
+          // Continuar con la respuesta incluso si hay error, ya que la actualización de stock se realizó correctamente
+        }
+      }
+      
       res.json(solicitud);
     } catch (error) {
+      console.error("Error al actualizar solicitud de stock:", error);
       next(error);
     }
   });
