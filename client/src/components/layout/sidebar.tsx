@@ -67,13 +67,13 @@ export function Sidebar() {
   return (
     <aside className="w-56 bg-neutral-800 text-white">
       <div className="p-4 flex justify-center border-b border-neutral-700 mb-2">
-        <img 
-          src={konectaLogo} 
-          alt="Konecta Repuestos" 
-          className="h-16" 
+        <div 
+          className="flex flex-col items-center cursor-pointer"
           onClick={() => setLocation("/")}
-          style={{ cursor: 'pointer' }}
-        />
+        >
+          <div className="text-white font-bold text-xl">K</div>
+          <div className="text-white text-sm mt-1">Konecta Repuestos</div>
+        </div>
       </div>
       <nav className="p-4">
         <ul className="space-y-1">
