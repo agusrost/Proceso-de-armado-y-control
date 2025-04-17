@@ -888,10 +888,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Buscando pedido relacionado con código: ${solicitud.codigo}`);
           
           // Buscar el pedido en estado pre-finalizado que tenga un producto con ese código
-          const pedidos = await storage.getPedidos({ estado: 'pre-finalizado' });
-          console.log(`Encontrados ${pedidos.length} pedidos en estado pre-finalizado`);
+          const pedidos = await storage.getPedidos({});
+          console.log(`Encontrados ${pedidos.length} pedidos en total`);
           
           for (const pedido of pedidos) {
+            // Solo procesar pedidos en estado pre-finalizado o en-proceso
+            if (pedido.estado !== 'pre-finalizado' && pedido.estado !== 'en-proceso') {
+              continue;
+            }
+            
+            console.log(`Verificando pedido ${pedido.id}, estado actual: ${pedido.estado}`);
+            
             const productos = await storage.getProductosByPedidoId(pedido.id);
             
             // Verificar si el pedido tiene el producto que se solicitó
@@ -919,17 +926,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
                 
                 // Si todos los productos están completos, cambiar estado a completado
-                await storage.updatePedido(pedido.id, {
+                const pedidoActualizado = await storage.updatePedido(pedido.id, {
                   estado: 'completado',
                   finalizado: new Date()
                 });
                 
                 console.log(`Pedido ${pedido.id} marcado como completado.`);
               } else {
-                console.log(`No todos los productos del pedido ${pedido.id} están completos. El estado sigue en 'pre-finalizado'.`);
+                console.log(`No todos los productos del pedido ${pedido.id} están completos. El estado sigue en '${pedido.estado}'.`);
                 // Listar productos pendientes
-                const pendientes = todosProductos.filter(p => p.recolectado < p.cantidad);
-                console.log('Productos pendientes:', pendientes.map(p => `${p.codigo} (${p.recolectado}/${p.cantidad})`));
+                const pendientes = todosProductos.filter(p => !p.recolectado || p.recolectado < p.cantidad);
+                console.log('Productos pendientes:', pendientes.map(p => `${p.codigo} (${p.recolectado || 0}/${p.cantidad})`));
               }
             }
           }
@@ -942,6 +949,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(solicitud);
     } catch (error) {
       console.error("Error al actualizar solicitud de stock:", error);
+      next(error);
+    }
+  });
+  
+  // Endpoint especial para actualizar todos los pedidos con productos completados
+  app.post("/api/pedidos/actualizar-estados", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Comenzando actualización de estados de pedidos...");
+      
+      // Obtener todos los pedidos en estado pre-finalizado
+      const pedidos = await storage.getPedidos({ estado: 'pre-finalizado' });
+      console.log(`Encontrados ${pedidos.length} pedidos en estado pre-finalizado`);
+      
+      const resultados = [];
+      
+      for (const pedido of pedidos) {
+        const productos = await storage.getProductosByPedidoId(pedido.id);
+        
+        // Verificar si todos los productos están completos
+        const todosCompletos = productos.every(p => p.recolectado >= p.cantidad);
+        
+        if (todosCompletos) {
+          console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
+          
+          // Actualizar el pedido a completado
+          const pedidoActualizado = await storage.updatePedido(pedido.id, {
+            estado: 'completado',
+            finalizado: new Date()
+          });
+          
+          resultados.push({
+            pedidoId: pedido.pedidoId,
+            estadoAnterior: 'pre-finalizado',
+            estadoNuevo: 'completado',
+            actualizado: true
+          });
+        } else {
+          resultados.push({
+            pedidoId: pedido.pedidoId,
+            estadoAnterior: 'pre-finalizado',
+            estadoNuevo: 'pre-finalizado',
+            actualizado: false,
+            motivo: 'Aún hay productos pendientes por completar'
+          });
+        }
+      }
+      
+      res.json({
+        mensaje: `Actualización completada. ${resultados.filter(r => r.actualizado).length} pedidos actualizados.`,
+        resultados
+      });
+    } catch (error) {
+      console.error("Error al actualizar estados de pedidos:", error);
       next(error);
     }
   });

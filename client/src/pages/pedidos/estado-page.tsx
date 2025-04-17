@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PedidoWithDetails } from "@shared/types";
 import { getEstadoColor, getEstadoLabel, formatDate, formatTimeHM } from "@/lib/utils";
-import { Eye } from "lucide-react";
+import { Eye, RefreshCw } from "lucide-react";
 import PedidoDetailModal from "@/components/pedidos/pedido-detail-modal";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function PedidosEstadoPage() {
   const [, setLocation] = useLocation();
@@ -30,6 +32,29 @@ export default function PedidosEstadoPage() {
     enabled: true,
   });
 
+  // Actualizar estados mutation
+  const actualizarEstadosMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/pedidos/actualizar-estados", {});
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Estados actualizados",
+        description: data.mensaje,
+        variant: "default",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al actualizar estados",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
   // Fetch pedidos with filters
   const { data: pedidos = [], isLoading } = useQuery<PedidoWithDetails[]>({
     queryKey: [
@@ -64,8 +89,17 @@ export default function PedidosEstadoPage() {
         </div>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Estado de Pedidos</CardTitle>
+            <Button 
+              variant="outline"
+              className="flex items-center gap-2" 
+              onClick={() => actualizarEstadosMutation.mutate()}
+              disabled={actualizarEstadosMutation.isPending}
+            >
+              <RefreshCw className={`h-4 w-4 ${actualizarEstadosMutation.isPending ? 'animate-spin' : ''}`} />
+              Actualizar Estados
+            </Button>
           </CardHeader>
           <CardContent>
             {/* Filters */}
