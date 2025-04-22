@@ -246,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/pedidos", requireAuth, async (req, res, next) => {
     try {
-      const { fecha, estado, vendedor, armadorId } = req.query;
+      const { fecha, estado, vendedor, armadorId, pedidoId } = req.query;
       
       // Si estado es "todos", convertimos a undefined para el filtro
       const filteredEstado = estado === "todos" ? undefined : estado as string;
@@ -260,9 +260,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fecha: fecha as string,
         estado: filteredEstado,
         vendedor: vendedor as string,
-        armadorId: filteredArmadorId
+        armadorId: filteredArmadorId,
+        pedidoId: pedidoId as string
       });
       res.json(pedidos);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Obtener pedido por su pedidoId (identificador externo)
+  app.get("/api/pedidos/by-pedidoid/:pedidoId", requireAuth, async (req, res, next) => {
+    try {
+      const { pedidoId } = req.params;
+      
+      if (!pedidoId) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Buscar pedidos por el pedidoId externo
+      const pedidos = await storage.getPedidos({ pedidoId });
+      
+      if (!pedidos || pedidos.length === 0) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Devolver el primer pedido encontrado (debería ser único por pedidoId)
+      res.json(pedidos[0]);
     } catch (error) {
       next(error);
     }
@@ -971,9 +995,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return Boolean(p.motivo);
               });
               
-              // Determinar si debe marcarse como completado
-              const debeCompletarse = todosCompletos || 
-                                     (pedido.estado === 'pre-finalizado' && todosTienenMotivo);
+              // Un pedido debe marcarse como completado si:
+              // 1. Todos los productos han sido recolectados en la cantidad requerida, o
+              // 2. El pedido está en pre-finalizado y todos los productos tienen atención (recolectados o con motivo de falta)
+              // NOTA: Para solucionar el problema específico de los pedidos que no se actualizan cuando stock completa
+              // la transferencia, aquí forzamos que si se está procesando una solicitud de stock para este pedido,
+              // y todos los productos ya tienen estado (recolectados completamente o con motivo), se marque como completado
+              const debeCompletarse = todosCompletos || todosTienenMotivo;
               
               if (debeCompletarse) {
                 console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
@@ -1042,10 +1070,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Un pedido debe marcarse como completado si:
         // 1. Todos los productos han sido recolectados en la cantidad requerida, o
-        // 2. El pedido está en pre-finalizado (esperando transferencia) y todos los productos 
-        //    tienen atención (recolectados o con motivo de falta)
-        const debeCompletarse = todosRecolectados || 
-                               (pedido.estado === 'pre-finalizado' && todosTienenMotivo);
+        // 2. Todos los productos tienen estado (recolectados completamente o con motivo)
+        // Esto asegura que los pedidos en estado pre-finalizado se actualizarán cuando
+        // todos sus productos tengan motivo, incluso si no fueran ingresados desde stock
+        const debeCompletarse = todosRecolectados || todosTienenMotivo;
         
         if (debeCompletarse) {
           console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
