@@ -727,7 +727,7 @@ export default function ArmadoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center justify-center">
               <CheckCircle2 className="h-12 w-12 text-green-500 mb-2" />
-              <span className="block text-center">Enhorabuena, has finalizado el pedido</span>
+              <span className="block text-center">Bien hecho, has finalizado el pedido</span>
             </AlertDialogTitle>
             <AlertDialogDescription>
               {productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad) && (

@@ -12,10 +12,13 @@ import { StockSolicitudWithDetails } from "@shared/types";
 import { getEstadoColor, getEstadoLabel, formatDate } from "@/lib/utils";
 import { Plus, Eye, Check, XCircle } from "lucide-react";
 import TransferenciaModal from "@/components/stock/transferencia-modal";
+import SolicitudDetailModal from "@/components/stock/solicitud-detail-modal";
 
 export default function StockPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
   // Filter states
   const [filterFecha, setFilterFecha] = useState("");
