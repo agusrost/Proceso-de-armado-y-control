@@ -887,16 +887,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           console.log(`Buscando pedido relacionado con código: ${solicitud.codigo}`);
           
-          // Buscar el pedido en estado pre-finalizado que tenga un producto con ese código
+          // Buscar cualquier pedido que tenga un producto con ese código
           const pedidos = await storage.getPedidos({});
           console.log(`Encontrados ${pedidos.length} pedidos en total`);
           
           for (const pedido of pedidos) {
-            // Solo procesar pedidos en estado pre-finalizado o en-proceso
-            if (pedido.estado !== 'pre-finalizado' && pedido.estado !== 'en-proceso') {
-              continue;
-            }
-            
+            // Procesamos cualquier pedido, independientemente de su estado
+            // Esto permite actualizar pedidos que fueron finalizados pero tenían faltantes de stock
             console.log(`Verificando pedido ${pedido.id}, estado actual: ${pedido.estado}`);
             
             const productos = await storage.getProductosByPedidoId(pedido.id);
@@ -958,13 +955,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Comenzando actualización de estados de pedidos...");
       
-      // Obtener todos los pedidos en estado pre-finalizado
-      const pedidos = await storage.getPedidos({ estado: 'pre-finalizado' });
-      console.log(`Encontrados ${pedidos.length} pedidos en estado pre-finalizado`);
+      // Obtener todos los pedidos (no solo los que están en pre-finalizado)
+      const pedidos = await storage.getPedidos({});
+      console.log(`Encontrados ${pedidos.length} pedidos en total`);
       
       const resultados = [];
       
       for (const pedido of pedidos) {
+        // No procesamos pedidos ya completados
+        if (pedido.estado === 'completado') {
+          continue;
+        }
+        
         const productos = await storage.getProductosByPedidoId(pedido.id);
         
         // Verificar si todos los productos están completos
@@ -981,15 +983,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           resultados.push({
             pedidoId: pedido.pedidoId,
-            estadoAnterior: 'pre-finalizado',
+            estadoAnterior: pedido.estado,
             estadoNuevo: 'completado',
             actualizado: true
           });
         } else {
           resultados.push({
             pedidoId: pedido.pedidoId,
-            estadoAnterior: 'pre-finalizado',
-            estadoNuevo: 'pre-finalizado',
+            estadoAnterior: pedido.estado,
+            estadoNuevo: pedido.estado,
             actualizado: false,
             motivo: 'Aún hay productos pendientes por completar'
           });
@@ -1002,6 +1004,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error al actualizar estados de pedidos:", error);
+      next(error);
+    }
+  });
+
+  // Endpoints para importar/exportar datos
+  app.get("/api/database/export", requireAdminPlus, async (req, res, next) => {
+    try {
+      // Obtener todos los datos necesarios para la exportación
+      const pedidos = await storage.getPedidos({});
+      
+      // Para cada pedido, obtener sus productos
+      const pedidosCompletos = await Promise.all(
+        pedidos.map(async (pedido) => {
+          const productos = await storage.getProductosByPedidoId(pedido.id);
+          const pausas = await storage.getPausasByPedidoId(pedido.id);
+          return {
+            ...pedido,
+            productos,
+            pausas
+          };
+        })
+      );
+      
+      // Obtener solicitudes de stock
+      const stockSolicitudes = await storage.getStockSolicitudes({});
+      
+      // Crear objeto de exportación
+      const exportData = {
+        fecha: new Date(),
+        pedidos: pedidosCompletos,
+        stockSolicitudes,
+        metadata: {
+          version: "1.0",
+          descripcion: "Exportación de datos del sistema Konecta Repuestos"
+        }
+      };
+      
+      res.json(exportData);
+    } catch (error) {
+      console.error("Error al exportar datos:", error);
+      next(error);
+    }
+  });
+  
+  app.post("/api/database/import", requireAdminPlus, async (req, res, next) => {
+    try {
+      const importData = req.body;
+      
+      // Validar la estructura básica de los datos
+      if (!importData || !importData.pedidos || !Array.isArray(importData.pedidos)) {
+        return res.status(400).json({ message: "Formato de datos inválido" });
+      }
+      
+      const resultados = {
+        pedidos: 0,
+        productos: 0,
+        pausas: 0,
+        stockSolicitudes: 0
+      };
+      
+      // Importar pedidos
+      for (const pedidoData of importData.pedidos) {
+        try {
+          // Verificar si el pedido ya existe (por pedidoId)
+          const pedidoExistente = await storage.getPedidos({ 
+            pedidoId: pedidoData.pedidoId 
+          });
+          
+          let pedido;
+          
+          if (pedidoExistente.length === 0) {
+            // Crear pedido si no existe
+            const { productos, pausas, ...pedidoBase } = pedidoData;
+            
+            // Remover id para que se genere uno nuevo
+            delete pedidoBase.id;
+            
+            pedido = await storage.createPedido(pedidoBase);
+            resultados.pedidos++;
+            
+            // Importar productos asociados a este pedido
+            if (productos && Array.isArray(productos)) {
+              for (const productoData of productos) {
+                try {
+                  // Asignar el nuevo id del pedido
+                  const { id, ...productoBase } = productoData;
+                  productoBase.pedidoId = pedido.id;
+                  
+                  await storage.createProducto(productoBase);
+                  resultados.productos++;
+                } catch (error) {
+                  console.error(`Error al importar producto para pedido ${pedido.pedidoId}:`, error);
+                }
+              }
+            }
+            
+            // Importar pausas asociadas a este pedido
+            if (pausas && Array.isArray(pausas)) {
+              for (const pausaData of pausas) {
+                try {
+                  const { id, ...pausaBase } = pausaData;
+                  pausaBase.pedidoId = pedido.id;
+                  
+                  await storage.createPausa(pausaBase);
+                  resultados.pausas++;
+                } catch (error) {
+                  console.error(`Error al importar pausa para pedido ${pedido.pedidoId}:`, error);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error al importar pedido ${pedidoData.pedidoId}:`, error);
+        }
+      }
+      
+      // Importar solicitudes de stock
+      if (importData.stockSolicitudes && Array.isArray(importData.stockSolicitudes)) {
+        for (const solicitudData of importData.stockSolicitudes) {
+          try {
+            // Verificar si la solicitud ya existe
+            const solicitudExistente = await storage.getStockSolicitudById(solicitudData.id);
+            
+            if (!solicitudExistente) {
+              // Remover id para que se genere uno nuevo
+              const { id, ...solicitudBase } = solicitudData;
+              
+              await storage.createStockSolicitud(solicitudBase);
+              resultados.stockSolicitudes++;
+            }
+          } catch (error) {
+            console.error(`Error al importar solicitud de stock:`, error);
+          }
+        }
+      }
+      
+      res.json({
+        mensaje: "Importación completada exitosamente",
+        resultados
+      });
+    } catch (error) {
+      console.error("Error al importar datos:", error);
       next(error);
     }
   });

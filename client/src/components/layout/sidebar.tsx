@@ -56,6 +56,13 @@ export function Sidebar() {
       show: hasAccess("config"),
     },
     {
+      title: "IMPORTAR/EXPORTAR",
+      icon: DownloadCloud,
+      href: "/importar-exportar",
+      active: location === "/importar-exportar",
+      show: user?.role === 'admin-plus',
+    },
+    {
       title: "Mi Perfil",
       icon: UserCircle,
       href: "/mi-perfil",
@@ -71,7 +78,7 @@ export function Sidebar() {
           className="cursor-pointer"
           onClick={() => setLocation("/")}
         >
-          <img src={konectaLogo} alt="Konecta Repuestos" className="h-10" />
+          <h3 className="text-xl font-semibold">Menú</h3>
         </div>
       </div>
       <nav className="p-4">
