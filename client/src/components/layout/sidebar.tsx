@@ -7,7 +7,8 @@ import {
   CheckSquare, 
   Settings,
   LayoutDashboard,
-  UserCircle
+  UserCircle,
+  DownloadCloud
 } from "lucide-react";
 import konectaLogo from "@/assets/konecta-logo.jpg";
 

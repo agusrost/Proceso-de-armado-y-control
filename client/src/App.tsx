@@ -14,6 +14,7 @@ import ConfigPage from "@/pages/config-page";
 import ArmadoPage from "@/pages/armado-page";
 import ControlPage from "@/pages/control-page";
 import MiPerfilPage from "@/pages/mi-perfil-page";
+import ImportarExportarPage from "@/pages/importar-exportar-page";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <ProtectedRoute path="/armador" component={ArmadoPage} />
       <ProtectedRoute path="/control" component={ControlPage} />
       <ProtectedRoute path="/mi-perfil" component={MiPerfilPage} />
+      <ProtectedRoute path="/importar-exportar" component={ImportarExportarPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
