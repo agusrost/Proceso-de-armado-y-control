@@ -918,16 +918,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Verificar si todos los productos del pedido están completos
               const todosProductos = await storage.getProductosByPedidoId(pedido.id);
               
-              // Asegurarnos de que recolectado no sea null, y si es null considerarlo como 0
+              // Caso 1: Verificar si todos los productos están completamente recolectados
               const todosCompletos = todosProductos.every(p => {
                 const recolectado = p.recolectado || 0;
                 return recolectado >= p.cantidad;
               });
               
-              if (todosCompletos) {
-                console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
+              // Caso 2: Verificar si hay productos faltantes pero todos tienen motivo (para pre-finalizado)
+              const todosTienenMotivo = todosProductos.every(p => {
+                const recolectado = p.recolectado || 0;
+                // Si está completo, no necesita motivo
+                if (recolectado >= p.cantidad) return true;
+                // Si no está completo, debe tener motivo
+                return Boolean(p.motivo);
+              });
+              
+              // Determinar si debe marcarse como completado
+              const debeCompletarse = todosCompletos || 
+                                     (pedido.estado === 'pre-finalizado' && todosTienenMotivo);
+              
+              if (debeCompletarse) {
+                console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
                 
-                // Si todos los productos están completos, cambiar estado a completado
+                // Actualizar el pedido a completado
                 const pedidoActualizado = await storage.updatePedido(pedido.id, {
                   estado: 'completado',
                   finalizado: new Date()
@@ -974,14 +987,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         const productos = await storage.getProductosByPedidoId(pedido.id);
         
-        // Verificar si todos los productos están completos
-        const todosCompletos = productos.every(p => {
+        // Caso 1: Verificar si todos los productos están completamente recolectados
+        const todosRecolectados = productos.every(p => {
           const recolectado = p.recolectado || 0;
           return recolectado >= p.cantidad;
         });
         
-        if (todosCompletos) {
-          console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
+        // Caso 2: Verificar si hay productos faltantes pero todos tienen motivo y el pedido está en pre-finalizado
+        const todosTienenMotivo = productos.every(p => {
+          const recolectado = p.recolectado || 0;
+          // Si está completamente recolectado, no necesita motivo
+          if (recolectado >= p.cantidad) return true;
+          // Si no está completamente recolectado, debe tener motivo
+          return Boolean(p.motivo);
+        });
+        
+        // Un pedido debe marcarse como completado si:
+        // 1. Todos los productos han sido recolectados en la cantidad requerida, o
+        // 2. El pedido está en pre-finalizado (esperando transferencia) y todos los productos 
+        //    tienen atención (recolectados o con motivo de falta)
+        const debeCompletarse = todosRecolectados || 
+                               (pedido.estado === 'pre-finalizado' && todosTienenMotivo);
+        
+        if (debeCompletarse) {
+          console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
           
           // Actualizar el pedido a completado
           const pedidoActualizado = await storage.updatePedido(pedido.id, {
@@ -1001,7 +1030,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             estadoAnterior: pedido.estado,
             estadoNuevo: pedido.estado,
             actualizado: false,
-            motivo: 'Aún hay productos pendientes por completar'
+            motivo: pedido.estado === 'pre-finalizado' ? 
+                    'Falta confirmar transferencia de stock para algunos productos' : 
+                    'Aún hay productos pendientes por completar'
           });
         }
       }
