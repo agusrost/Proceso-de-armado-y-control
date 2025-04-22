@@ -333,12 +333,8 @@ export default function ArmadoPage() {
       return res.json();
     },
     onSuccess: () => {
-      // Restablecer el estado para comenzar con un nuevo pedido
-      setCurrentPedido(null);
-      setProductos([]);
-      setCurrentProductoIndex(0);
-      setRecolectados(0);
-      setMotivo("");
+      // No restablecemos el estado aquí - lo haremos cuando el usuario cierre el diálogo de finalización
+      // para que pueda ver el mensaje correctamente
       
       // Recargar datos
       queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
@@ -486,9 +482,18 @@ export default function ArmadoPage() {
 
   // Continuar con otro pedido después de finalizar
   const continuarOtroPedido = () => {
+    // Cerrar el diálogo de finalización
     setMostrarAlertaFinal(false);
+    
+    // Restablecer el estado para comenzar con un nuevo pedido
     setCurrentPedido(null);
-    queryClient.invalidateQueries({ queryKey: ["/api/pedidos/siguiente"] });
+    setProductos([]);
+    setCurrentProductoIndex(0);
+    setRecolectados(0);
+    setMotivo("");
+    
+    // Recargar datos del próximo pedido
+    queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
   };
 
   // Si no hay usuario o no tiene rol adecuado, mostrar mensaje
