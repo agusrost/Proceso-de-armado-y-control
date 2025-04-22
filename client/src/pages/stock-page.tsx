@@ -199,7 +199,13 @@ export default function StockPage() {
                               </button>
                             </div>
                           ) : (
-                            <button className="text-primary hover:text-primary/90 font-medium flex items-center gap-1">
+                            <button 
+                              className="text-primary hover:text-primary/90 font-medium flex items-center gap-1"
+                              onClick={() => {
+                                setSelectedSolicitudId(solicitud.id);
+                                setIsDetailModalOpen(true);
+                              }}
+                            >
                               <Eye className="h-4 w-4" />
                               Ver
                             </button>
@@ -218,6 +224,15 @@ export default function StockPage() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
         />
+
+        {/* Modal de detalles de solicitud */}
+        {selectedSolicitudId && (
+          <SolicitudDetailModal
+            isOpen={isDetailModalOpen}
+            onClose={() => setIsDetailModalOpen(false)}
+            solicitudId={selectedSolicitudId}
+          />
+        )}
       </div>
     </MainLayout>
   );

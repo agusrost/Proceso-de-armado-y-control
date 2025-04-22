@@ -833,6 +833,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(error);
     }
   });
+  
+  // Obtener detalle de una solicitud específica
+  app.get("/api/stock/:id", requireAuth, async (req, res, next) => {
+    try {
+      const solicitudId = parseInt(req.params.id);
+      
+      if (isNaN(solicitudId)) {
+        return res.status(400).json({ message: "ID de solicitud inválido" });
+      }
+      
+      const solicitud = await storage.getStockSolicitudById(solicitudId);
+      
+      if (!solicitud) {
+        return res.status(404).json({ message: "Solicitud no encontrada" });
+      }
+      
+      // Obtener información de solicitante y realizador
+      let solicitante = null;
+      let realizador = null;
+      
+      if (solicitud.solicitadoPor) {
+        solicitante = await storage.getUser(solicitud.solicitadoPor);
+      }
+      
+      if (solicitud.realizadoPor) {
+        realizador = await storage.getUser(solicitud.realizadoPor);
+      }
+      
+      // Devolver solicitud con detalles
+      res.json({
+        ...solicitud,
+        solicitante,
+        realizador
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.post("/api/stock", requireAuth, async (req, res, next) => {
     try {
