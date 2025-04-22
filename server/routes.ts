@@ -917,7 +917,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Verificar si todos los productos del pedido están completos
               const todosProductos = await storage.getProductosByPedidoId(pedido.id);
-              const todosCompletos = todosProductos.every(p => p.recolectado >= p.cantidad);
+              
+              // Asegurarnos de que recolectado no sea null, y si es null considerarlo como 0
+              const todosCompletos = todosProductos.every(p => {
+                const recolectado = p.recolectado || 0;
+                return recolectado >= p.cantidad;
+              });
               
               if (todosCompletos) {
                 console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
@@ -970,7 +975,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const productos = await storage.getProductosByPedidoId(pedido.id);
         
         // Verificar si todos los productos están completos
-        const todosCompletos = productos.every(p => p.recolectado >= p.cantidad);
+        const todosCompletos = productos.every(p => {
+          const recolectado = p.recolectado || 0;
+          return recolectado >= p.cantidad;
+        });
         
         if (todosCompletos) {
           console.log(`Todos los productos del pedido ${pedido.id} están completos. Actualizando estado a 'completado'.`);
