@@ -24,10 +24,12 @@ interface SolicitudDetailModalProps {
 
 export default function SolicitudDetailModal({ isOpen, onClose, solicitudId }: SolicitudDetailModalProps) {
   const { toast } = useToast();
-  const [pedidoId, setPedidoId] = useState<number | null>(null);
 
   // Obtener detalles de la solicitud
-  const { data: solicitud, isLoading, error } = useQuery<StockSolicitudWithDetails>({
+  const { data: solicitud, isLoading, error } = useQuery<StockSolicitudWithDetails & { 
+    pedidoRelacionado?: PedidoWithDetails,
+    armador?: { username: string, id: number }
+  }>({
     queryKey: ["/api/stock/detalle", solicitudId],
     queryFn: async () => {
       const res = await fetch(`/api/stock/${solicitudId}`);
@@ -39,44 +41,6 @@ export default function SolicitudDetailModal({ isOpen, onClose, solicitudId }: S
     },
     enabled: isOpen && solicitudId > 0,
   });
-
-  // Buscar el pedido asociado si el motivo contiene un ID de pedido
-  const { data: pedido, isLoading: isLoadingPedido } = useQuery<PedidoWithDetails>({
-    queryKey: ["/api/pedidos", pedidoId],
-    queryFn: async () => {
-      const res = await fetch(`/api/pedidos/${pedidoId}`);
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Error al obtener detalles del pedido");
-      }
-      return await res.json();
-    },
-    enabled: isOpen && pedidoId !== null,
-  });
-
-  // Procesar el motivo para extraer ID de pedido si existe
-  React.useEffect(() => {
-    if (solicitud?.motivo) {
-      // Buscar "Pedido ID X" o "Pedido X" en el motivo
-      const pedidoMatch = solicitud.motivo.match(/Pedido(?:\s+ID)?\s+([A-Za-z0-9]+)/i);
-      if (pedidoMatch && pedidoMatch[1]) {
-        // Buscar el pedido con ese pedidoId
-        fetch(`/api/pedidos/by-pedidoid/${pedidoMatch[1]}`)
-          .then(res => {
-            if (res.ok) return res.json();
-            return null;
-          })
-          .then(data => {
-            if (data && data.id) {
-              setPedidoId(data.id);
-            }
-          })
-          .catch(err => {
-            console.error("Error buscando pedido:", err);
-          });
-      }
-    }
-  }, [solicitud]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -140,51 +104,52 @@ export default function SolicitudDetailModal({ isOpen, onClose, solicitudId }: S
               )}
             </div>
 
-            {pedidoId && (
+            {solicitud?.pedidoRelacionado && (
               <Card className="mt-4">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Información del Pedido</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {isLoadingPedido ? (
-                    <div className="flex justify-center py-4">
-                      <Loader2 className="h-6 w-6 animate-spin" />
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="font-medium">Cliente ID:</span> {solicitud.pedidoRelacionado.clienteId}
                     </div>
-                  ) : pedido ? (
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="font-medium">Cliente ID:</span> {pedido.clienteId}
-                      </div>
-                      <div>
-                        <span className="font-medium">Pedido ID:</span> {pedido.pedidoId}
-                      </div>
-                      <div>
-                        <span className="font-medium">Vendedor:</span> {pedido.vendedor}
-                      </div>
-                      <div>
-                        <span className="font-medium">Estado:</span> {
-                          pedido.estado === 'pendiente' ? 'Pendiente' :
-                          pedido.estado === 'en-proceso' ? 'En proceso' :
-                          pedido.estado === 'pre-finalizado' ? 'Pre-finalizado' : 'Completado'
-                        }
-                      </div>
+                    <div>
+                      <span className="font-medium">Pedido ID:</span> {solicitud.pedidoRelacionado.pedidoId}
+                    </div>
+                    <div>
+                      <span className="font-medium">Vendedor:</span> {solicitud.pedidoRelacionado.vendedor}
+                    </div>
+                    <div>
+                      <span className="font-medium">Estado:</span> {
+                        solicitud.pedidoRelacionado.estado === 'pendiente' ? 'Pendiente' :
+                        solicitud.pedidoRelacionado.estado === 'en-proceso' ? 'En proceso' :
+                        solicitud.pedidoRelacionado.estado === 'pre-finalizado' ? 'Pre-finalizado' : 'Completado'
+                      }
+                    </div>
+                    
+                    {solicitud.armador && (
                       <div className="col-span-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2 w-full"
-                          onClick={() => {
-                            onClose();
-                            window.location.href = `/pedidos/detalle/${pedido.id}`;
-                          }}
-                        >
-                          Ver Pedido Completo
-                        </Button>
+                        <span className="font-medium">Armador asignado:</span> {solicitud.armador.username}
                       </div>
+                    )}
+                    
+                    <div className="col-span-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2 w-full"
+                        onClick={() => {
+                          onClose();
+                          if (solicitud.pedidoRelacionado?.id) {
+                            window.location.href = `/pedidos/detalle/${solicitud.pedidoRelacionado.id}`;
+                          }
+                        }}
+                      >
+                        Ver Pedido Completo
+                      </Button>
                     </div>
-                  ) : (
-                    <p className="text-sm text-neutral-500">No se encontró información del pedido relacionado.</p>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             )}

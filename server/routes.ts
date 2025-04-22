@@ -876,6 +876,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Obtener información de solicitante y realizador
       let solicitante = null;
       let realizador = null;
+      let pedidoRelacionado = null;
+      let armador = null;
       
       if (solicitud.solicitadoPor) {
         solicitante = await storage.getUser(solicitud.solicitadoPor);
@@ -885,13 +887,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         realizador = await storage.getUser(solicitud.realizadoPor);
       }
       
-      // Devolver solicitud con detalles
+      // Buscar si hay un pedido relacionado a esta solicitud de stock
+      // Podemos buscar por código y motivo, que habitualmente incluirá el número de pedido
+      if (solicitud.motivo && solicitud.motivo.includes('PED-')) {
+        // Extraer el posible ID de pedido del motivo (por ejemplo: "Faltante en PED-001")
+        const match = solicitud.motivo.match(/PED-\d+/);
+        if (match && match[0]) {
+          const pedidoIdExterno = match[0];
+          const pedidos = await storage.getPedidos({ pedidoId: pedidoIdExterno });
+          
+          if (pedidos && pedidos.length > 0) {
+            pedidoRelacionado = pedidos[0];
+            
+            // Si el pedido tiene armador asignado, obtener su información
+            if (pedidoRelacionado.armadorId) {
+              armador = await storage.getUser(pedidoRelacionado.armadorId);
+            }
+          }
+        }
+      }
+      
+      // Devolver solicitud con detalles y posible pedido relacionado
       res.json({
         ...solicitud,
         solicitante,
-        realizador
+        realizador,
+        pedidoRelacionado,
+        armador
       });
     } catch (error) {
+      console.error("Error al obtener detalles de solicitud de stock:", error);
       next(error);
     }
   });
