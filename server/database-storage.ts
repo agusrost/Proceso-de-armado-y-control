@@ -89,7 +89,7 @@ export class DatabaseStorage implements IStorage {
     return pedido;
   }
   
-  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string }): Promise<Pedido[]> {
+  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string }): Promise<Pedido[]> {
     let query = db.select().from(pedidos);
     
     if (filters.fecha) {
@@ -116,6 +116,12 @@ export class DatabaseStorage implements IStorage {
       if (!isNaN(armadorIdNum)) {
         query = query.where(eq(pedidos.armadorId, armadorIdNum));
       }
+    }
+
+    if (filters.pedidoId) {
+      query = query.where(
+        like(sql`LOWER(${pedidos.pedidoId})`, `%${filters.pedidoId.toLowerCase()}%`)
+      );
     }
     
     // Ordenar por fecha descendente (más reciente primero)

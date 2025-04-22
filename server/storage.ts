@@ -23,7 +23,7 @@ export interface IStorage {
   // Pedido methods
   createPedido(pedido: InsertPedido): Promise<Pedido>;
   getPedidoById(id: number): Promise<Pedido | undefined>;
-  getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string }): Promise<Pedido[]>;
+  getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string }): Promise<Pedido[]>;
   updatePedido(id: number, pedidoData: Partial<Pedido>): Promise<Pedido | undefined>;
   deletePedido(id: number): Promise<boolean>;
   getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined>;
@@ -140,7 +140,7 @@ export class MemStorage implements IStorage {
     return this.pedidos.get(id);
   }
 
-  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string }): Promise<Pedido[]> {
+  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string }): Promise<Pedido[]> {
     let pedidos = Array.from(this.pedidos.values());
     
     if (filters.fecha) {
@@ -172,6 +172,12 @@ export class MemStorage implements IStorage {
           pedidos = pedidos.filter(p => p.armadorId === armadorIdNum);
         }
       }
+    }
+    
+    if (filters.pedidoId) {
+      pedidos = pedidos.filter(p => 
+        p.pedidoId && p.pedidoId.toLowerCase().includes(filters.pedidoId!.toLowerCase())
+      );
     }
     
     return pedidos;
