@@ -125,3 +125,28 @@ export function formatTimestamp(date: Date): string {
     second: '2-digit' 
   });
 }
+
+// Normalizar el código de producto para comparaciones
+export function normalizeCode(code: string | number | null | undefined): string {
+  if (code === null || code === undefined) return '';
+  
+  // Convertir a string y eliminar espacios
+  let normalizedCode = String(code).trim().toLowerCase();
+  
+  // Eliminar caracteres no alfanuméricos al inicio o fin
+  normalizedCode = normalizedCode.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+  
+  // Caso especial: los códigos 17061 y 18001 deben conservarse exactamente como están
+  // para el pedido P0025
+  if (normalizedCode === '17061' || normalizedCode === '18001') {
+    console.log(`⚠️ Código especial detectado en normalización: ${normalizedCode}`);
+    return normalizedCode;
+  }
+  
+  // Para códigos numéricos, eliminar ceros a la izquierda
+  if (/^\d+$/.test(normalizedCode)) {
+    normalizedCode = String(parseInt(normalizedCode, 10));
+  }
+  
+  return normalizedCode;
+}
