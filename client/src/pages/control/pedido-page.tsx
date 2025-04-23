@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useParams, Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { 
   ArrowLeft, 
   Timer, 
@@ -32,9 +32,9 @@ import { ControlFinalizarDialog } from "@/components/control/control-finalizar-d
 export default function ControlPedidoPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, params] = useParams();
   const [, setLocation] = useLocation();
-  const pedidoId = params?.id ? parseInt(params.id) : null;
+  const [matched, params] = useRoute("/control/pedido/:id");
+  const pedidoId = matched && params?.id ? parseInt(params.id) : null;
   
   // Referencias
   const escanerInputRef = useRef<HTMLInputElement>(null);
