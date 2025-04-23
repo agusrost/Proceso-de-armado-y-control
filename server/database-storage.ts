@@ -97,7 +97,7 @@ export class DatabaseStorage implements IStorage {
     return pedido;
   }
   
-  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string }): Promise<Pedido[]> {
+  async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string, clienteId?: string }): Promise<Pedido[]> {
     let query = db.select().from(pedidos);
     
     if (filters.fecha) {
@@ -129,6 +129,13 @@ export class DatabaseStorage implements IStorage {
     if (filters.pedidoId) {
       query = query.where(
         like(sql`LOWER(${pedidos.pedidoId})`, `%${filters.pedidoId.toLowerCase()}%`)
+      );
+    }
+    
+    // Filtrar por número de cliente
+    if (filters.clienteId) {
+      query = query.where(
+        like(sql`LOWER(${pedidos.clienteId})`, `%${filters.clienteId.toLowerCase()}%`)
       );
     }
     
