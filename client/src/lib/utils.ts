@@ -117,3 +117,11 @@ export function getEstadoColor(estado: string): string {
 export function generatePedidoId(id: number): string {
   return `PED-${id.toString().padStart(3, '0')}`;
 }
+
+export function formatTimestamp(date: Date): string {
+  return date.toLocaleTimeString('es-ES', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit' 
+  });
+}

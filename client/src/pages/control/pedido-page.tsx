@@ -17,7 +17,7 @@ import {
   StopCircle,
   ClipboardList
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatTimestamp } from "@/lib/utils";
 import { Pedido, Producto, User } from "@shared/schema";
 import { ProductoControlado, ControlState, ControlEstado } from "@shared/types";
 import { apiRequest } from "@/lib/queryClient";
@@ -28,6 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControlProductoItem } from "@/components/control/control-producto-item";
 import { ProductoEscanerForm } from "@/components/control/producto-escaner-form";
 import { ControlFinalizarDialog } from "@/components/control/control-finalizar-dialog";
+import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontrado-alert";
+import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -38,6 +40,13 @@ export default function ControlPedidoPage() {
   
   // Referencias
   const escanerInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estados para los diálogos
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
+    codigo: "",
+    descripcion: ""
+  });
   
   // Estado del control
   const [controlState, setControlState] = useState<ControlState>({
@@ -313,14 +322,7 @@ export default function ControlPedidoPage() {
             <h1 className="text-2xl font-semibold">Control de Pedido</h1>
           </div>
           
-          {controlState.isRunning && (
-            <div className="flex items-center">
-              <Timer className="h-5 w-5 mr-2 text-primary" />
-              <span className="font-mono text-lg">
-                {formatTime(controlState.segundos)}
-              </span>
-            </div>
-          )}
+          {/* Eliminado el timer según requerimiento */}
         </div>
         
         {/* Información del Pedido */}
@@ -350,20 +352,12 @@ export default function ControlPedidoPage() {
                   <p className="font-medium">{formatDate(pedido.fecha)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-neutral-500">Estado</p>
-                  <Badge 
-                    className={`
-                      ${pedido.estado === 'completado' 
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : pedido.estado === 'pendiente'
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                      }
-                    `}
-                    variant="outline"
-                  >
-                    {pedido.estado}
-                  </Badge>
+                  <p className="text-sm text-neutral-500">Armador</p>
+                  <p className="font-medium">
+                    {pedido.armadorId 
+                      ? `ID: ${pedido.armadorId}` 
+                      : "-"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-neutral-500">Vendedor</p>
