@@ -437,9 +437,11 @@ export default function ControlPedidoPage() {
                 <div>
                   <p className="text-sm text-neutral-500">Armador</p>
                   <p className="font-medium">
-                    {pedido.armadorNombre 
-                      ? pedido.armadorNombre 
-                      : (pedido.armadorId ? `ID: ${pedido.armadorId}` : "-")}
+                    {pedido.armadorNombre
+                      ? pedido.armadorNombre
+                      : pedido.armador?.username
+                        ? pedido.armador.username
+                        : pedido.armadorId ? `ID: ${pedido.armadorId}` : "-"}
                   </p>
                 </div>
                 <div>
