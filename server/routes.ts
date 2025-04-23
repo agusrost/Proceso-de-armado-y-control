@@ -1554,7 +1554,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Buscar el producto en el pedido
       const productos = await storage.getProductosByPedidoId(pedidoId);
-      const producto = productos.find(p => p.codigo === codigo);
+      
+      // Imprimir para depuración
+      console.log(`Código escaneado: "${codigo}" (${typeof codigo})`);
+      console.log(`Productos disponibles: ${JSON.stringify(productos.map(p => ({ 
+        id: p.id, 
+        codigo: p.codigo, 
+        tipoCodigo: typeof p.codigo 
+      })))}`);
+      
+      // Buscar el producto con más flexibilidad en la comparación
+      const producto = productos.find(p => 
+        p.codigo === codigo || 
+        String(p.codigo) === String(codigo) || 
+        String(p.codigo) === codigo || 
+        p.codigo === Number(codigo)
+      );
+      
+      console.log(`¿Producto encontrado?: ${!!producto}`);
+      if (producto) {
+        console.log(`Producto encontrado: ${JSON.stringify(producto)}`);
+      }
       
       if (!producto) {
         return res.status(404).json({ 
