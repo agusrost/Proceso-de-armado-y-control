@@ -6,81 +6,143 @@ import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pedido, User } from "@shared/schema";
+import { formatDate } from "@/lib/utils";
+import { 
+  Search, 
+  FileX, 
+  ClipboardCheck, 
+  X,
+  Clock,
+  Check,
+  AlertTriangle
+} from "lucide-react";
 import { Link } from "wouter";
-import { ArrowLeft, Search, FileText, Clock, User as UserIcon } from "lucide-react";
-import { formatDate, formatDateTime } from "@/lib/utils";
-import { User } from "@shared/schema";
-import { ControlHistoricoWithDetails, ControlDetalleWithProducto } from "@shared/types";
+import { ControlNav } from "@/components/control/control-nav";
+import { apiRequest } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { ControlHistorico } from "@shared/types";
 
 export default function ControlHistorialPage() {
   const { toast } = useToast();
-  const [filterFecha, setFilterFecha] = useState("");
-  const [filterControl, setFilterControl] = useState<string>("");
-  const [filterResultado, setFilterResultado] = useState<string>("");
   
-  // Cargar usuarios para el filtro
-  const { data: usuarios = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+  // Estado para filtros
+  const [filtroFecha, setFiltroFecha] = useState<string>("");
+  const [filtroResultado, setFiltroResultado] = useState<string>("");
+  
+  // Query para obtener lista de controles
+  const { 
+    data: historicoControles = [], 
+    isLoading: isLoadingHistorico,
+    refetch
+  } = useQuery<ControlHistorico[]>({
+    queryKey: ["/api/control/historial"],
+    queryFn: async () => {
+      // Construir parámetros de filtro
+      const params = new URLSearchParams();
+      if (filtroFecha) params.append("fecha", filtroFecha);
+      if (filtroResultado) params.append("resultado", filtroResultado);
+      
+      const res = await apiRequest("GET", `/api/control/historial?${params.toString()}`);
+      if (!res.ok) throw new Error("Error al cargar historial");
+      return res.json();
+    },
   });
-
-  // Cargar historial de controles con filtros
-  const { data: historialControles = [], isLoading } = useQuery<ControlHistoricoWithDetails[]>({
-    queryKey: [
-      "/api/control/historial", 
-      { 
-        fecha: filterFecha, 
-        controladoPor: filterControl, 
-        resultado: filterResultado
-      }
-    ],
-  });
+  
+  // Aplicar filtros
+  const handleAplicarFiltros = () => {
+    refetch();
+  };
+  
+  // Resetear filtros
+  const handleResetearFiltros = () => {
+    setFiltroFecha("");
+    setFiltroResultado("");
+    setTimeout(() => {
+      refetch();
+    }, 100);
+  };
+  
+  // Formatear resultado
+  const formatResultado = (resultado: string) => {
+    switch (resultado) {
+      case 'completo':
+        return { 
+          text: 'Completo', 
+          className: 'bg-green-100 text-green-800 hover:bg-green-200',
+          icon: <Check className="mr-1 h-3 w-3" />
+        };
+      case 'faltantes':
+        return { 
+          text: 'Faltantes', 
+          className: 'bg-red-100 text-red-800 hover:bg-red-200',
+          icon: <X className="mr-1 h-3 w-3" />
+        };
+      case 'excedentes':
+        return { 
+          text: 'Excedentes', 
+          className: 'bg-amber-100 text-amber-800 hover:bg-amber-200',
+          icon: <AlertTriangle className="mr-1 h-3 w-3" />
+        };
+      case 'en-proceso':
+        return { 
+          text: 'En Proceso', 
+          className: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+          icon: <Clock className="mr-1 h-3 w-3" />
+        };
+      default:
+        return { 
+          text: resultado, 
+          className: '',
+          icon: null
+        };
+    }
+  };
+  
+  // Filtrar registros
+  const historialFiltrado = historicoControles;
 
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center mb-6">
-          <Button variant="outline" size="icon" asChild className="mr-4">
-            <Link to="/control">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-semibold">Historial de Controles</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Historial de Control</h1>
         </div>
+        
+        <ControlNav />
         
         {/* Filtros */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
+          <CardHeader>
+            <CardTitle>Filtros</CardTitle>
+            <CardDescription>
+              Filtra el historial de controles por fecha o resultado
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="filter-fecha">Fecha</Label>
-                <Input 
-                  id="filter-fecha" 
-                  type="date" 
-                  value={filterFecha}
-                  onChange={(e) => setFilterFecha(e.target.value)}
+                <Label htmlFor="filtro-fecha">Fecha</Label>
+                <Input
+                  id="filtro-fecha"
+                  type="date"
+                  value={filtroFecha}
+                  onChange={(e) => setFiltroFecha(e.target.value)}
+                  className="mt-1"
                 />
               </div>
+              
               <div>
-                <Label htmlFor="filter-control">Controlador</Label>
-                <Select value={filterControl} onValueChange={setFilterControl}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
-                    {usuarios.map((usuario) => (
-                      <SelectItem key={usuario.id} value={usuario.id.toString()}>
-                        {usuario.firstName || usuario.username}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="filter-resultado">Resultado</Label>
-                <Select value={filterResultado} onValueChange={setFilterResultado}>
-                  <SelectTrigger>
+                <Label htmlFor="filtro-resultado">Resultado</Label>
+                <Select value={filtroResultado} onValueChange={setFiltroResultado}>
+                  <SelectTrigger id="filtro-resultado" className="mt-1">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -88,99 +150,107 @@ export default function ControlHistorialPage() {
                     <SelectItem value="completo">Completo</SelectItem>
                     <SelectItem value="faltantes">Faltantes</SelectItem>
                     <SelectItem value="excedentes">Excedentes</SelectItem>
+                    <SelectItem value="en-proceso">En Proceso</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              
+              <div className="flex items-end gap-2">
+                <Button 
+                  onClick={handleAplicarFiltros} 
+                  className="flex-1"
+                >
+                  <Search className="mr-2 h-4 w-4" />
+                  Aplicar Filtros
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={handleResetearFiltros}
+                >
+                  Limpiar
+                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        {/* Lista de controles */}
+        {/* Listado de historial */}
         <Card>
           <CardHeader>
-            <CardTitle>Registros de Control</CardTitle>
-            <CardDescription>
-              Historial de controles realizados
-            </CardDescription>
+            <CardTitle>Listado de Controles</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="text-center py-4">Cargando...</div>
-            ) : historialControles.length === 0 ? (
-              <div className="text-center py-4 text-neutral-500">
-                No hay registros de controles que coincidan con los filtros
+            {isLoadingHistorico ? (
+              <div className="text-center py-4">Cargando historial...</div>
+            ) : historialFiltrado.length === 0 ? (
+              <div className="text-center py-12 flex flex-col items-center">
+                <FileX className="h-12 w-12 text-neutral-300 mb-4" />
+                <p className="text-neutral-500">No se encontraron registros de control</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-neutral-200">
                   <thead className="bg-neutral-100">
                     <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">ID</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fecha</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Controlador</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Tiempo</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Resultado</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Tiempo</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-neutral-200">
-                    {historialControles.map((control) => (
-                      <tr key={control.id}>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-neutral-900">
-                          <div className="flex items-center">
-                            <FileText className="h-4 w-4 mr-2 text-neutral-400" />
-                            {control.pedido?.pedidoId || `Pedido #${control.pedidoId}`}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                          <div className="flex items-center">
-                            <Clock className="h-4 w-4 mr-2 text-neutral-400" />
-                            {formatDateTime(control.inicio)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                          <div className="flex items-center">
-                            <UserIcon className="h-4 w-4 mr-2 text-neutral-400" />
-                            {control.controlador
-                              ? (control.controlador.firstName || control.controlador.username)
-                              : `Usuario #${control.controladoPor}`}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                          {control.tiempoTotal || "-"}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span 
-                            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              control.resultado === 'completo' 
-                                ? 'bg-green-100 text-green-800' 
-                                : control.resultado === 'faltantes'
-                                ? 'bg-red-100 text-red-800'
-                                : control.resultado === 'excedentes'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {control.resultado === 'completo' 
-                              ? 'Completo' 
-                              : control.resultado === 'faltantes'
-                              ? 'Faltantes'
-                              : control.resultado === 'excedentes'
-                              ? 'Excedentes'
-                              : control.resultado === 'en-proceso'
-                              ? 'En Proceso'
-                              : control.resultado}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/control/historial/${control.id}`}>
-                              <Search className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {historialFiltrado.map((control) => {
+                      const resultado = formatResultado(control.resultado);
+                      
+                      return (
+                        <tr key={control.id}>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs text-neutral-500">
+                            #{control.id}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-neutral-900">
+                            {control.pedido?.pedidoId || `#${control.pedidoId}`}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            {formatDate(control.fecha)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            {control.controlador ? 
+                              (control.controlador.firstName || control.controlador.username) : 
+                              `Usuario #${control.controladoPor}`
+                            }
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <Badge 
+                              variant="outline" 
+                              className={resultado.className}
+                            >
+                              {resultado.icon}
+                              {resultado.text}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            {control.tiempoTotal || "-"}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="h-8 w-8 p-0"
+                            >
+                              <Link to={`/control/historial/${control.id}`}>
+                                <span className="sr-only">Ver detalles</span>
+                                <Search className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

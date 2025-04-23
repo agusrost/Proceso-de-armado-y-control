@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Pedido } from "@shared/schema";
 import { Search } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { Pedido } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
 
 interface SearchPedidoFormProps {
   onPedidoFound: (pedido: Pedido) => void;
@@ -13,15 +12,14 @@ interface SearchPedidoFormProps {
 }
 
 export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormProps) {
-  const { toast } = useToast();
   const [pedidoId, setPedidoId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!pedidoId.trim()) {
-      onError("Debes ingresar un ID de pedido");
+      onError("Por favor ingresa un ID de pedido válido");
       return;
     }
     
@@ -29,43 +27,48 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
     onError(null);
     
     try {
-      const res = await apiRequest("GET", `/api/pedido/buscar/${pedidoId.trim()}`);
+      const res = await apiRequest("GET", `/api/pedidos/buscar?id=${encodeURIComponent(pedidoId.trim())}`);
       
       if (!res.ok) {
-        const errorData = await res.json();
-        onError(errorData.message || "No se encontró el pedido");
+        if (res.status === 404) {
+          onError("Pedido no encontrado");
+        } else {
+          const errorData = await res.json();
+          onError(errorData.message || "Error al buscar el pedido");
+        }
         return;
       }
       
       const pedido = await res.json();
       onPedidoFound(pedido);
     } catch (error) {
-      toast({
-        title: "Error al buscar pedido",
-        description: "Ocurrió un error al conectar con el servidor",
-        variant: "destructive",
-      });
-      onError("Error de conexión");
+      onError("Error al buscar el pedido");
+      console.error("Error al buscar pedido:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSearch} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-3">
-          <Label htmlFor="pedido-id">ID de Pedido</Label>
+          <Label htmlFor="pedido-id">ID del Pedido</Label>
           <Input
             id="pedido-id"
             value={pedidoId}
             onChange={(e) => setPedidoId(e.target.value)}
-            placeholder="Ingresa el ID o código del pedido"
+            placeholder="Ej: P0001, 12345-A, etc."
+            className="mt-1"
             disabled={isLoading}
           />
         </div>
         <div className="flex items-end">
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || !pedidoId.trim()}
+          >
             {isLoading ? (
               "Buscando..."
             ) : (

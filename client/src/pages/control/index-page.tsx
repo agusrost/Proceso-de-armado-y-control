@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { SearchPedidoForm } from "@/components/control/search-pedido-form";
+import { ControlNav } from "@/components/control/control-nav";
 
 export default function ControlIndexPage() {
   const { toast } = useToast();
@@ -36,21 +37,9 @@ export default function ControlIndexPage() {
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-semibold">Control de Pedidos</h1>
-          <div className="flex space-x-2">
-            <Button variant="outline" asChild>
-              <Link to="/control/historial">
-                <History className="mr-2 h-4 w-4" />
-                Historial
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/control/config">
-                <Cog className="mr-2 h-4 w-4" />
-                Configuración
-              </Link>
-            </Button>
-          </div>
         </div>
+        
+        <ControlNav />
         
         {/* Búsqueda de pedido */}
         <Card className="mb-6">

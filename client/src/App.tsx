@@ -13,6 +13,11 @@ import StockPage from "@/pages/stock-page";
 import ConfigPage from "@/pages/config-page";
 import ArmadoPage from "@/pages/armado-page";
 import ControlPage from "@/pages/control-page";
+import ControlIndexPage from "@/pages/control/index-page";
+import ControlConfigPage from "@/pages/control/config-page";
+import ControlHistorialPage from "@/pages/control/historial-page";
+import ControlHistorialDetallePage from "@/pages/control/historial-detalle-page";
+import ControlPedidoPage from "@/pages/control/pedido-page";
 import MiPerfilPage from "@/pages/mi-perfil-page";
 import ImportarExportarPage from "@/pages/importar-exportar-page";
 
@@ -25,7 +30,15 @@ function Router() {
       <ProtectedRoute path="/stock" component={StockPage} />
       <ProtectedRoute path="/config" component={ConfigPage} />
       <ProtectedRoute path="/armador" component={ArmadoPage} />
-      <ProtectedRoute path="/control" component={ControlPage} />
+      
+      {/* Control module routes */}
+      <ProtectedRoute path="/control" component={ControlIndexPage} />
+      <ProtectedRoute path="/control/config" component={ControlConfigPage} />
+      <ProtectedRoute path="/control/historial" component={ControlHistorialPage} />
+      <ProtectedRoute path="/control/historial/:id" component={ControlHistorialDetallePage} />
+      <ProtectedRoute path="/control/pedido/:id" component={ControlPedidoPage} />
+      <ProtectedRoute path="/control-dashboard" component={ControlPage} />
+      
       <ProtectedRoute path="/mi-perfil" component={MiPerfilPage} />
       <ProtectedRoute path="/importar-exportar" component={ImportarExportarPage} />
       <Route path="/auth" component={AuthPage} />

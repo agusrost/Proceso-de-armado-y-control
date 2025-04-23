@@ -12,6 +12,17 @@ export function formatDate(date: Date | string): string {
   return d.toISOString().split('T')[0];
 }
 
+export function formatDateTime(date: Date | string): string {
+  if (!date) return "";
+  const d = new Date(date);
+  
+  // Formato: YYYY-MM-DD HH:MM
+  const dateStr = d.toISOString().split('T')[0];
+  const timeStr = d.toTimeString().slice(0, 5);
+  
+  return `${dateStr} ${timeStr}`;
+}
+
 export function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
