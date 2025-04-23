@@ -82,7 +82,7 @@ export default function ControlPedidoPage() {
     mutationFn: async () => {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
-      const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/iniciar`);
+      const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/iniciar`, {});
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Error al iniciar control");
