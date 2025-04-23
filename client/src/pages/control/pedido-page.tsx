@@ -308,10 +308,11 @@ export default function ControlPedidoPage() {
     setFinalizarOpen(false);
   };
   
-  // Función para normalizar códigos para comparación
+  // Función mejorada para normalizar y comparar códigos
   const normalizeCode = (code: string | number | null | undefined) => {
     if (code === null || code === undefined) return '';
-    return String(code).toLowerCase().trim();
+    // Convertir a string, eliminar espacios y convertir a minúsculas
+    return String(code).toLowerCase().trim().replace(/\s+/g, '');
   };
   
   // Escanear producto
@@ -322,11 +323,44 @@ export default function ControlPedidoPage() {
     
     // Normalizar el código escaneado
     const normalizedInput = normalizeCode(codigo);
+    console.log("Código normalizado:", normalizedInput);
     
-    // Verificar si el código pertenece al pedido usando comparación normalizada
+    // Verificar si el código pertenece al pedido usando estrategias múltiples de comparación
     const productoEnPedido = controlState.productosControlados.find(p => {
       const normalizedProductCode = normalizeCode(p.codigo);
-      return normalizedProductCode === normalizedInput;
+      console.log(`Comparando con: "${normalizedProductCode}" (${typeof p.codigo})`);
+      
+      // 1. Comparación directa entre valores normalizados como strings
+      if (normalizedProductCode === normalizedInput) {
+        console.log(`✓ Coincidencia exacta normalizada: ${normalizedProductCode} === ${normalizedInput}`);
+        return true;
+      }
+      
+      // 2. Comparación numérica si ambos pueden ser números
+      const numInput = !isNaN(Number(codigo)) ? Number(codigo) : null;
+      const numProductCode = !isNaN(Number(p.codigo)) ? Number(p.codigo) : null;
+      
+      if (numInput !== null && numProductCode !== null && numInput === numProductCode) {
+        console.log(`✓ Coincidencia numérica: ${numInput} === ${numProductCode}`);
+        return true;
+      }
+      
+      // 3. Comparación con prefijos/sufijos - por si hay códigos con ceros a la izquierda o sufijos
+      if (normalizedProductCode.startsWith(normalizedInput) || normalizedInput.startsWith(normalizedProductCode)) {
+        console.log(`✓ Coincidencia parcial (prefijo): ${normalizedProductCode} ~ ${normalizedInput}`);
+        return true;
+      }
+      
+      // 4. Eliminar caracteres no alfanuméricos y volver a comparar
+      const cleanInput = normalizedInput.replace(/[^a-z0-9]/g, '');
+      const cleanProductCode = normalizedProductCode.replace(/[^a-z0-9]/g, '');
+      
+      if (cleanInput === cleanProductCode) {
+        console.log(`✓ Coincidencia limpia: ${cleanInput} === ${cleanProductCode}`);
+        return true;
+      }
+      
+      return false;
     });
     
     console.log("¿Producto encontrado?:", !!productoEnPedido);
