@@ -269,6 +269,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Endpoint para buscar pedidos para control por ID o número de cliente
+  app.get("/api/pedidos/buscar", requireAuth, async (req, res, next) => {
+    try {
+      const { id, clienteId } = req.query;
+      
+      // Si no se proporciona ningún criterio de búsqueda
+      if (!id && !clienteId) {
+        return res.status(400).json({ message: "Debes proporcionar un ID de pedido o número de cliente" });
+      }
+      
+      let pedidos = [];
+      
+      if (id) {
+        // Buscar por el ID de pedido (puede ser el pedidoId o el ID numérico)
+        if (!isNaN(parseInt(id as string))) {
+          // Si es un número, intentar buscar por ID numérico primero
+          const pedidoById = await storage.getPedidoById(parseInt(id as string));
+          if (pedidoById) {
+            return res.json(pedidoById);
+          }
+        }
+        
+        // Si no se encontró por ID numérico o no es un número, buscar por pedidoId
+        pedidos = await storage.getPedidos({ pedidoId: id as string });
+      } else if (clienteId) {
+        // Buscar por número de cliente
+        pedidos = await storage.getPedidos({ clienteId: clienteId as string });
+      }
+      
+      if (pedidos.length === 0) {
+        return res.status(404).json({ message: "No se encontraron pedidos" });
+      }
+      
+      // Si la búsqueda es por ID y hay un solo resultado, devolvemos ese pedido directamente
+      if (id && pedidos.length === 1) {
+        return res.json(pedidos[0]);
+      }
+      
+      // Filtrar solo los pedidos en estado 'completado' que están listos para control
+      const pedidosCompletados = pedidos.filter(p => p.estado === 'completado');
+      
+      // Si hay pedidos completados, devolver esos primero
+      if (pedidosCompletados.length > 0) {
+        return res.json(pedidosCompletados);
+      }
+      
+      // Si no hay ningún pedido completado, devolver todos los encontrados
+      res.json(pedidos);
+    } catch (error) {
+      console.error("Error en búsqueda de pedidos:", error);
+      next(error);
+    }
+  });
+  
   // Obtener pedido por su pedidoId (identificador externo)
   app.get("/api/pedidos/by-pedidoid/:pedidoId", requireAuth, async (req, res, next) => {
     try {
