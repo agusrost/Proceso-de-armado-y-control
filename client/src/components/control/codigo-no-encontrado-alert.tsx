@@ -7,13 +7,15 @@ type CodigoNoEncontradoAlertProps = {
   onOpenChange: (open: boolean) => void;
   codigo: string;
   descripcion?: string;
+  onConfirm?: () => void;
 };
 
 export function CodigoNoEncontradoAlert({
   open,
   onOpenChange,
   codigo,
-  descripcion = "Sin descripción"
+  descripcion = "Sin descripción",
+  onConfirm
 }: CodigoNoEncontradoAlertProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,7 +42,10 @@ export function CodigoNoEncontradoAlert({
         </div>
         
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)}>Aceptar</Button>
+          <Button onClick={() => {
+            if (onConfirm) onConfirm();
+            onOpenChange(false);
+          }}>Aceptar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

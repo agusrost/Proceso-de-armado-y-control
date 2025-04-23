@@ -665,6 +665,21 @@ export default function ControlPedidoPage() {
           hasFaltantes={productosFaltantes > 0}
           hasExcedentes={productosExcedentes > 0}
         />
+        
+        {/* Códigos Registrados */}
+        {controlState.isRunning && controlState.historialEscaneos?.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Códigos Registrados</CardTitle>
+              <CardDescription>
+                Historial de todos los códigos escaneados durante este control
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CodigosRegistradosList productos={controlState.historialEscaneos} />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );

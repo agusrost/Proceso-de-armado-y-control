@@ -105,6 +105,7 @@ export interface ControlState {
   pedidoId: number | null;
   codigoPedido: string | null;
   productosControlados: ProductoControlado[];
+  historialEscaneos: Array<ProductoControlado & { timestamp?: Date; escaneado?: boolean }>;
   segundos: number;
 }
 
