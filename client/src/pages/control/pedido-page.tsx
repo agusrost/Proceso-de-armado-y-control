@@ -55,6 +55,7 @@ export default function ControlPedidoPage() {
     pedidoId: null,
     codigoPedido: null,
     productosControlados: [],
+    historialEscaneos: [],
     segundos: 0
   });
   
@@ -124,6 +125,7 @@ export default function ControlPedidoPage() {
           ubicacion: p.ubicacion || "",
           estado: ""
         })),
+        historialEscaneos: [],
         segundos: 0
       });
       
@@ -177,9 +179,22 @@ export default function ControlPedidoPage() {
           return p;
         });
         
+        // Agregar al historial de escaneos
+        const productoEncontrado = prev.productosControlados.find(p => p.codigo === data.producto.codigo);
+        
+        const nuevoEscaneo = {
+          codigo: data.producto.codigo,
+          cantidad: data.cantidadControlada,
+          descripcion: productoEncontrado?.descripcion || '',
+          timestamp: new Date(),
+          escaneado: true,
+          estado: data.controlEstado
+        };
+        
         return {
           ...prev,
-          productosControlados: updatedProductos
+          productosControlados: updatedProductos,
+          historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
         };
       });
       
@@ -295,6 +310,43 @@ export default function ControlPedidoPage() {
   
   // Escanear producto
   const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
+    // Verificar si el código pertenece al pedido
+    const productoEnPedido = controlState.productosControlados.find(p => p.codigo === codigo);
+    
+    if (!productoEnPedido) {
+      // Mostrar alerta de código no encontrado
+      setCodigoNoEncontrado({
+        codigo,
+        descripcion: "Producto no pertenece a este pedido"
+      });
+      setAlertOpen(true);
+      
+      // Agregar al historial de escaneos incluso si no pertenece al pedido
+      setControlState(prev => ({
+        ...prev,
+        historialEscaneos: [
+          ...prev.historialEscaneos, 
+          {
+            codigo,
+            cantidad: 0,
+            descripcion: "Código no encontrado en este pedido",
+            timestamp: new Date(),
+            escaneado: false
+          }
+        ]
+      }));
+      
+      // Focus de nuevo en el input de escaneo después de cerrar la alerta
+      setTimeout(() => {
+        if (escanerInputRef.current) {
+          escanerInputRef.current.focus();
+        }
+      }, 100);
+      
+      return;
+    }
+    
+    // Si el código es válido, continuar con el escaneo
     escanearProductoMutation.mutate({ codigo, cantidad });
   };
   
@@ -308,6 +360,18 @@ export default function ControlPedidoPage() {
   // Determinar si todos los productos están controlados
   const todosControlados = totalProductos > 0 && 
     controlState.productosControlados.every(p => p.controlado >= p.cantidad);
+  
+  // Handler para confirmar un código no encontrado
+  const handleConfirmNoEncontrado = () => {
+    setAlertOpen(false);
+    
+    // Focus nuevamente en el input
+    setTimeout(() => {
+      if (escanerInputRef.current) {
+        escanerInputRef.current.focus();
+      }
+    }, 100);
+  };
   
   return (
     <MainLayout>
@@ -324,6 +388,15 @@ export default function ControlPedidoPage() {
           
           {/* Eliminado el timer según requerimiento */}
         </div>
+        
+        {/* Alerta de código no encontrado */}
+        <CodigoNoEncontradoAlert
+          open={alertOpen}
+          onOpenChange={setAlertOpen}
+          codigo={codigoNoEncontrado.codigo}
+          descripcion={codigoNoEncontrado.descripcion}
+          onConfirm={handleConfirmNoEncontrado}
+        />
         
         {/* Información del Pedido */}
         <Card className="mb-6">
