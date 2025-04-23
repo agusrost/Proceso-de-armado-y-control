@@ -310,8 +310,16 @@ export default function ControlPedidoPage() {
   
   // Escanear producto
   const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
-    // Verificar si el código pertenece al pedido
-    const productoEnPedido = controlState.productosControlados.find(p => p.codigo === codigo);
+    // Imprimir para depuración
+    console.log("Escaneando código:", codigo);
+    console.log("Productos controlados:", controlState.productosControlados.map(p => p.codigo));
+    
+    // Verificar si el código pertenece al pedido - usamos includes para manejar strings vs numbers
+    const productoEnPedido = controlState.productosControlados.find(p => 
+      p.codigo === codigo || p.codigo === String(codigo) || String(p.codigo) === codigo
+    );
+    
+    console.log("¿Producto encontrado?:", !!productoEnPedido);
     
     if (!productoEnPedido) {
       // Mostrar alerta de código no encontrado
