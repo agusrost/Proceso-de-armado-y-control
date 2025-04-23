@@ -49,11 +49,11 @@ export function ControlNav() {
       </Button>
       
       <Button 
-        variant={getButtonVariant("/control-dashboard")} 
+        variant={getButtonVariant("/control/estadisticas")} 
         size="sm" 
         asChild
       >
-        <Link to="/control-dashboard">
+        <Link to="/control/estadisticas">
           <BarChart3 className="h-4 w-4 mr-2" />
           Estadísticas
         </Link>

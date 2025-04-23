@@ -18,6 +18,7 @@ import ControlConfigPage from "@/pages/control/config-page";
 import ControlHistorialPage from "@/pages/control/historial-page";
 import ControlHistorialDetallePage from "@/pages/control/historial-detalle-page";
 import ControlPedidoPage from "@/pages/control/pedido-page";
+import ControlEstadisticasPage from "@/pages/control/estadisticas-page";
 import MiPerfilPage from "@/pages/mi-perfil-page";
 import ImportarExportarPage from "@/pages/importar-exportar-page";
 
@@ -37,7 +38,7 @@ function Router() {
       <ProtectedRoute path="/control/historial" component={ControlHistorialPage} />
       <ProtectedRoute path="/control/historial/:id" component={ControlHistorialDetallePage} />
       <ProtectedRoute path="/control/pedido/:id" component={ControlPedidoPage} />
-      <ProtectedRoute path="/control-dashboard" component={ControlPage} />
+      <ProtectedRoute path="/control/estadisticas" component={ControlEstadisticasPage} />
       
       <ProtectedRoute path="/mi-perfil" component={MiPerfilPage} />
       <ProtectedRoute path="/importar-exportar" component={ImportarExportarPage} />
