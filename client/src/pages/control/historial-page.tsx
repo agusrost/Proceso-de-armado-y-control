@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -36,10 +36,11 @@ export default function ControlHistorialPage() {
   // Estado para filtros
   const [filtroFecha, setFiltroFecha] = useState<string>("");
   const [filtroResultado, setFiltroResultado] = useState<string>("");
+  const [mostrarSoloFinalizados, setMostrarSoloFinalizados] = useState<boolean>(true);
   
   // Query para obtener lista de controles
   const { 
-    data: historicoControles = [], 
+    data: historicoControlesRaw = [], 
     isLoading: isLoadingHistorico,
     refetch
   } = useQuery<ControlHistorico[]>({
@@ -55,6 +56,13 @@ export default function ControlHistorialPage() {
       return res.json();
     },
   });
+  
+  // Filtrar solo los controles que tienen fecha de fin (están finalizados)
+  const historicoControles = useMemo(() => {
+    return mostrarSoloFinalizados 
+      ? historicoControlesRaw.filter(control => control.fin !== null)
+      : historicoControlesRaw;
+  }, [historicoControlesRaw, mostrarSoloFinalizados]);
   
   // Aplicar filtros
   const handleAplicarFiltros = () => {
@@ -155,21 +163,36 @@ export default function ControlHistorialPage() {
                 </Select>
               </div>
               
-              <div className="flex items-end gap-2">
-                <Button 
-                  onClick={handleAplicarFiltros} 
-                  className="flex-1"
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Aplicar Filtros
-                </Button>
+              <div className="flex flex-col justify-between">
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="solo-finalizados"
+                    checked={mostrarSoloFinalizados}
+                    onChange={(e) => setMostrarSoloFinalizados(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="solo-finalizados" className="text-sm font-medium leading-none">
+                    Solo mostrar controles finalizados
+                  </Label>
+                </div>
                 
-                <Button 
-                  variant="outline" 
-                  onClick={handleResetearFiltros}
-                >
-                  Limpiar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={handleAplicarFiltros} 
+                    className="flex-1"
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    Aplicar Filtros
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={handleResetearFiltros}
+                  >
+                    Limpiar
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>

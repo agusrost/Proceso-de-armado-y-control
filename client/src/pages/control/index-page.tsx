@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -21,10 +21,15 @@ export default function ControlIndexPage() {
   const { toast } = useToast();
 
   // Query para obtener historial de controles recientes
-  const { data: historialControles = [], isLoading: isLoadingHistorial } = useQuery({
+  const { data: historialControlesRaw = [], isLoading: isLoadingHistorial } = useQuery({
     queryKey: ["/api/control/historial"],
     enabled: true,
   });
+  
+  // Filtrar solo los controles que están finalizados (tienen fecha de fin)
+  const historialControles = useMemo(() => {
+    return historialControlesRaw.filter((control: any) => control.fin !== null);
+  }, [historialControlesRaw]);
 
   // State para búsqueda de pedidos
   const [pedidoBuscado, setPedidoBuscado] = useState<Pedido | null>(null);
