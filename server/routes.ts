@@ -11,7 +11,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { comparePasswords, hashPassword } from "./auth";
-import { AccessPermission } from "@shared/types";
+import { AccessPermission, ControlHistoricoWithDetails } from "@shared/types";
 
 // Middleware to check authentication
 function requireAuth(req: Request, res: Response, next: NextFunction) {

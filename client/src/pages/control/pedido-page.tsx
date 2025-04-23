@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Pedido, Producto, User } from "@shared/schema";
-import { ProductoControlado, ControlState } from "@shared/types";
+import { ProductoControlado, ControlState, ControlEstado } from "@shared/types";
 import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
