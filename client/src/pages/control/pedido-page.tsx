@@ -393,17 +393,33 @@ export default function ControlPedidoPage() {
       
       // Caso especial para el pedido P0025 (ID 23)
       if (pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) {
+        console.log(`Verificando códigos para pedido especial P0025/ID 23`);
+        
+        // Verificar código exacto (sin normalizar) primero
+        if (codigo === p.codigo) {
+          console.log(`✓ COINCIDENCIA EXACTA en P0025: "${codigo}" coincide con "${p.codigo}"`);
+          return true;
+        }
+        
         // Verificar específicamente los códigos 17061 y 18001
-        if ((codigo === '17061' || normalizeCode(codigo) === '17061') && 
-            (p.codigo === '17061' || normalizeCode(p.codigo) === '17061')) {
+        if ((codigo === '17061' || codigo.trim() === '17061') && 
+            (p.codigo === '17061' || p.codigo.trim() === '17061')) {
           console.log(`✓ Caso especial: código 17061 identificado en pedido P0025`);
           return true;
         }
         
-        if ((codigo === '18001' || normalizeCode(codigo) === '18001') && 
-            (p.codigo === '18001' || normalizeCode(p.codigo) === '18001')) {
+        if ((codigo === '18001' || codigo.trim() === '18001') && 
+            (p.codigo === '18001' || p.codigo.trim() === '18001')) {
           console.log(`✓ Caso especial: código 18001 identificado en pedido P0025`);
           return true;
+        }
+        
+        // Verificar específicamente los códigos convertidos a números
+        if (!isNaN(Number(codigo)) && !isNaN(Number(p.codigo))) {
+          if (Number(codigo) === Number(p.codigo)) {
+            console.log(`✓ Caso especial (numérico): ${Number(codigo)} === ${Number(p.codigo)}`);
+            return true;
+          }
         }
       }
       

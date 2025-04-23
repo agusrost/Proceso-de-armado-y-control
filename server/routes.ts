@@ -1609,31 +1609,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (pedidoId == '23' || pedido?.pedidoId === 'P0025') {
         console.log(`⚠️ ANÁLISIS ESPECIAL - Pedido P0025: verificando "${codigo}"`);
         
-        // Buscar coincidencia directa para los códigos conocidos del pedido P0025
+        // Imprimir todos los productos para analizar
+        console.log("PRODUCTOS EN P0025:", JSON.stringify(productos.map(p => ({
+          id: p.id,
+          codigo: p.codigo,
+          tipo: typeof p.codigo
+        }))));
+        
+        // Buscar coincidencia directa para TODOS los códigos (sin normalizar primero)
+        for (const producto of productos) {
+          console.log(`Verificando coincidencia exacta: "${codigo}" === "${producto.codigo}"`);
+          
+          // Comparación exacta sin normalizar
+          if (codigo === producto.codigo) {
+            console.log(`✓ COINCIDENCIA EXACTA en P0025: "${codigo}" coincide con "${producto.codigo}"`);
+            return producto;
+          }
+        }
+        
+        // Buscar coincidencia para los códigos conocidos del pedido P0025
         const codigosEspeciales = ['17061', '18001'];
         const codigoNormalizado = normalizeCode(codigo);
         
-        if (codigosEspeciales.includes(codigoNormalizado)) {
-          // Buscar el producto que coincida con este código
-          for (const producto of productos) {
-            const productoNormalizado = normalizeCode(producto.codigo);
-            
-            console.log(`Comparando especial: "${codigoNormalizado}" con "${productoNormalizado}"`);
-            
-            if (productoNormalizado === codigoNormalizado) {
-              console.log(`✓ COINCIDENCIA EN P0025: "${codigo}" coincide con "${producto.codigo}"`);
-              return producto;
-            }
-            
-            // Si ambos son números, compararlos numéricamente
-            if (!isNaN(Number(codigoNormalizado)) && !isNaN(Number(productoNormalizado))) {
-              const numCodigo = Number(codigoNormalizado);
-              const numProducto = Number(productoNormalizado);
+        if (codigosEspeciales.includes(codigoNormalizado) || codigosEspeciales.includes(codigo)) {
+          // Verificar todos los códigos especiales con cada producto
+          for (const productoCodigoEspecial of codigosEspeciales) {
+            if (productoCodigoEspecial === codigo || productoCodigoEspecial === codigoNormalizado) {
+              // Buscar el producto que tenga ese código especial
+              const productoEncontrado = productos.find(p => 
+                p.codigo === productoCodigoEspecial || 
+                normalizeCode(p.codigo) === productoCodigoEspecial
+              );
               
-              if (numCodigo === numProducto) {
-                console.log(`✓ COINCIDENCIA NUMÉRICA: ${numCodigo} === ${numProducto}`);
-                return producto;
+              if (productoEncontrado) {
+                console.log(`✓ COINCIDENCIA CÓDIGO ESPECIAL: "${codigo}" coincide con código especial "${productoCodigoEspecial}"`);
+                return productoEncontrado;
               }
+            }
+          }
+        }
+        
+        // Buscar coincidencia normalizada para todos los productos
+        for (const producto of productos) {
+          const productoNormalizado = normalizeCode(producto.codigo);
+          
+          console.log(`Comparando normalizado en P0025: "${codigoNormalizado}" con "${productoNormalizado}"`);
+          
+          if (productoNormalizado === codigoNormalizado) {
+            console.log(`✓ COINCIDENCIA NORMALIZADA EN P0025: "${codigo}" coincide con "${producto.codigo}"`);
+            return producto;
+          }
+          
+          // Si ambos son números, compararlos numéricamente
+          if (!isNaN(Number(codigoNormalizado)) && !isNaN(Number(productoNormalizado))) {
+            const numCodigo = Number(codigoNormalizado);
+            const numProducto = Number(productoNormalizado);
+            
+            if (numCodigo === numProducto) {
+              console.log(`✓ COINCIDENCIA NUMÉRICA: ${numCodigo} === ${numProducto}`);
+              return producto;
             }
           }
         }
