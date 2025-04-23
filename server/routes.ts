@@ -1284,6 +1284,336 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ================== ENDPOINTS DE CONTROL ==================
+
+  // Endpoint para obtener la configuración de la URL de Google Sheets
+  app.get("/api/control/config/sheets", requireAuth, async (req, res, next) => {
+    try {
+      const config = await storage.getConfiguracionByKey("google_sheets_url");
+      res.json({
+        url: config?.valor || "",
+        descripcion: config?.descripcion || ""
+      });
+    } catch (error) {
+      console.error("Error al obtener configuración de Google Sheets:", error);
+      next(error);
+    }
+  });
+  
+  // Endpoint para guardar la configuración de la URL de Google Sheets
+  app.post("/api/control/config/sheets", requireAccess('config'), async (req, res, next) => {
+    try {
+      const { url, descripcion } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "La URL es requerida" });
+      }
+      
+      let config = await storage.getConfiguracionByKey("google_sheets_url");
+      
+      if (config) {
+        config = await storage.updateConfiguracion(config.id, {
+          valor: url,
+          descripcion: descripcion || "URL de Google Sheets para información de productos",
+          modificadoPor: req.user?.id as number
+        });
+      } else {
+        config = await storage.createConfiguracion({
+          clave: "google_sheets_url",
+          valor: url,
+          descripcion: descripcion || "URL de Google Sheets para información de productos",
+          modificadoPor: req.user?.id as number,
+          ultimaModificacion: new Date()
+        });
+      }
+      
+      res.json(config);
+    } catch (error) {
+      console.error("Error al guardar configuración de Google Sheets:", error);
+      next(error);
+    }
+  });
+  
+  // Iniciar control de pedido
+  app.post("/api/control/pedidos/:pedidoId/iniciar", requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el pedido exista y esté en estado completado
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      if (pedido.estado !== 'completado') {
+        return res.status(400).json({ 
+          message: "Solo se pueden controlar pedidos en estado completado",
+          estado: pedido.estado
+        });
+      }
+      
+      // Verificar si ya hay un control en curso para este pedido
+      if (pedido.controladoId) {
+        // Si el mismo usuario ya lo está controlando, devolvemos la info
+        if (pedido.controladoId === req.user?.id) {
+          return res.json({
+            message: "Control ya iniciado por ti para este pedido",
+            pedido
+          });
+        }
+        
+        // Si otro usuario lo está controlando, error
+        return res.status(400).json({
+          message: "Este pedido ya está siendo controlado por otro usuario"
+        });
+      }
+      
+      // Obtener productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Iniciar el control
+      const ahora = new Date();
+      const pedidoActualizado = await storage.updatePedido(pedidoId, {
+        controladoId: req.user?.id as number,
+        controlInicio: ahora
+      });
+      
+      // Crear registro histórico
+      const controlHistorico = await storage.createControlHistorico({
+        pedidoId,
+        controladoPor: req.user?.id as number,
+        fecha: new Date().toISOString().split('T')[0],
+        inicio: ahora,
+        resultado: 'en-proceso'
+      });
+      
+      res.json({
+        message: "Control iniciado correctamente",
+        pedido: pedidoActualizado,
+        productos,
+        controlHistorico
+      });
+    } catch (error) {
+      console.error("Error al iniciar control de pedido:", error);
+      next(error);
+    }
+  });
+  
+  // Finalizar control de pedido
+  app.post("/api/control/pedidos/:pedidoId/finalizar", requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { comentarios, resultado } = req.body;
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el pedido exista y esté siendo controlado por este usuario
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      if (pedido.controladoId !== req.user?.id) {
+        return res.status(403).json({ 
+          message: "No tienes permiso para finalizar este control o no lo iniciaste tú"
+        });
+      }
+      
+      // Finalizar el control
+      const fin = new Date();
+      const inicio = pedido.controlInicio || new Date();
+      
+      // Calcular tiempo transcurrido
+      const tiempoTranscurrido = fin.getTime() - inicio.getTime();
+      const segundos = Math.floor(tiempoTranscurrido / 1000);
+      const minutos = Math.floor(segundos / 60);
+      const horas = Math.floor(minutos / 60);
+      const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${(minutos % 60).toString().padStart(2, '0')}`;
+      
+      // Actualizar pedido
+      const pedidoActualizado = await storage.updatePedido(pedidoId, {
+        controlFin: fin,
+        controlComentario: comentarios,
+        controlTiempo: tiempoFormateado
+      });
+      
+      // Actualizar control histórico
+      const historicosPedido = await storage.getControlHistoricoByPedidoId(pedidoId);
+      if (historicosPedido.length > 0) {
+        // Encontrar el más reciente
+        const ultimoHistorico = historicosPedido.reduce((ultimo, actual) => {
+          if (!ultimo) return actual;
+          return new Date(actual.inicio) > new Date(ultimo.inicio) ? actual : ultimo;
+        }, null as ControlHistorico | null);
+        
+        if (ultimoHistorico) {
+          await storage.updateControlHistorico(ultimoHistorico.id, {
+            fin,
+            comentarios,
+            tiempoTotal: tiempoFormateado,
+            resultado: resultado || 'completo'
+          });
+        }
+      }
+      
+      res.json({
+        message: "Control finalizado correctamente",
+        pedido: pedidoActualizado,
+        tiempoControl: tiempoFormateado
+      });
+    } catch (error) {
+      console.error("Error al finalizar control de pedido:", error);
+      next(error);
+    }
+  });
+  
+  // Registrar código escaneado en control
+  app.post("/api/control/pedidos/:pedidoId/escanear", requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { codigo, cantidad } = req.body;
+      
+      if (isNaN(pedidoId) || !codigo) {
+        return res.status(400).json({ message: "ID de pedido y código son requeridos" });
+      }
+      
+      // Verificar que el pedido exista y esté siendo controlado por este usuario
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      if (pedido.controladoId !== req.user?.id) {
+        return res.status(403).json({ 
+          message: "No tienes permiso para controlar este pedido o no lo iniciaste tú"
+        });
+      }
+      
+      // Buscar el producto en el pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      const producto = productos.find(p => p.codigo === codigo);
+      
+      if (!producto) {
+        return res.status(404).json({ 
+          message: "El código escaneado no pertenece a este pedido",
+          codigo,
+          pedidoId
+        });
+      }
+      
+      // Obtener la cantidad controlada actual
+      const cantidadControlada = (producto.controlado || 0) + (cantidad || 1);
+      
+      // Determinar el estado del control
+      let controlEstado: 'faltante' | 'correcto' | 'excedente';
+      if (cantidadControlada < producto.cantidad) {
+        controlEstado = 'faltante';
+      } else if (cantidadControlada === producto.cantidad) {
+        controlEstado = 'correcto';
+      } else {
+        controlEstado = 'excedente';
+      }
+      
+      // Actualizar el producto
+      const productoActualizado = await storage.updateProducto(producto.id, {
+        controlado: cantidadControlada,
+        controlEstado
+      });
+      
+      // Registrar en el histórico de control
+      const historicosPedido = await storage.getControlHistoricoByPedidoId(pedidoId);
+      if (historicosPedido.length > 0) {
+        // Encontrar el más reciente
+        const ultimoHistorico = historicosPedido.reduce((ultimo, actual) => {
+          if (!ultimo) return actual;
+          return new Date(actual.inicio) > new Date(ultimo.inicio) ? actual : ultimo;
+        }, null as ControlHistorico | null);
+        
+        if (ultimoHistorico) {
+          // Verificar si ya hay un detalle para este producto
+          const detalles = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+          const detalleExistente = detalles.find(d => d.codigo === codigo);
+          
+          if (detalleExistente) {
+            // Actualizar detalle existente
+            await storage.updateControlDetalle(detalleExistente.id, {
+              cantidadControlada,
+              estado: controlEstado
+            });
+          } else {
+            // Crear nuevo detalle
+            await storage.createControlDetalle({
+              controlId: ultimoHistorico.id,
+              productoId: producto.id,
+              codigo,
+              cantidadEsperada: producto.cantidad,
+              cantidadControlada,
+              estado: controlEstado,
+              timestamp: new Date()
+            });
+          }
+        }
+      }
+      
+      // Verificar si todos los productos están controlados
+      const todosProductos = await storage.getProductosByPedidoId(pedidoId);
+      const todosControlados = todosProductos.every(p => (p.controlado || 0) >= p.cantidad);
+      
+      res.json({
+        message: "Código escaneado registrado correctamente",
+        producto: productoActualizado,
+        todosControlados,
+        cantidadControlada,
+        controlEstado
+      });
+    } catch (error) {
+      console.error("Error al escanear código en control:", error);
+      next(error);
+    }
+  });
+  
+  // Obtener historial de controles
+  app.get("/api/control/historial", requireAuth, async (req, res, next) => {
+    try {
+      // Parámetros de filtrado opcionales
+      const { fecha, controladoPor, resultado } = req.query;
+      
+      const historicos = await storage.getControlHistorico({
+        fecha: fecha as string,
+        controladoPor: controladoPor ? parseInt(controladoPor as string) : undefined,
+        resultado: resultado as string
+      });
+      
+      // Enriquecer con información adicional
+      const historicoDetallado = await Promise.all(historicos.map(async (historico) => {
+        const pedido = await storage.getPedidoById(historico.pedidoId);
+        const controlador = historico.controladoPor ? await storage.getUser(historico.controladoPor) : undefined;
+        const detalles = await storage.getControlDetalleByControlId(historico.id);
+        
+        return {
+          ...historico,
+          pedido,
+          controlador,
+          detalles
+        };
+      }));
+      
+      res.json(historicoDetallado);
+    } catch (error) {
+      console.error("Error al obtener historial de controles:", error);
+      next(error);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

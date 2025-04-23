@@ -1,8 +1,16 @@
 import { IStorage } from './storage';
 import { db } from './db';
-import { User, Pedido, Producto, Pausa, StockSolicitud, InsertUser, InsertPedido, InsertProducto, InsertPausa, InsertStockSolicitud } from '@shared/schema';
+import { 
+  User, Pedido, Producto, Pausa, StockSolicitud, 
+  InsertUser, InsertPedido, InsertProducto, InsertPausa, InsertStockSolicitud,
+  ControlHistorico, InsertControlHistorico, ControlDetalle, InsertControlDetalle,
+  Configuracion, InsertConfiguracion
+} from '@shared/schema';
 import { asc, eq, desc, and, like, gte, lte, isNull, or, sql } from 'drizzle-orm';
-import { users, pedidos, productos, pausas, stockSolicitudes } from '@shared/schema';
+import { 
+  users, pedidos, productos, pausas, stockSolicitudes,
+  controlHistorico, controlDetalle, configuracion
+} from '@shared/schema';
 import session from 'express-session';
 import connectPg from 'connect-pg-simple';
 import { pool } from './db';
@@ -366,5 +374,137 @@ export class DatabaseStorage implements IStorage {
       console.error('Error al eliminar usuario:', error);
       return false;
     }
+  }
+  
+  // Control Histórico methods
+  async createControlHistorico(controlHistoricoData: InsertControlHistorico): Promise<ControlHistorico> {
+    const [historico] = await db
+      .insert(controlHistorico)
+      .values(controlHistoricoData)
+      .returning();
+    return historico;
+  }
+  
+  async getControlHistoricoById(id: number): Promise<ControlHistorico | undefined> {
+    const [historico] = await db
+      .select()
+      .from(controlHistorico)
+      .where(eq(controlHistorico.id, id));
+    return historico;
+  }
+  
+  async getControlHistoricoByPedidoId(pedidoId: number): Promise<ControlHistorico[]> {
+    return db
+      .select()
+      .from(controlHistorico)
+      .where(eq(controlHistorico.pedidoId, pedidoId))
+      .orderBy(desc(controlHistorico.inicio));
+  }
+  
+  async getControlHistorico(filters: { fecha?: string, controladoPor?: number, resultado?: string }): Promise<ControlHistorico[]> {
+    let query = db.select().from(controlHistorico);
+    
+    if (filters.fecha) {
+      query = query.where(
+        sql`DATE(${controlHistorico.fecha}) = ${filters.fecha}`
+      );
+    }
+    
+    if (filters.controladoPor) {
+      query = query.where(eq(controlHistorico.controladoPor, filters.controladoPor));
+    }
+    
+    if (filters.resultado) {
+      query = query.where(eq(controlHistorico.resultado, filters.resultado));
+    }
+    
+    // Ordenar por fecha e inicio descendente (más reciente primero)
+    query = query.orderBy(desc(controlHistorico.fecha), desc(controlHistorico.inicio));
+    
+    return query;
+  }
+  
+  async updateControlHistorico(id: number, data: Partial<ControlHistorico>): Promise<ControlHistorico | undefined> {
+    const [historico] = await db
+      .update(controlHistorico)
+      .set(data)
+      .where(eq(controlHistorico.id, id))
+      .returning();
+    return historico;
+  }
+  
+  // Control Detalle methods
+  async createControlDetalle(detalle: InsertControlDetalle): Promise<ControlDetalle> {
+    const [controlDetItem] = await db
+      .insert(controlDetalle)
+      .values(detalle)
+      .returning();
+    return controlDetItem;
+  }
+  
+  async getControlDetalleById(id: number): Promise<ControlDetalle | undefined> {
+    const [detalle] = await db
+      .select()
+      .from(controlDetalle)
+      .where(eq(controlDetalle.id, id));
+    return detalle;
+  }
+  
+  async getControlDetalleByControlId(controlId: number): Promise<ControlDetalle[]> {
+    return db
+      .select()
+      .from(controlDetalle)
+      .where(eq(controlDetalle.controlId, controlId));
+  }
+  
+  async updateControlDetalle(id: number, data: Partial<ControlDetalle>): Promise<ControlDetalle | undefined> {
+    const [detalle] = await db
+      .update(controlDetalle)
+      .set(data)
+      .where(eq(controlDetalle.id, id))
+      .returning();
+    return detalle;
+  }
+  
+  // Configuración methods
+  async createConfiguracion(config: InsertConfiguracion): Promise<Configuracion> {
+    // Asegurar que se establezca la fecha de modificación
+    if (!config.ultimaModificacion) {
+      config.ultimaModificacion = new Date();
+    }
+    
+    const [configItem] = await db
+      .insert(configuracion)
+      .values(config)
+      .returning();
+    return configItem;
+  }
+  
+  async getConfiguracionById(id: number): Promise<Configuracion | undefined> {
+    const [config] = await db
+      .select()
+      .from(configuracion)
+      .where(eq(configuracion.id, id));
+    return config;
+  }
+  
+  async getConfiguracionByKey(clave: string): Promise<Configuracion | undefined> {
+    const [config] = await db
+      .select()
+      .from(configuracion)
+      .where(eq(configuracion.clave, clave));
+    return config;
+  }
+  
+  async updateConfiguracion(id: number, data: Partial<Configuracion>): Promise<Configuracion | undefined> {
+    // Actualizar la fecha de modificación
+    data.ultimaModificacion = new Date();
+    
+    const [config] = await db
+      .update(configuracion)
+      .set(data)
+      .where(eq(configuracion.id, id))
+      .returning();
+    return config;
   }
 }

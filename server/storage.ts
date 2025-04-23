@@ -1,9 +1,12 @@
 import { 
   User, InsertUser, Pedido, InsertPedido,
   Pausa, InsertPausa, Producto, InsertProducto,
-  StockSolicitud, InsertStockSolicitud
+  StockSolicitud, InsertStockSolicitud,
+  ControlHistorico, InsertControlHistorico,
+  ControlDetalle, InsertControlDetalle,
+  Configuracion, InsertConfiguracion
 } from "@shared/schema";
-import { UserRole } from "@shared/types";
+import { UserRole, ControlResultado } from "@shared/types";
 import session from "express-session";
 
 // Define the storage interface with all required methods
@@ -47,6 +50,25 @@ export interface IStorage {
   getStockSolicitudById(id: number): Promise<StockSolicitud | undefined>;
   getStockSolicitudes(filters: { fecha?: string, estado?: string, motivo?: string, solicitadoPor?: number }): Promise<StockSolicitud[]>;
   updateStockSolicitud(id: number, solicitudData: Partial<StockSolicitud>): Promise<StockSolicitud | undefined>;
+  
+  // Control methods
+  createControlHistorico(controlHistorico: InsertControlHistorico): Promise<ControlHistorico>;
+  getControlHistoricoById(id: number): Promise<ControlHistorico | undefined>;
+  getControlHistoricoByPedidoId(pedidoId: number): Promise<ControlHistorico[]>;
+  getControlHistorico(filters: { fecha?: string, controladoPor?: number, resultado?: string }): Promise<ControlHistorico[]>;
+  updateControlHistorico(id: number, data: Partial<ControlHistorico>): Promise<ControlHistorico | undefined>;
+  
+  // Control Detalle methods
+  createControlDetalle(detalle: InsertControlDetalle): Promise<ControlDetalle>;
+  getControlDetalleById(id: number): Promise<ControlDetalle | undefined>;
+  getControlDetalleByControlId(controlId: number): Promise<ControlDetalle[]>;
+  updateControlDetalle(id: number, data: Partial<ControlDetalle>): Promise<ControlDetalle | undefined>;
+  
+  // Configuración methods
+  createConfiguracion(config: InsertConfiguracion): Promise<Configuracion>;
+  getConfiguracionById(id: number): Promise<Configuracion | undefined>;
+  getConfiguracionByKey(clave: string): Promise<Configuracion | undefined>;
+  updateConfiguracion(id: number, data: Partial<Configuracion>): Promise<Configuracion | undefined>;
 }
 
 export class MemStorage implements IStorage {
