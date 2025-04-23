@@ -60,18 +60,22 @@ export default function ControlPedidoPage() {
     error: pedidoError
   } = useQuery<Pedido>({
     queryKey: ["/api/pedidos", pedidoId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/pedidos/${pedidoId}`);
+      return res.json();
+    },
     enabled: !!pedidoId,
   });
   
   // Cargar productos del pedido
   const { 
     data: productos = [], 
-    isLoading: isLoadingProductos 
+    isLoading: isLoadingProductos,
+    error: productosError
   } = useQuery<Producto[]>({
     queryKey: ["/api/pedidos", pedidoId, "productos"],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/pedidos/${pedidoId}/productos`);
-      if (!res.ok) throw new Error("Error al cargar productos");
       return res.json();
     },
     enabled: !!pedidoId,
