@@ -308,16 +308,26 @@ export default function ControlPedidoPage() {
     setFinalizarOpen(false);
   };
   
+  // Función para normalizar códigos para comparación
+  const normalizeCode = (code: string | number | null | undefined) => {
+    if (code === null || code === undefined) return '';
+    return String(code).toLowerCase().trim();
+  };
+  
   // Escanear producto
   const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
     // Imprimir para depuración
     console.log("Escaneando código:", codigo);
     console.log("Productos controlados:", controlState.productosControlados.map(p => p.codigo));
     
-    // Verificar si el código pertenece al pedido - usamos includes para manejar strings vs numbers
-    const productoEnPedido = controlState.productosControlados.find(p => 
-      p.codigo === codigo || p.codigo === String(codigo) || String(p.codigo) === codigo
-    );
+    // Normalizar el código escaneado
+    const normalizedInput = normalizeCode(codigo);
+    
+    // Verificar si el código pertenece al pedido usando comparación normalizada
+    const productoEnPedido = controlState.productosControlados.find(p => {
+      const normalizedProductCode = normalizeCode(p.codigo);
+      return normalizedProductCode === normalizedInput;
+    });
     
     console.log("¿Producto encontrado?:", !!productoEnPedido);
     
