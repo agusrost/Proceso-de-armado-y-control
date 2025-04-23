@@ -923,11 +923,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/stock", requireAuth, async (req, res, next) => {
     try {
+      // Formatear la fecha como string en formato ISO para que sea compatible con el schema
+      const today = new Date();
+      const fechaFormatted = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+      
       const validation = insertStockSolicitudSchema.safeParse({
         ...req.body,
         solicitadoPor: req.user.id,
-        fecha: new Date(),
-        horario: new Date()
+        fecha: fechaFormatted,
+        horario: today
       });
       
       if (!validation.success) {
