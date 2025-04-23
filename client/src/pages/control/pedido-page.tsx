@@ -329,9 +329,11 @@ export default function ControlPedidoPage() {
           {
             codigo,
             cantidad: 0,
+            controlado: 0,
             descripcion: "Código no encontrado en este pedido",
             timestamp: new Date(),
-            escaneado: false
+            escaneado: false,
+            estado: 'excedente'
           }
         ]
       }));
