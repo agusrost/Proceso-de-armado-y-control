@@ -17,7 +17,7 @@ export const pedidos = pgTable("pedidos", {
   id: serial("id").primaryKey(),
   pedidoId: text("pedido_id").notNull().unique(), // PED-001 format
   clienteId: text("cliente_id").notNull(),
-  fecha: date("fecha").notNull().default(new Date()),
+  fecha: date("fecha").notNull(),
   items: integer("items").notNull(),
   totalProductos: integer("total_productos").notNull(),
   vendedor: text("vendedor"),
@@ -30,6 +30,11 @@ export const pedidos = pgTable("pedidos", {
   inicio: timestamp("inicio"),
   finalizado: timestamp("finalizado"),
   rawText: text("raw_text").notNull(),
+  controladoId: integer("controlado_id").references(() => users.id),
+  controlInicio: timestamp("control_inicio"),
+  controlFin: timestamp("control_fin"),
+  controlComentario: text("control_comentario"),
+  controlTiempo: text("control_tiempo"), // formato HH:MM
 });
 
 export const pausas = pgTable("pausas", {
@@ -50,6 +55,8 @@ export const productos = pgTable("productos", {
   ubicacion: text("ubicacion").default(""),
   recolectado: integer("recolectado").default(0),
   motivo: text("motivo"),
+  controlado: integer("controlado").default(0), // Cantidad controlada
+  controlEstado: text("control_estado"), // Estado de control: faltante, correcto, excedente
 }, (table) => {
   return {
     pedidoIdx: index("productos_pedido_idx").on(table.pedidoId),
@@ -59,8 +66,8 @@ export const productos = pgTable("productos", {
 
 export const stockSolicitudes = pgTable("stock_solicitudes", {
   id: serial("id").primaryKey(),
-  fecha: date("fecha").notNull().default(new Date()),
-  horario: timestamp("horario").notNull().default(new Date()),
+  fecha: date("fecha").notNull(),
+  horario: timestamp("horario").notNull(),
   codigo: text("codigo").notNull(),
   cantidad: integer("cantidad").notNull(),
   motivo: text("motivo").notNull(),
@@ -70,12 +77,47 @@ export const stockSolicitudes = pgTable("stock_solicitudes", {
   solicitante: text("solicitante"), // Para guardar nombre de quien solicita (usuario Administración Gral)
 });
 
+export const controlHistorico = pgTable("control_historico", {
+  id: serial("id").primaryKey(),
+  pedidoId: integer("pedido_id").notNull().references(() => pedidos.id),
+  controladoPor: integer("controlado_por").notNull().references(() => users.id),
+  fecha: date("fecha").notNull(),
+  inicio: timestamp("inicio").notNull(),
+  fin: timestamp("fin"),
+  tiempoTotal: text("tiempo_total"), // formato HH:MM
+  comentarios: text("comentarios"),
+  resultado: text("resultado").notNull(), // completo, faltantes, excedentes
+});
+
+export const controlDetalle = pgTable("control_detalle", {
+  id: serial("id").primaryKey(),
+  controlId: integer("control_id").notNull().references(() => controlHistorico.id),
+  productoId: integer("producto_id").references(() => productos.id),
+  codigo: text("codigo").notNull(),
+  cantidadEsperada: integer("cantidad_esperada").notNull(),
+  cantidadControlada: integer("cantidad_controlada").notNull(),
+  estado: text("estado").notNull(), // faltante, correcto, excedente
+  timestamp: timestamp("timestamp").notNull(),
+});
+
+export const configuracion = pgTable("configuracion", {
+  id: serial("id").primaryKey(),
+  clave: text("clave").notNull().unique(),
+  valor: text("valor").notNull(),
+  descripcion: text("descripcion"),
+  ultimaModificacion: timestamp("ultima_modificacion").notNull(),
+  modificadoPor: integer("modificado_por").references(() => users.id),
+});
+
 // Schemas for validation and insertion
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertPedidoSchema = createInsertSchema(pedidos).omit({ id: true });
 export const insertPausaSchema = createInsertSchema(pausas).omit({ id: true, fin: true, duracion: true, inicio: true });
 export const insertProductoSchema = createInsertSchema(productos).omit({ id: true });
 export const insertStockSolicitudSchema = createInsertSchema(stockSolicitudes).omit({ id: true });
+export const insertControlHistoricoSchema = createInsertSchema(controlHistorico).omit({ id: true, fin: true, tiempoTotal: true });
+export const insertControlDetalleSchema = createInsertSchema(controlDetalle).omit({ id: true });
+export const insertConfiguracionSchema = createInsertSchema(configuracion).omit({ id: true, ultimaModificacion: true });
 
 // Login schema
 export const loginSchema = z.object({
@@ -110,3 +152,12 @@ export type Producto = typeof productos.$inferSelect;
 
 export type InsertStockSolicitud = z.infer<typeof insertStockSolicitudSchema>;
 export type StockSolicitud = typeof stockSolicitudes.$inferSelect;
+
+export type InsertControlHistorico = z.infer<typeof insertControlHistoricoSchema>;
+export type ControlHistorico = typeof controlHistorico.$inferSelect;
+
+export type InsertControlDetalle = z.infer<typeof insertControlDetalleSchema>;
+export type ControlDetalle = typeof controlDetalle.$inferSelect;
+
+export type InsertConfiguracion = z.infer<typeof insertConfiguracionSchema>;
+export type Configuracion = typeof configuracion.$inferSelect;
