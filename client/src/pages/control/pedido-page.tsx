@@ -437,9 +437,9 @@ export default function ControlPedidoPage() {
                 <div>
                   <p className="text-sm text-neutral-500">Armador</p>
                   <p className="font-medium">
-                    {pedido.armadorId 
-                      ? `ID: ${pedido.armadorId}` 
-                      : "-"}
+                    {pedido.armadorNombre 
+                      ? pedido.armadorNombre 
+                      : (pedido.armadorId ? `ID: ${pedido.armadorId}` : "-")}
                   </p>
                 </div>
                 <div>

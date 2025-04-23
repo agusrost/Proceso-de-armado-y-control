@@ -360,8 +360,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get armador info if available
       let armador = null;
+      let armadorNombre = null;
       if (pedido.armadorId) {
         armador = await storage.getUser(pedido.armadorId);
+        if (armador) {
+          armadorNombre = armador.username;
+        }
       }
       
       // Calcular el número de pausas
@@ -372,6 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         productos,
         pausas,
         armador,
+        armadorNombre,
         numeroPausas
       });
     } catch (error) {
@@ -1563,13 +1568,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tipoCodigo: typeof p.codigo 
       })))}`);
       
-      // Buscar el producto con más flexibilidad en la comparación
-      const producto = productos.find(p => 
-        p.codigo === codigo || 
-        String(p.codigo) === String(codigo) || 
-        String(p.codigo) === codigo || 
-        p.codigo === Number(codigo)
-      );
+      // Normalizar códigos para comparación estricta (sin espacios, en minúsculas)
+      const normalizeCode = (code: string | number) => {
+        const strCode = String(code).toLowerCase().trim();
+        return strCode;
+      };
+      
+      const normalizedInput = normalizeCode(codigo);
+      
+      // Buscar el producto con comparación normalizada
+      const producto = productos.find(p => {
+        const normalizedProductCode = normalizeCode(p.codigo);
+        
+        // Comparación directa entre valores normalizados
+        if (normalizedProductCode === normalizedInput) {
+          return true;
+        }
+        
+        // Intentar como número si es posible
+        const numInput = !isNaN(Number(codigo)) ? Number(codigo) : null;
+        const numProductCode = !isNaN(Number(p.codigo)) ? Number(p.codigo) : null;
+        
+        if (numInput !== null && numProductCode !== null && numInput === numProductCode) {
+          return true;
+        }
+        
+        return false;
+      });
       
       console.log(`¿Producto encontrado?: ${!!producto}`);
       if (producto) {
@@ -1661,21 +1686,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parámetros de filtrado opcionales
       const { fecha, controladoPor, resultado } = req.query;
       
+      // Obtener todos los históricos según los filtros
       const historicos = await storage.getControlHistorico({
         fecha: fecha as string,
         controladoPor: controladoPor ? parseInt(controladoPor as string) : undefined,
         resultado: resultado as string
       });
       
+      // Filtrar solo los que tienen fecha de fin (controles finalizados)
+      const historicosFiltrados = historicos.filter(historico => historico.fin !== null);
+      
+      console.log(`Total de controles: ${historicos.length}, Finalizados: ${historicosFiltrados.length}`);
+      
       // Enriquecer con información adicional
-      const historicoDetallado = await Promise.all(historicos.map(async (historico) => {
+      const historicoDetallado = await Promise.all(historicosFiltrados.map(async (historico) => {
         const pedido = await storage.getPedidoById(historico.pedidoId);
         const controlador = historico.controladoPor ? await storage.getUser(historico.controladoPor) : undefined;
         const detalles = await storage.getControlDetalleByControlId(historico.id);
         
+        // Obtener nombre del armador si existe
+        let armadorNombre = null;
+        if (pedido && pedido.armadorId) {
+          const armador = await storage.getUser(pedido.armadorId);
+          if (armador) {
+            armadorNombre = armador.username;
+          }
+        }
+        
         return {
           ...historico,
-          pedido,
+          pedido: pedido ? {
+            ...pedido,
+            armadorNombre
+          } : null,
           controlador,
           detalles
         };
