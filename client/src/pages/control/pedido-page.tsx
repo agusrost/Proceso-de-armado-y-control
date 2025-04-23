@@ -118,7 +118,8 @@ export default function ControlPedidoPage() {
         codigoPedido: data.pedido?.pedidoId || null,
         productosControlados: productos.map(p => ({
           id: p.id,
-          codigo: p.codigo,
+          // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
+          codigo: p.codigo ? String(p.codigo).trim() : "",
           cantidad: p.cantidad,
           controlado: 0,
           descripcion: p.descripcion,

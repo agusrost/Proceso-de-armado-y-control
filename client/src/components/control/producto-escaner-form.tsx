@@ -23,7 +23,15 @@ export function ProductoEscanerForm({
     e.preventDefault();
     
     if (codigo.trim()) {
-      onEscanear(codigo.trim(), cantidad);
+      // Hacemos log del valor exacto que se está enviando para depuración
+      console.log("Enviando código para escaneo:", codigo.trim(), "tipo:", typeof codigo);
+      
+      // Normalizamos el código antes de enviarlo
+      const normalizedCode = codigo.trim().toLowerCase();
+      console.log("Código normalizado:", normalizedCode);
+      
+      // Enviamos el código normalizado
+      onEscanear(normalizedCode, cantidad);
       setCodigo("");
     }
   };
