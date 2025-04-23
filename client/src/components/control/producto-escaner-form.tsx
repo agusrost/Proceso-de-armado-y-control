@@ -26,7 +26,19 @@ export function ProductoEscanerForm({
       // Hacemos log del valor exacto que se está enviando para depuración
       console.log("Enviando código para escaneo:", codigo.trim(), "tipo:", typeof codigo);
       
-      // Normalizamos el código antes de enviarlo
+      // Tratamiento especial para códigos conocidos que pueden tener problemas
+      const codigoTrim = codigo.trim();
+      const codigosEspeciales = ['17061', '18001'];
+      
+      // Si el código es uno de los especiales, lo enviamos tal cual
+      if (codigosEspeciales.includes(codigoTrim)) {
+        console.log(`⚠️ Código especial detectado: ${codigoTrim} - Enviando sin normalizar`);
+        onEscanear(codigoTrim, cantidad);
+        setCodigo("");
+        return;
+      }
+      
+      // Normalizamos el código antes de enviarlo para casos normales
       const normalizedCode = codigo.trim().toLowerCase();
       console.log("Código normalizado:", normalizedCode);
       

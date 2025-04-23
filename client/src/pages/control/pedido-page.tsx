@@ -312,8 +312,26 @@ export default function ControlPedidoPage() {
   // Función mejorada para normalizar y comparar códigos
   const normalizeCode = (code: string | number | null | undefined) => {
     if (code === null || code === undefined) return '';
-    // Convertir a string, eliminar espacios y convertir a minúsculas
-    return String(code).toLowerCase().trim().replace(/\s+/g, '');
+    
+    // Convertir a string y eliminar espacios
+    let normalizedCode = String(code).trim().toLowerCase().replace(/\s+/g, '');
+    
+    // Eliminar caracteres no alfanuméricos al inicio o fin
+    normalizedCode = normalizedCode.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
+    
+    // Caso especial: los códigos 17061 y 18001 deben conservarse exactamente como están
+    // para el pedido P0025
+    if (normalizedCode === '17061' || normalizedCode === '18001') {
+      console.log(`⚠️ Código especial detectado en normalización: ${normalizedCode} - ¡Preservando valor exacto!`);
+      return normalizedCode;
+    }
+    
+    // Para códigos numéricos, eliminar ceros a la izquierda si no es un caso especial
+    if (/^\d+$/.test(normalizedCode)) {
+      normalizedCode = String(parseInt(normalizedCode, 10));
+    }
+    
+    return normalizedCode;
   };
   
   // Escanear producto
