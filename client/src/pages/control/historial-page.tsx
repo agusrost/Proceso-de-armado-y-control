@@ -28,7 +28,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { ControlHistorico } from "@shared/types";
+import { ControlHistoricoWithDetails as ControlHistorico } from "@shared/types";
 
 export default function ControlHistorialPage() {
   const { toast } = useToast();

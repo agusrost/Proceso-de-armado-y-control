@@ -174,7 +174,6 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                     <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">ID</th>
                     <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
                     <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Finalizado</th>
-                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Estado</th>
                     <th scope="col" className="px-3 py-2 text-xs font-medium text-neutral-500"></th>
                   </tr>
                 </thead>
@@ -185,12 +184,6 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                       <td className="px-3 py-2 text-sm text-neutral-700">{pedido.clienteId}</td>
                       <td className="px-3 py-2 text-sm text-neutral-700">
                         {pedido.finalizado ? formatDate(pedido.finalizado) : "-"}
-                      </td>
-                      <td className="px-3 py-2 text-sm">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full 
-                          ${pedido.estado === 'completado' ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-800'}`}>
-                          {pedido.estado}
-                        </span>
                       </td>
                       <td className="px-3 py-2 text-sm text-right">
                         {pedido.estado === 'completado' ? (
@@ -229,7 +222,7 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                     <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">ID</th>
                     <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
                     <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Finalizado</th>
-                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Items</th>
+                    <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Armado por</th>
                     <th scope="col" className="px-3 py-2 text-xs font-medium text-neutral-500"></th>
                   </tr>
                 </thead>
@@ -241,7 +234,7 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                       <td className="px-3 py-2 text-sm text-neutral-700">
                         {pedido.finalizado ? formatDate(pedido.finalizado) : "-"}
                       </td>
-                      <td className="px-3 py-2 text-sm text-neutral-700">{pedido.items}</td>
+                      <td className="px-3 py-2 text-sm text-neutral-700">{pedido.armador || "-"}</td>
                       <td className="px-3 py-2 text-sm text-right">
                         <Button size="sm" variant="outline" asChild>
                           <Link to={`/control/pedido/${pedido.id}`}>
