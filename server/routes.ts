@@ -1544,8 +1544,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "ID de pedido y código son requeridos" });
       }
       
+      console.log(`⚠️ ESCANEO - Verificando pedido: ID=${pedidoId}, Código a escanear: ${codigo}, Cantidad: ${cantidad || 1}`);
+      
       // Verificar que el pedido exista y esté siendo controlado por este usuario
       const pedido = await storage.getPedidoById(pedidoId);
+      
+      console.log(`✓ Pedido encontrado: ${pedido ? `ID=${pedido.id}, pedidoId=${pedido.pedidoId}, cliente=${pedido.clienteId}` : 'No encontrado'}`);
       
       if (!pedido) {
         return res.status(404).json({ message: "Pedido no encontrado" });

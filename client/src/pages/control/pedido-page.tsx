@@ -468,6 +468,16 @@ export default function ControlPedidoPage() {
     
     console.log("¿Producto encontrado?:", !!productoEnPedido);
     
+    // Registro detallado para entender la relación entre IDs del pedido
+    console.log("Detalles del pedido:", {
+      id_interno: pedido?.id, // Este es el ID en la base de datos (número)
+      id_visual: pedido?.pedidoId, // Este es el ID visible para usuarios (ej: "P0025")
+      id_en_estado: controlState.pedidoId, // Este es el ID que se usa en el estado
+      clienteId: pedido?.clienteId,
+      codigo_buscado: codigo,
+      productos_total: controlState.productosControlados.length
+    });
+    
     if (!productoEnPedido) {
       // Mostrar alerta de código no encontrado
       setCodigoNoEncontrado({
