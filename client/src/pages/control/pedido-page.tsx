@@ -381,26 +381,49 @@ export default function ControlPedidoPage() {
           return p;
         });
         
-        // Agregar al historial de escaneos
+        // Obtener datos del producto
         const productoEncontrado = prev.productosControlados.find(p => p.codigo === data.producto.codigo);
         
-        // Creamos un nuevo escaneo con todos los campos requeridos de ProductoControlado
-        const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
-          id: productoEncontrado?.id,
-          codigo: data.producto.codigo,
-          cantidad: productoEncontrado?.cantidad || 0,
-          controlado: data.cantidadControlada,
-          descripcion: productoEncontrado?.descripcion || '',
-          ubicacion: productoEncontrado?.ubicacion,
-          estado: data.controlEstado,
-          timestamp: new Date(),
-          escaneado: true
-        };
+        // Verificar si ya existe este código en el historial
+        const escaneoExistente = prev.historialEscaneos.find(p => p.codigo === data.producto.codigo);
+        
+        let nuevoHistorial;
+        
+        if (escaneoExistente) {
+          // Si ya existe, actualizar acumulando la cantidad
+          nuevoHistorial = prev.historialEscaneos.map(p => {
+            if (p.codigo === data.producto.codigo) {
+              // Actualizamos con el valor total del servidor y la marca de tiempo
+              return {
+                ...p,
+                controlado: data.cantidadControlada, // Usamos el total acumulado del servidor
+                estado: data.controlEstado,
+                timestamp: new Date()
+              };
+            }
+            return p;
+          });
+        } else {
+          // Si no existe, crear un nuevo registro
+          const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
+            id: productoEncontrado?.id,
+            codigo: data.producto.codigo,
+            cantidad: productoEncontrado?.cantidad || 0,
+            controlado: data.cantidadControlada,
+            descripcion: productoEncontrado?.descripcion || '',
+            ubicacion: productoEncontrado?.ubicacion,
+            estado: data.controlEstado,
+            timestamp: new Date(),
+            escaneado: true
+          };
+          
+          nuevoHistorial = [...prev.historialEscaneos, nuevoEscaneo];
+        }
         
         return {
           ...prev,
           productosControlados: updatedProductos,
-          historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
+          historialEscaneos: nuevoHistorial
         };
       });
       
@@ -463,23 +486,45 @@ export default function ControlPedidoPage() {
         });
         setAlertOpen(true);
         
-        setControlState(prev => ({
-          ...prev,
-          historialEscaneos: [
-            ...prev.historialEscaneos, 
-            {
-              id: null as any,
-              codigo: responseData.codigo || "Código desconocido",
-              cantidad: 0,
-              controlado: 0,
-              descripcion: "Código no encontrado en este pedido",
-              ubicacion: null as any,
-              timestamp: new Date(),
-              escaneado: false,
-              estado: 'excedente'
-            }
-          ]
-        }));
+        setControlState(prev => {
+          // Verificar si ya existe este código en el historial
+          const existente = prev.historialEscaneos.find(p => p.codigo === responseData.codigo);
+          
+          if (existente) {
+            // Si ya existe, actualizar solo la marca de tiempo
+            return {
+              ...prev,
+              historialEscaneos: prev.historialEscaneos.map(p => {
+                if (p.codigo === responseData.codigo) {
+                  return {
+                    ...p,
+                    timestamp: new Date()
+                  };
+                }
+                return p;
+              })
+            };
+          } else {
+            // Si no existe, agregar nuevo registro
+            return {
+              ...prev,
+              historialEscaneos: [
+                ...prev.historialEscaneos, 
+                {
+                  id: null as any,
+                  codigo: responseData.codigo || "Código desconocido",
+                  cantidad: 0,
+                  controlado: 0,
+                  descripcion: "Código no encontrado en este pedido",
+                  ubicacion: null as any,
+                  timestamp: new Date(),
+                  escaneado: false,
+                  estado: 'excedente'
+                }
+              ]
+            };
+          }
+        });
       }
       
       // Focus de nuevo en el input de escaneo
