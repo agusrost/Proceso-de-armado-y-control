@@ -758,11 +758,18 @@ export default function ControlPedidoPage() {
   
   // Función para finalizar control
   const handleFinalizarControl = (resultado: string) => {
-    // Si la finalización es correcta y hay excedentes, verificar si deben ser retirados
-    if (resultado === 'completo' && !hasFaltantes) {
-      const hayExcedentes = verificarExcedentesParaRetirar();
+    console.log("Finalizando control con resultado:", resultado);
+    
+    // Si la finalización es correcta o se seleccionó "excedentes", verificar si hay excedentes
+    if ((resultado === 'completo' || resultado === 'excedentes') && !hasFaltantes) {
+      // Verificar si hay productos con cantidades excedentes
+      const hayExcedentes = controlState.productosControlados.some(p => p.controlado > p.cantidad);
+      
+      console.log("¿Hay excedentes?", hayExcedentes);
+      
       if (hayExcedentes) {
-        // El diálogo se encargará de llamar a completarFinalizacion después
+        // Mostrar diálogo para confirmar retiro de excedentes
+        verificarExcedentesParaRetirar();
         return;
       }
     }
@@ -776,8 +783,9 @@ export default function ControlPedidoPage() {
   
   // Función para completar finalización después de retirar excedentes
   const completarFinalizacion = () => {
+    console.log("Completando finalización después de retirar excedentes");
     finalizarControlMutation.mutate({
-      resultado: 'completo',
+      resultado: 'completo' as any, // Tipo temporal para resolver error
       comentarios: comentarios + ' (Excedentes retirados)'
     });
   };
