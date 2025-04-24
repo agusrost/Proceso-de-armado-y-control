@@ -1559,69 +1559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // ENDPOINT DE EMERGENCIA: Iniciar un control histórico directamente (bypass)
-  app.post("/api/control/historial/iniciar", requireAccess('control'), async (req, res, next) => {
-    // Este endpoint es una solución de emergencia para iniciar controles directamente
-    // sin pasar por el endpoint problemático que causa errores de JSON
-    try {
-      // Asegurar que siempre respondamos con JSON
-      res.setHeader('Content-Type', 'application/json');
-      
-      const { pedidoId, pedidoVisual, clienteId } = req.body;
-      console.log(`SOLUCIÓN DE EMERGENCIA: Iniciando control directo para pedido ID: ${pedidoId}, Visual: ${pedidoVisual}, Cliente: ${clienteId}`);
-      
-      if (!pedidoId) {
-        return res.status(400).json({ message: "ID de pedido requerido", error: true });
-      }
-      
-      // Verificar que el pedido exista
-      const pedido = await storage.getPedidoById(Number(pedidoId));
-      if (!pedido) {
-        return res.status(404).json({ message: "Pedido no encontrado", error: true });
-      }
-      
-      // Verificar si ya hay controles anteriores (opcionales, continuamos de todos modos)
-      const controlesAnteriores = await storage.getControlHistoricoByPedidoId(Number(pedidoId));
-      const controlCompletado = controlesAnteriores.find(h => h.fin !== null);
-      
-      if (controlCompletado) {
-        console.log(`Advertencia: El pedido ${pedidoId} ya fue controlado anteriormente, ID de control: ${controlCompletado.id}`);
-        // NOTA: Continuamos a pesar de que ya haya sido controlado (bypass de seguridad)
-      }
-      
-      // Crear registro histórico directamente
-      const controlHistorico = await storage.createControlHistorico({
-        pedidoId: Number(pedidoId),
-        controladoPor: req.user?.id as number,
-        fecha: new Date().toISOString().split('T')[0],
-        inicio: new Date(),
-        resultado: 'en-proceso'
-      });
-      
-      // Actualizar el pedido (si existe y no está ya completado)
-      try {
-        await storage.updatePedido(Number(pedidoId), {
-          controladoId: req.user?.id as number,
-          controlInicio: new Date()
-        });
-      } catch (updateError) {
-        console.error("No se pudo actualizar el pedido, pero continuamos:", updateError);
-        // No fallamos si no podemos actualizar, priorizamos el registro histórico
-      }
-      
-      // Todo completado correctamente
-      return res.status(200).json({
-        message: "Control iniciado correctamente (modo directo)",
-        error: false,
-        controlHistorico,
-        pedidoId,
-        bypass: true
-      });
-    } catch (error) {
-      console.error("Error al iniciar control directo:", error);
-      next(error);
-    }
-  });
+
   
   // Iniciar control de pedido (ENDPOINT CRÍTICO, NO MODIFICAR SIN PRUEBAS)
   app.post("/api/control/pedidos/:pedidoId/iniciar", requireAccess('control'), async (req, res, next) => {

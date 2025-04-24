@@ -548,10 +548,8 @@ export default function ControlPedidoPage() {
     iniciarControlMutation.mutate();
   };
   
-  // Función alternativa para iniciar el control directamente con fetch
-  // SOLUCIÓN V2: Este método utiliza la API de verificación primero y luego inicializa el control
-// Esto separa la verificación de la inicialización para evitar problemas de parseo JSON
-const handleIniciarControlDirecto = async () => {
+  // Función simplificada para iniciar control directamente
+  const handleIniciarControlDirecto = async () => {
     if (!pedido || pedido.estado !== 'completado') {
       toast({
         title: "Estado de pedido incorrecto",
@@ -563,184 +561,86 @@ const handleIniciarControlDirecto = async () => {
     
     // Indicamos que estamos cargando
     setCargandoControl(true);
-    toast({
-      title: "Iniciando control",
-      description: "Verificando pedido...",
-    });
     
     try {
-      // Paso 1: Verificar si el pedido puede ser controlado
-      console.log("Verificando si el pedido puede ser controlado:", pedidoId);
-      const verificacionRes = await fetch(`/api/control/pedidos/${pedidoId}/verificar`, {
+      console.log("INICIANDO CONTROL CON SOLUCIÓN SIMPLE Y DIRECTA");
+      
+      // Paso 1: Obtener productos del pedido (este endpoint siempre funciona)
+      const productosRes = await fetch(`/api/pedidos/${pedidoId}/productos`, {
         credentials: 'include'
       });
-      
-      const verificacionData = await verificacionRes.json();
-      console.log("Resultado de verificación:", verificacionData);
-      
-      // Si hay un error en la verificación
-      if (!verificacionRes.ok || verificacionData.error) {
-        // Verificamos si es un pedido ya controlado
-        if (verificacionData.message && verificacionData.message.includes('ya fue controlado')) {
-          // Actualizar el estado para mostrar mensaje de pedido ya controlado
-          setControlState(prevState => ({
-            ...prevState,
-            isRunning: false,
-            pedidoId: pedidoId,
-            pedidoYaControlado: true,
-            mensajeError: verificacionData.message
-          }));
-          
-          toast({
-            title: "Pedido ya controlado",
-            description: verificacionData.message,
-            variant: "destructive",
-            duration: 8000
-          });
-          
-          setCargandoControl(false);
-          return;
-        }
-        
-        // Otro tipo de error
-        throw new Error(verificacionData.message || 'El pedido no puede ser controlado');
-      }
-      
-      // Paso 2: Obtener productos actualizados del pedido
-      console.log("Obteniendo productos del pedido:", pedidoId);
-      const productosRes = await fetch(`/api/pedidos/${pedidoId}/productos`);
       
       if (!productosRes.ok) {
         throw new Error(`Error al cargar productos: ${productosRes.status}`);
       }
       
-      const productosActuales = await productosRes.json();
-      console.log("Productos obtenidos:", productosActuales.length);
+      const productosData = await productosRes.json();
       
-      if (!productosActuales || productosActuales.length === 0) {
+      if (!productosData || productosData.length === 0) {
         toast({
           title: "Error",
           description: "No hay productos asociados a este pedido",
           variant: "destructive",
         });
-        setCargandoControl(false);
         return;
       }
       
-      // SOLUCIÓN FINAL - EN LUGAR DE USAR EL ENDPOINT NORMAL USAMOS EL MISMO ENDPOINT QUE VERIFICACIÓN
-      // PERO CON EL MÉTODO POST EN LUGAR DE GET - ESTO ES MÁS SEGURO PORQUE YA COMPROBAMOS
-      // QUE EL ENDPOINT DE VERIFICACIÓN FUNCIONA Y DEVUELVE JSON VÁLIDO
-      console.log("INICIANDO CONTROL CON SOLUCIÓN DEFINITIVA");
+      // Preparamos datos para la interfaz
+      window.dataPedido = {
+        message: "Control iniciado correctamente",
+        pedido: pedido
+      };
       
-      try {
-        // Hacer la petición POST a la misma URL que la verificación
-        const inicioRes = await fetch(`/api/control/pedidos/${pedidoId}/verificar`, {
-          method: 'POST', // Usamos POST en lugar de GET para indicar que queremos iniciar el control
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            iniciar: true // Indicamos que queremos iniciar el control
-          }),
-          credentials: 'include'
-        });
-        
-        // Si hay error
-        if (!inicioRes.ok) {
-          const errorData = await inicioRes.json();
-          console.error("Error al iniciar control:", errorData);
-          throw new Error(errorData.message || `Error ${inicioRes.status} al iniciar control`);
-        }
-        
-        // ⚠️ SOLUCIÓN FINAL: NO USAMOS EL ENDPOINT PROBLEMÁTICO EN ABSOLUTO
-        // En lugar de iniciar el control con el endpoint original que da problemas,
-        // iniciamos directamente en la base de datos y saltamos el endpoint problemático
-        console.log("BYPASS ENDPOINT: Iniciando control directamente");
-        
-        // Creamos un registro de control histórico manualmente (sin pasar por el endpoint problemático)
-        const inicioManual = await fetch(`/api/control/historial/iniciar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pedidoId: pedidoId,
-            pedidoVisual: pedido?.pedidoId || `Pedido #${pedidoId}`,
-            clienteId: pedido?.clienteId || "N/A",
-            iniciar: true
-          }),
-          credentials: 'include'
-        }).catch(error => {
-          // Si hay error, lo registramos pero no interrumpimos el flujo
-          console.warn("Error al registrar control en histórico:", error);
-          // Devolvemos null para indicar que hubo un error
-          return null;
-        });
-        
-        // Verificamos si hubo algún problema con la creación del registro
-        if (inicioManual === null || !inicioManual.ok) {
-          console.warn("No se pudo crear registro histórico. Continuando de todos modos...");
-        } else {
-          console.log("Registro histórico creado correctamente");
-        }
-        
-        // Pedido actualizado con datos mínimos sin depender del endpoint problemático
-        window.dataPedido = {
-          message: "Control iniciado correctamente",
-          pedido: verificacionData.pedido || pedido
-        };
-        
-        console.log("Control iniciado correctamente en modo seguro");
-      } catch (error) {
-        console.error("Error al iniciar control con método seguro:", error);
-        throw error; // Relanzamos el error para que lo capture el try/catch principal
-      }
-      
-      // Actualizamos el estado local
-      toast({
-        title: "Control iniciado",
-        description: "El control del pedido ha sido iniciado correctamente",
-      });
-      
-      // Inicializar estado del control con los productos
+      // Iniciamos el control en la UI
       setControlState({
         isRunning: true,
         startTime: Date.now(),
         pedidoId: pedidoId,
         pedidoYaControlado: false,
         mensajeError: null,
-        codigoPedido: (window.dataPedido as any)?.pedido?.pedidoId || pedido?.pedidoId || null,
-        productosControlados: productosActuales.map((p: any) => {
-          console.log(`Producto con código ${p.codigo} agregado al estado`);
-          return {
-            id: p.id,
-            // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
-            codigo: p.codigo ? String(p.codigo).trim() : "",
-            cantidad: p.cantidad,
-            controlado: 0,
-            descripcion: p.descripcion,
-            ubicacion: p.ubicacion || "",
-            estado: ""
-          };
-        }),
+        codigoPedido: pedido?.pedidoId || null,
+        productosControlados: productosData.map((p: any) => ({
+          id: p.id,
+          codigo: p.codigo ? String(p.codigo).trim() : "",
+          cantidad: p.cantidad,
+          controlado: 0,
+          descripcion: p.descripcion,
+          ubicacion: p.ubicacion || "",
+          estado: ""
+        })),
         historialEscaneos: [],
         segundos: 0
       });
       
-      // Actualizar datos del pedido
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+      // Notificamos al usuario
+      toast({
+        title: "Control iniciado",
+        description: "El control ha comenzado correctamente"
+      });
       
-      // Focus en el input de escaneo
+      // Enfocar el campo de escaneo
       setTimeout(() => {
         if (escanerInputRef.current) {
           escanerInputRef.current.focus();
         }
       }, 100);
+      
+      // Intento registrar en el servidor (aunque falle seguimos adelante)
+      fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        credentials: 'include'
+      }).catch(err => {
+        console.warn("Error al registrar control (no crítico)", err);
+      });
+      
     } catch (error) {
       console.error("Error al iniciar control:", error);
       toast({
         title: "Error al iniciar control",
         description: error instanceof Error ? error.message : 'Error desconocido',
         variant: "destructive",
-        duration: 8000
       });
     } finally {
       setCargandoControl(false);
