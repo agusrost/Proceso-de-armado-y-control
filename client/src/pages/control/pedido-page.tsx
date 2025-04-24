@@ -37,6 +37,7 @@ import { ProductoEscanerForm } from "@/components/control/producto-escaner-form"
 import { ControlFinalizarDialog } from "@/components/control/control-finalizar-dialog";
 import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontrado-alert";
 import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list";
+import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -50,10 +51,17 @@ export default function ControlPedidoPage() {
   
   // Estados para los diálogos
   const [alertOpen, setAlertOpen] = useState(false);
+  const [excedenteAlertOpen, setExcedenteAlertOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
     codigo: "",
     descripcion: ""
+  });
+  const [productoExcedente, setProductoExcedente] = useState({
+    codigo: "",
+    descripcion: "",
+    cantidadEsperada: 0,
+    cantidadActual: 0
   });
   
   // Estado del control
@@ -394,6 +402,20 @@ export default function ControlPedidoPage() {
           historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
         };
       });
+      
+      // Verificar si la cantidad es excedente y mostrar alerta
+      if (data.controlEstado === 'excedente') {
+        const producto = controlState.productosControlados.find(p => p.codigo === data.producto.codigo);
+        if (producto) {
+          setProductoExcedente({
+            codigo: data.producto.codigo,
+            descripcion: producto.descripcion || 'Sin descripción',
+            cantidadEsperada: producto.cantidad,
+            cantidadActual: data.cantidadControlada
+          });
+          setExcedenteAlertOpen(true);
+        }
+      }
       
       // Si todos los productos están controlados, sugerir finalizar
       if (data.todosControlados) {
@@ -1265,6 +1287,34 @@ export default function ControlPedidoPage() {
           onComentariosChange={setComentarios}
           hasFaltantes={productosFaltantes > 0}
           hasExcedentes={productosExcedentes > 0}
+        />
+        
+        {/* Alerta de código no encontrado */}
+        <CodigoNoEncontradoAlert
+          open={alertOpen}
+          onOpenChange={setAlertOpen}
+          codigo={codigoNoEncontrado.codigo}
+          descripcion={codigoNoEncontrado.descripcion}
+          onConfirm={() => {
+            if (escanerInputRef.current) {
+              escanerInputRef.current.focus();
+            }
+          }}
+        />
+        
+        {/* Alerta de producto excedente */}
+        <ProductoExcedenteAlert
+          open={excedenteAlertOpen}
+          onOpenChange={setExcedenteAlertOpen}
+          codigo={productoExcedente.codigo}
+          descripcion={productoExcedente.descripcion}
+          cantidadEsperada={productoExcedente.cantidadEsperada}
+          cantidadActual={productoExcedente.cantidadActual}
+          onConfirm={() => {
+            if (escanerInputRef.current) {
+              escanerInputRef.current.focus();
+            }
+          }}
         />
         
         {/* Códigos Registrados */}
