@@ -264,8 +264,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         armadorId: filteredArmadorId,
         pedidoId: pedidoId as string
       });
-      res.json(pedidos);
+      
+      // Filtrar pedidos que ya fueron controlados
+      const pedidosFiltrados = await Promise.all(
+        pedidos.map(async (pedido) => {
+          try {
+            // Verificar si este pedido ya fue controlado (tiene histórico con fin no nulo)
+            const historicos = await storage.getControlHistoricoByPedidoId(pedido.id);
+            const yaControlado = historicos.some(h => h.fin !== null);
+            
+            // Si está en la página de control, excluimos los que ya fueron controlados
+            if (req.path.includes('/api/pedidos') && req.headers.referer?.includes('/control') && yaControlado) {
+              return null; // Marcar para exclusión
+            }
+            
+            return pedido;
+          } catch (err) {
+            console.error(`Error al verificar control para pedido ${pedido.id}:`, err);
+            return pedido; // En caso de error, incluimos el pedido
+          }
+        })
+      );
+      
+      // Filtrar los pedidos marcados como null (ya controlados)
+      const pedidosFinales = pedidosFiltrados.filter(p => p !== null);
+      
+      res.json(pedidosFinales);
     } catch (error) {
+      console.error("Error al obtener pedidos:", error);
       next(error);
     }
   });
@@ -288,6 +314,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Si es un número, intentar buscar por ID numérico primero
           const pedidoById = await storage.getPedidoById(parseInt(id as string));
           if (pedidoById) {
+            // Verificar si ya está controlado
+            if (req.headers.referer?.includes('/control')) {
+              const historicos = await storage.getControlHistoricoByPedidoId(pedidoById.id);
+              const yaControlado = historicos.some(h => h.fin !== null);
+              
+              if (yaControlado) {
+                return res.status(400).json({ 
+                  message: "Este pedido ya fue controlado y finalizado anteriormente",
+                  pedido: pedidoById,
+                  yaControlado: true
+                });
+              }
+            }
             return res.json(pedidoById);
           }
         }
@@ -301,6 +340,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (pedidos.length === 0) {
         return res.status(404).json({ message: "No se encontraron pedidos" });
+      }
+      
+      // Filtrar los pedidos controlados si estamos en la sección de control
+      if (req.headers.referer?.includes('/control')) {
+        // Filtrar los pedidos ya controlados
+        const pedidosConControlInfo = await Promise.all(
+          pedidos.map(async (pedido) => {
+            const historicos = await storage.getControlHistoricoByPedidoId(pedido.id);
+            const yaControlado = historicos.some(h => h.fin !== null);
+            return {
+              ...pedido,
+              yaControlado
+            };
+          })
+        );
+        
+        // Si la búsqueda es por ID y hay un solo resultado pero ya está controlado
+        if (id && pedidosConControlInfo.length === 1 && pedidosConControlInfo[0].yaControlado) {
+          return res.status(400).json({ 
+            message: "Este pedido ya fue controlado y finalizado anteriormente",
+            pedido: pedidosConControlInfo[0],
+            yaControlado: true
+          });
+        }
+        
+        // Filtrar los pedidos ya controlados
+        pedidos = pedidosConControlInfo.filter(p => !p.yaControlado);
+        
+        if (pedidos.length === 0) {
+          return res.status(404).json({ 
+            message: "No se encontraron pedidos pendientes de control",
+            todosYaControlados: true
+          });
+        }
       }
       
       // Si la búsqueda es por ID y hay un solo resultado, devolvemos ese pedido directamente

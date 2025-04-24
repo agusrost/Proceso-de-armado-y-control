@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 interface SearchPedidoFormProps {
   onPedidoFound: (pedido: Pedido) => void;
@@ -16,6 +17,7 @@ interface SearchPedidoFormProps {
 }
 
 export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormProps) {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState<"id" | "cliente">("id");
   const [isLoading, setIsLoading] = useState(false);
@@ -58,10 +60,27 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
       const res = await apiRequest("GET", endpoint);
       
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Error al obtener respuesta del servidor" }));
+        
         if (res.status === 404) {
-          onError("Pedido no encontrado");
+          if (errorData.todosYaControlados) {
+            onError("Todos los pedidos encontrados ya fueron controlados anteriormente");
+          } else {
+            onError("Pedido no encontrado");
+          }
+        } else if (res.status === 400 && errorData.yaControlado) {
+          // Caso especial: pedido ya controlado
+          onError(`${errorData.message} - Este pedido no se puede controlar de nuevo.`);
+          
+          // Mostrar más información sobre el pedido ya controlado
+          if (errorData.pedido) {
+            toast({
+              title: "Pedido ya controlado",
+              description: `El pedido ${errorData.pedido.pedidoId} (Cliente: ${errorData.pedido.clienteId}) ya fue controlado anteriormente.`,
+              variant: "destructive"
+            });
+          }
         } else {
-          const errorData = await res.json();
           onError(errorData.message || "Error al buscar el pedido");
         }
         return;
@@ -71,6 +90,12 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
       
       // Si es un array de pedidos
       if (Array.isArray(data)) {
+        // Verificar si hay resultados
+        if (data.length === 0) {
+          onError("No se encontraron pedidos pendientes de control");
+          return;
+        }
+        
         setSearchedPedidos(data);
         if (data.length === 1) {
           // Si solo hay un resultado, lo seleccionamos automáticamente
@@ -209,7 +234,32 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
       {/* Lista de todos los pedidos pendientes de control */}
       <Card>
         <CardContent className="pt-4">
-          <h3 className="text-sm font-medium mb-3">Pedidos pendientes de control</h3>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-medium">Pedidos pendientes de control</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => refetch()}
+              disabled={isLoadingPedidos}
+              title="Actualizar lista de pedidos"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`w-4 h-4 ${isLoadingPedidos ? 'animate-spin' : ''}`}
+              >
+                <path d="M21 2v6h-6"></path>
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                <path d="M3 22v-6h6"></path>
+                <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+              </svg>
+            </Button>
+          </div>
           {isLoadingPedidos ? (
             <div className="text-center py-4 text-neutral-500">Cargando pedidos...</div>
           ) : sortedPedidos.length === 0 ? (
