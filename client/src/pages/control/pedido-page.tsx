@@ -86,6 +86,26 @@ export default function ControlPedidoPage() {
     mensajeError: null
   });
   
+  // Reiniciar el estado del control al montar/desmontar el componente
+  useEffect(() => {
+    // Limpiar estado al desmontar
+    return () => {
+      console.log("Limpiando estado del control");
+      setCargandoControl(false);
+      setControlState({
+        isRunning: false,
+        startTime: null,
+        pedidoId: null,
+        codigoPedido: null,
+        productosControlados: [],
+        historialEscaneos: [],
+        segundos: 0,
+        pedidoYaControlado: false,
+        mensajeError: null
+      });
+    };
+  }, []);
+  
   // Cargar información del pedido
   const { 
     data: pedido, 
@@ -776,7 +796,7 @@ export default function ControlPedidoPage() {
     
     // Si no hay excedentes o si se está finalizando con faltantes, continuar normalmente
     finalizarControlMutation.mutate({ 
-      resultado, 
+      resultado: resultado as any, // Usar typecast para evitar error de tipo
       comentarios 
     });
   };
@@ -833,12 +853,14 @@ export default function ControlPedidoPage() {
       const referer = document.referrer;
       const vieneDePaginaControl = referer.includes('/control') && !referer.includes('/historial');
       
-      // Iniciar automáticamente en cualquier caso para asegurar que el control siempre se inicie
-      console.log("Iniciando control automáticamente");
-      setCargandoControl(true);
-      setTimeout(() => {
-        iniciarControlMutation.mutate();
-      }, 500); // Pequeño retraso para evitar problemas de sincronización
+      // Solo iniciar si está en estado de control o viene de la página de controles
+      if (esEnControl || vieneDePaginaControl) {
+        console.log("Iniciando control automáticamente - condición válida");
+        setCargandoControl(true);
+        setTimeout(() => {
+          iniciarControlMutation.mutate();
+        }, 500); // Pequeño retraso para evitar problemas de sincronización
+      }
     }
   }, [pedido, productos, controlState.isRunning, isLoadingPedido, isLoadingProductos, cargandoControl]);
 
@@ -1055,7 +1077,10 @@ export default function ControlPedidoPage() {
       <ProductoExcedenteAlert
         open={excedenteAlertOpen}
         onOpenChange={setExcedenteAlertOpen}
-        producto={productoExcedente}
+        codigo={productoExcedente.codigo}
+        descripcion={productoExcedente.descripcion}
+        cantidadEsperada={productoExcedente.cantidadEsperada}
+        cantidadActual={productoExcedente.cantidadActual}
       />
       
       <ControlFinalizarDialog
