@@ -766,6 +766,22 @@ export default function ControlPedidoPage() {
     };
   }, [controlState.isRunning, controlState.startTime]);
   
+  // Iniciar control automáticamente si es continuación
+  useEffect(() => {
+    // Si tenemos pedido, productos y no está en curso un control
+    if (pedido && productos.length > 0 && !controlState.isRunning && 
+        !isLoadingPedido && !isLoadingProductos) {
+      
+      // Verificar si el pedido está en estado de control
+      const esEnControl = pedido.estado?.toLowerCase().includes('controlando');
+      
+      if (esEnControl) {
+        console.log("Pedido en estado de control, iniciando control automáticamente");
+        iniciarControlMutation.mutate();
+      }
+    }
+  }, [pedido, productos, controlState.isRunning, isLoadingPedido, isLoadingProductos]);
+
   // Exponer los datos del pedido para debugging en la consola
   useEffect(() => {
     if (pedido && typeof window !== 'undefined') {

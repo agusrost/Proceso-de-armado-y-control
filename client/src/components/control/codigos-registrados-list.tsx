@@ -3,12 +3,13 @@ import { ProductoControlado } from "@shared/types";
 import { formatTimestamp } from "@/lib/utils";
 
 type CodigosRegistradosListProps = {
-  productos: Array<ProductoControlado & { timestamp?: Date; escaneado?: boolean }>;
+  registros: Array<ProductoControlado & { timestamp?: Date; escaneado?: boolean }>;
+  showEmpty?: boolean;
 };
 
-export function CodigosRegistradosList({ productos }: CodigosRegistradosListProps) {
+export function CodigosRegistradosList({ registros, showEmpty = false }: CodigosRegistradosListProps) {
   // Filtrar solo los productos que han sido escaneados
-  const productosEscaneados = productos.filter(p => p.escaneado || p.controlado > 0);
+  const productosEscaneados = registros.filter(p => p.escaneado || p.controlado > 0);
   
   // Agrupar productos por código para evitar duplicados
   const productosAgrupados = productosEscaneados.reduce((acc: Record<string, any>, producto) => {
