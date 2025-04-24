@@ -1410,6 +1410,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
+      // Verificar si el pedido ya fue controlado (tienen un histórico con fin no nulo)
+      const controlHistoricos = await storage.getControlHistoricoByPedidoId(pedidoId);
+      const controlCompletado = controlHistoricos.find(h => h.fin !== null);
+      
+      if (controlCompletado) {
+        return res.status(400).json({ 
+          message: "Este pedido ya fue controlado y finalizado anteriormente",
+          historico: {
+            id: controlCompletado.id,
+            fecha: controlCompletado.fecha,
+            resultado: controlCompletado.resultado
+          }
+        });
+      }
+      
       if (pedido.estado !== 'completado') {
         return res.status(400).json({ 
           message: "Solo se pueden controlar pedidos en estado completado",
@@ -1436,6 +1451,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Obtener productos del pedido
       const productos = await storage.getProductosByPedidoId(pedidoId);
       
+      // Verificar que haya productos en el pedido
+      if (!productos || productos.length === 0) {
+        return res.status(400).json({
+          message: "No hay productos asociados a este pedido"
+        });
+      }
+      
       // Iniciar el control
       const ahora = new Date();
       const pedidoActualizado = await storage.updatePedido(pedidoId, {
@@ -1452,7 +1474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         resultado: 'en-proceso'
       });
       
-      res.json({
+      return res.json({
         message: "Control iniciado correctamente",
         pedido: pedidoActualizado,
         productos,
