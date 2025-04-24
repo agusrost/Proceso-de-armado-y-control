@@ -10,6 +10,7 @@ import {
   Clock, 
   FileText, 
   User as UserIcon, 
+  Users,
   Calendar, 
   Check, 
   AlertTriangle, 
@@ -20,15 +21,20 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import { ControlHistoricoWithDetails, ControlDetalleWithProducto } from "@shared/types";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function ControlHistorialDetallePage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const params = useParams();
   const controlId = params?.id;
   
   const [controlHistorico, setControlHistorico] = useState<ControlHistoricoWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Determinar si el usuario puede ver información de tiempo
+  const canViewTimeInfo = user?.role === 'admin' || user?.role === 'admin-plus';
   
   // Cargar detalles del control
   useEffect(() => {
@@ -158,6 +164,17 @@ export default function ControlHistorialDetallePage() {
                     </p>
                   </div>
                   
+                  {/* Armador del pedido */}
+                  <div>
+                    <h3 className="font-medium flex items-center mb-2">
+                      <Users className="h-4 w-4 mr-2" />
+                      Armador
+                    </h3>
+                    <p>
+                      {controlHistorico.pedido?.armadorNombre || "No asignado"}
+                    </p>
+                  </div>
+                  
                   <div>
                     <h3 className="font-medium flex items-center mb-2">
                       <Calendar className="h-4 w-4 mr-2" />
@@ -166,25 +183,28 @@ export default function ControlHistorialDetallePage() {
                     <p>{formatDate(controlHistorico.fecha)}</p>
                   </div>
                   
-                  <div>
-                    <h3 className="font-medium flex items-center mb-2">
-                      <Clock className="h-4 w-4 mr-2" />
-                      Tiempo
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <span>
-                        {controlHistorico.tiempoTotal || "No finalizado"}
-                      </span>
-                      <span className="text-sm text-neutral-500">
-                        {controlHistorico.inicio && `Inicio: ${formatDateTime(controlHistorico.inicio)}`}
-                      </span>
+                  {/* Información de tiempo (solo visible para admin y admin-plus) */}
+                  {canViewTimeInfo && (
+                    <div>
+                      <h3 className="font-medium flex items-center mb-2">
+                        <Clock className="h-4 w-4 mr-2" />
+                        Tiempo
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <span>
+                          {controlHistorico.tiempoTotal || "No finalizado"}
+                        </span>
+                        <span className="text-sm text-neutral-500">
+                          {controlHistorico.inicio && `Inicio: ${formatDateTime(controlHistorico.inicio)}`}
+                        </span>
+                      </div>
+                      <div className="text-sm text-neutral-500">
+                        {controlHistorico.fin && `Fin: ${formatDateTime(controlHistorico.fin)}`}
+                      </div>
                     </div>
-                    <div className="text-sm text-neutral-500">
-                      {controlHistorico.fin && `Fin: ${formatDateTime(controlHistorico.fin)}`}
-                    </div>
-                  </div>
+                  )}
                   
-                  <div className="md:col-span-2">
+                  <div className={canViewTimeInfo ? "md:col-span-2" : ""}>
                     <h3 className="font-medium flex items-center mb-2">
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Comentarios
