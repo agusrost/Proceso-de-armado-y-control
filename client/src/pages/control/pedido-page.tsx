@@ -454,6 +454,13 @@ export default function ControlPedidoPage() {
       if (error.message.includes("no pertenece a este pedido") && responseData.codigo) {
         console.log("Agregando código no encontrado al historial:", responseData.codigo);
         
+        // Configurar la información del código no encontrado para mostrar la alerta
+        setCodigoNoEncontrado({
+          codigo: responseData.codigo || "Código desconocido",
+          descripcion: responseData.descripcion || "Sin descripción"
+        });
+        setAlertOpen(true);
+        
         setControlState(prev => ({
           ...prev,
           historialEscaneos: [
@@ -1153,126 +1160,62 @@ export default function ControlPedidoPage() {
               </Card>
             </div>
             
-            {/* Listado de Productos */}
+            {/* Resumen Estadístico (Reemplaza el listado de productos) */}
             <Card>
               <CardHeader>
-                <CardTitle>Productos del Pedido</CardTitle>
+                <CardTitle>Resumen del Control</CardTitle>
                 <CardDescription>
-                  Listado de productos y su estado de control
+                  Estadísticas del control en curso
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="todos" className="mb-4">
-                  <TabsList>
-                    <TabsTrigger value="todos">Todos ({totalProductos})</TabsTrigger>
-                    <TabsTrigger value="correctos">Correctos ({productosCorrectos})</TabsTrigger>
-                    <TabsTrigger value="faltantes">Faltantes ({productosFaltantes})</TabsTrigger>
-                    <TabsTrigger value="excedentes">Excedentes ({productosExcedentes})</TabsTrigger>
-                    <TabsTrigger value="pendientes">Pendientes ({totalProductos - productosControlados})</TabsTrigger>
-                  </TabsList>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  <div className="rounded-lg border p-4">
+                    <div className="flex flex-col items-center">
+                      <span className="text-sm text-neutral-500 mb-2">Productos en Pedido</span>
+                      <span className="text-3xl font-bold">{totalProductos}</span>
+                    </div>
+                  </div>
                   
-                  <TabsContent value="todos" className="pt-4">
-                    {controlState.productosControlados.length === 0 ? (
-                      <div className="text-center py-4 text-neutral-500">
-                        No hay productos en este pedido
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {controlState.productosControlados.map(producto => (
-                          <ControlProductoItem 
-                            key={producto.id} 
-                            producto={producto} 
-                            onEscanear={(cantidad) => handleEscanearProducto(producto.codigo, cantidad)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </TabsContent>
+                  <div className="rounded-lg border p-4">
+                    <div className="flex flex-col items-center">
+                      <span className="text-sm text-neutral-500 mb-2">Productos Controlados</span>
+                      <span className="text-3xl font-bold">{productosControlados}</span>
+                      <span className="text-sm text-neutral-500 mt-1">
+                        {Math.round((productosControlados / totalProductos) * 100)}% completado
+                      </span>
+                    </div>
+                  </div>
                   
-                  <TabsContent value="correctos" className="pt-4">
-                    {controlState.productosControlados.filter(p => p.estado === 'correcto').length === 0 ? (
-                      <div className="text-center py-4 text-neutral-500">
-                        No hay productos correctos
+                  <div className="rounded-lg border p-4">
+                    <div className="flex flex-col items-center">
+                      <span className="text-sm text-neutral-500 mb-2">Productos Pendientes</span>
+                      <span className="text-3xl font-bold">{totalProductos - productosControlados}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-6 mt-6 md:grid-cols-2">
+                  <div className="rounded-lg border p-4 bg-red-50">
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center mb-2">
+                        <Minus className="h-4 w-4 text-red-500 mr-2" />
+                        <span className="text-sm text-neutral-500">Faltantes</span>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {controlState.productosControlados
-                          .filter(p => p.estado === 'correcto')
-                          .map(producto => (
-                            <ControlProductoItem 
-                              key={producto.id} 
-                              producto={producto} 
-                              onEscanear={(cantidad) => handleEscanearProducto(producto.codigo, cantidad)}
-                            />
-                          ))
-                        }
-                      </div>
-                    )}
-                  </TabsContent>
+                      <span className="text-3xl font-bold text-red-600">{productosFaltantes}</span>
+                    </div>
+                  </div>
                   
-                  <TabsContent value="faltantes" className="pt-4">
-                    {controlState.productosControlados.filter(p => p.estado === 'faltante').length === 0 ? (
-                      <div className="text-center py-4 text-neutral-500">
-                        No hay productos faltantes
+                  <div className="rounded-lg border p-4 bg-amber-50">
+                    <div className="flex flex-col items-center">
+                      <div className="flex items-center mb-2">
+                        <Plus className="h-4 w-4 text-amber-500 mr-2" />
+                        <span className="text-sm text-neutral-500">Excedentes</span>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {controlState.productosControlados
-                          .filter(p => p.estado === 'faltante')
-                          .map(producto => (
-                            <ControlProductoItem 
-                              key={producto.id} 
-                              producto={producto} 
-                              onEscanear={(cantidad) => handleEscanearProducto(producto.codigo, cantidad)}
-                            />
-                          ))
-                        }
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="excedentes" className="pt-4">
-                    {controlState.productosControlados.filter(p => p.estado === 'excedente').length === 0 ? (
-                      <div className="text-center py-4 text-neutral-500">
-                        No hay productos excedentes
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {controlState.productosControlados
-                          .filter(p => p.estado === 'excedente')
-                          .map(producto => (
-                            <ControlProductoItem 
-                              key={producto.id} 
-                              producto={producto} 
-                              onEscanear={(cantidad) => handleEscanearProducto(producto.codigo, cantidad)}
-                            />
-                          ))
-                        }
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="pendientes" className="pt-4">
-                    {controlState.productosControlados.filter(p => p.controlado === 0).length === 0 ? (
-                      <div className="text-center py-4 text-neutral-500">
-                        No hay productos pendientes
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {controlState.productosControlados
-                          .filter(p => p.controlado === 0)
-                          .map(producto => (
-                            <ControlProductoItem 
-                              key={producto.id} 
-                              producto={producto} 
-                              onEscanear={(cantidad) => handleEscanearProducto(producto.codigo, cantidad)}
-                            />
-                          ))
-                        }
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
+                      <span className="text-3xl font-bold text-amber-600">{productosExcedentes}</span>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </>
