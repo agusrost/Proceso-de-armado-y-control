@@ -26,6 +26,12 @@ export default function ControlIndexPage() {
     enabled: true,
   });
   
+  // Query para obtener pedidos en curso de control
+  const { data: pedidosEnCurso = [], isLoading: isLoadingEnCurso } = useQuery({
+    queryKey: ["/api/control/en-curso"],
+    enabled: true,
+  });
+  
   // Filtrar solo los controles que están finalizados (tienen fecha de fin)
   const historialControles = useMemo(() => {
     return historialControlesRaw.filter((control: any) => control.fin !== null);
@@ -63,6 +69,63 @@ export default function ControlIndexPage() {
             <SearchPedidoForm onPedidoFound={setPedidoBuscado} onError={setError} />
           </CardContent>
         </Card>
+        
+        {/* Pedidos en curso de control */}
+        {pedidosEnCurso.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Controles en Curso</CardTitle>
+              <CardDescription>
+                Pedidos que están siendo controlados actualmente
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingEnCurso ? (
+                <div className="text-center py-4">Cargando...</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-neutral-200">
+                    <thead className="bg-neutral-50">
+                      <tr>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Pedido</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Armador</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Inicio</th>
+                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-neutral-500">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-neutral-200">
+                      {pedidosEnCurso.map((pedido: any) => (
+                        <tr key={pedido.id} className="hover:bg-neutral-50">
+                          <td className="px-3 py-2 text-sm font-medium text-neutral-900">
+                            {pedido.pedidoId}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-neutral-700">
+                            {pedido.clienteId || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-neutral-700">
+                            {pedido.armadorNombre || (pedido.armadorId ? `ID: ${pedido.armadorId}` : "-")}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-neutral-700">
+                            {pedido.control?.inicio ? formatDate(pedido.control.inicio) : "-"}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <Link 
+                              to={`/control/pedido/${pedido.id}`} 
+                              className="px-3 py-1 text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200"
+                            >
+                              Continuar
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
         
         {/* Últimos controles */}
         <Card>

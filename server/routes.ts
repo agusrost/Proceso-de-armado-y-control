@@ -2138,6 +2138,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
   
+  // Obtener control activo de un pedido
+  app.get("/api/control/pedidos/:pedidoId/activo", requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ 
+          message: "ID de pedido inválido", 
+          error: true 
+        });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({
+          message: "Pedido no encontrado",
+          error: true
+        });
+      }
+      
+      // Verificar si está en estado de control
+      if (pedido.estado !== 'controlando') {
+        return res.status(400).json({
+          message: "Este pedido no está en proceso de control",
+          error: true
+        });
+      }
+      
+      // Obtener el control histórico más reciente (activo) para este pedido
+      const historicos = await storage.getControlHistoricoByPedidoId(pedidoId);
+      
+      // Ordenar por fecha (más reciente primero) y tomar el primero
+      const controlActivo = historicos.length > 0 
+        ? historicos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0]
+        : null;
+      
+      if (!controlActivo) {
+        return res.status(404).json({
+          message: "No hay un control activo para este pedido",
+          error: true
+        });
+      }
+      
+      // Obtener detalles del control
+      const detalles = await storage.getControlDetalleByControlId(controlActivo.id);
+      
+      // Obtener los productos del pedido para unir con los detalles
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Construir la respuesta
+      return res.json({
+        pedido,
+        control: controlActivo,
+        detalles,
+        productos
+      });
+      
+    } catch (error) {
+      console.error("Error al obtener control activo:", error);
+      next(error);
+    }
+  });
+  
   /**
    * SOLUCIÓN ALTERNATIVA PARA CARGAR PRODUCTOS DE UN PEDIDO SIN NECESIDAD DE INICIAR CONTROL
    * Este endpoint funciona como una alternativa segura para iniciar los controles, evitando

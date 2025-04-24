@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation, useRoute } from "wouter";
+import { areCodesEquivalent } from "@/lib/code-utils";
 import { 
   ArrowLeft, 
   Timer, 
@@ -78,10 +79,6 @@ export default function ControlPedidoPage() {
     mensajeError: null
   });
   
-  // Dialog de finalización
-  const [finalizarOpen, setFinalizarOpen] = useState(false);
-  const [comentarios, setComentarios] = useState("");
-  
   // Cargar información del pedido
   const { 
     data: pedido, 
@@ -95,6 +92,92 @@ export default function ControlPedidoPage() {
     },
     enabled: !!pedidoId,
   });
+
+  // Consulta para cargar un control activo si existe
+  const { 
+    isLoading: isLoadingControlActivo,
+  } = useQuery({
+    queryKey: ["/api/control/pedidos", pedidoId, "activo"],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
+        const data = await res.json();
+        console.log("Control activo encontrado:", data);
+        
+        // Inicializar estado del control con los datos cargados
+        setControlState({
+          isRunning: true,
+          startTime: new Date(data.control.fecha).getTime(),
+          pedidoId: pedidoId,
+          pedidoYaControlado: false,
+          mensajeError: null,
+          codigoPedido: data.pedido?.pedidoId || null,
+          productosControlados: data.productos.map((p: any) => {
+            // Encontrar si hay detalles de control para este producto
+            const controlDetalles = data.detalles.filter((d: any) => 
+              areCodesEquivalent(d.codigo, p.codigo, data.pedido?.pedidoId || "")
+            );
+            
+            // Calcular cantidad controlada sumando todos los escaneos
+            const cantidadControlada = controlDetalles.reduce((acc: number, d: any) => 
+              acc + (d.cantidad || 0), 0
+            );
+            
+            // Determinar el estado basado en las cantidades
+            let estado = "";
+            if (cantidadControlada === 0) {
+              estado = "pendiente";
+            } else if (cantidadControlada < p.cantidad) {
+              estado = "faltante";
+            } else if (cantidadControlada === p.cantidad) {
+              estado = "correcto";
+            } else {
+              estado = "excedente";
+            }
+            
+            return {
+              id: p.id,
+              codigo: p.codigo ? String(p.codigo).trim() : "",
+              cantidad: p.cantidad,
+              controlado: cantidadControlada,
+              descripcion: p.descripcion,
+              ubicacion: p.ubicacion || "",
+              estado: estado
+            };
+          }),
+          historialEscaneos: data.detalles.map((d: any) => ({
+            id: d.id,
+            codigo: d.codigo,
+            cantidad: d.cantidad,
+            timestamp: new Date(d.timestamp || data.control.fecha),
+            escaneado: true,
+            descripcion: d.descripcion || "",
+            ubicacion: d.ubicacion || "",
+            estado: d.resultado || "correcto"
+          })) || [],
+          segundos: Math.floor((Date.now() - new Date(data.control.fecha).getTime()) / 1000)
+        });
+        
+        // Focus en el input de escaneo
+        setTimeout(() => {
+          if (escanerInputRef.current) {
+            escanerInputRef.current.focus();
+          }
+        }, 100);
+        
+        return data;
+      } catch (error) {
+        console.log("No hay control activo para este pedido o ocurrió un error:", error);
+        return null;
+      }
+    },
+    enabled: !!pedidoId && pedido?.estado === 'controlando',
+    retry: false
+  });
+  
+  // Dialog de finalización
+  const [finalizarOpen, setFinalizarOpen] = useState(false);
+  const [comentarios, setComentarios] = useState("");
   
   // Obtener información del armador
   const {
@@ -232,7 +315,7 @@ export default function ControlPedidoPage() {
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       // Verificar si es un pedido ya controlado
       if (data.pedidoYaControlado) {
         console.log("Pedido ya controlado:", data.mensaje);
@@ -289,7 +372,7 @@ export default function ControlPedidoPage() {
         pedidoYaControlado: false,
         mensajeError: null,
         codigoPedido: data.pedido?.pedidoId || null,
-        productosControlados: productosParaControl.map(p => {
+        productosControlados: productosParaControl.map((p: any) => {
           console.log(`Producto con código ${p.codigo} agregado al estado`);
           return {
             id: p.id,
@@ -310,8 +393,8 @@ export default function ControlPedidoPage() {
       if (data.pedido?.pedidoId === 'P0025' || pedidoId === 23) {
         console.log("⚠️ PEDIDO ESPECIAL P0025 DETECTADO");
         console.log("Verificando códigos críticos:");
-        console.log("- Código 17061 presente:", productosParaControl.some(p => String(p.codigo).includes('17061')));
-        console.log("- Código 18001 presente:", productosParaControl.some(p => String(p.codigo).includes('18001')));
+        console.log("- Código 17061 presente:", productosParaControl.some((p: any) => String(p.codigo).includes('17061')));
+        console.log("- Código 18001 presente:", productosParaControl.some((p: any) => String(p.codigo).includes('18001')));
       }
       
       // Actualizar datos del pedido
@@ -398,179 +481,114 @@ export default function ControlPedidoPage() {
         // Obtener datos del producto
         const productoEncontrado = prev.productosControlados.find(p => p.codigo === data.producto.codigo);
         
-        // Verificar si ya existe este código en el historial
-        const escaneoExistente = prev.historialEscaneos.find(p => p.codigo === data.producto.codigo);
+        // Crear nuevo escaneo para el historial
+        const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
+          id: data.detalle.id,
+          codigo: data.detalle.codigo,
+          cantidad: data.detalle.cantidad,
+          controlado: data.cantidadControlada,
+          descripcion: productoEncontrado?.descripcion || data.producto.descripcion || "",
+          timestamp: new Date(),
+          escaneado: true,
+          ubicacion: productoEncontrado?.ubicacion || data.producto.ubicacion || "",
+          estado: data.controlEstado
+        };
         
-        let nuevoHistorial;
-        
-        if (escaneoExistente) {
-          // Si ya existe, actualizar acumulando la cantidad
-          nuevoHistorial = prev.historialEscaneos.map(p => {
-            if (p.codigo === data.producto.codigo) {
-              // Actualizamos con el valor total del servidor y la marca de tiempo
-              return {
-                ...p,
-                controlado: data.cantidadControlada, // Usamos el total acumulado del servidor
-                estado: data.controlEstado,
-                timestamp: new Date()
-              };
-            }
-            return p;
-          });
-        } else {
-          // Si no existe, crear un nuevo registro
-          const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
-            id: productoEncontrado?.id,
+        // Verificar si hay productos excedentes
+        if (data.controlEstado === 'excedente') {
+          setProductoExcedente({
             codigo: data.producto.codigo,
-            cantidad: productoEncontrado?.cantidad || 0,
-            controlado: data.cantidadControlada,
-            descripcion: productoEncontrado?.descripcion || '',
-            ubicacion: productoEncontrado?.ubicacion,
-            estado: data.controlEstado,
-            timestamp: new Date(),
-            escaneado: true
-          };
-          
-          nuevoHistorial = [...prev.historialEscaneos, nuevoEscaneo];
+            descripcion: productoEncontrado?.descripcion || data.producto.descripcion || "",
+            cantidadEsperada: data.producto.cantidad,
+            cantidadActual: data.cantidadControlada
+          });
+          setExcedenteAlertOpen(true);
         }
         
         return {
           ...prev,
           productosControlados: updatedProductos,
-          historialEscaneos: nuevoHistorial
+          historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
         };
       });
       
-      // Verificar si la cantidad es excedente y mostrar alerta
-      if (data.controlEstado === 'excedente') {
-        const producto = controlState.productosControlados.find(p => p.codigo === data.producto.codigo);
-        if (producto) {
-          setProductoExcedente({
-            codigo: data.producto.codigo,
-            descripcion: producto.descripcion || 'Sin descripción',
-            cantidadEsperada: producto.cantidad,
-            cantidadActual: data.cantidadControlada
-          });
-          setExcedenteAlertOpen(true);
+      // Sonido de éxito o alertas
+      if (data.controlEstado === 'correcto') {
+        try {
+          const audio = new Audio('/sounds/success.mp3');
+          audio.play();
+        } catch (e) {
+          console.log('Error reproduciendo sonido:', e);
+        }
+      } else if (data.controlEstado === 'excedente' || data.controlEstado === 'faltante') {
+        try {
+          const audio = new Audio('/sounds/alert.mp3');
+          audio.play();
+        } catch (e) {
+          console.log('Error reproduciendo sonido:', e);
         }
       }
       
-      // Si todos los productos están controlados, finalizar automáticamente
-      if (data.todosControlados) {
-        // Iniciar proceso de finalización automática
-        console.log("Control completo detectado. Finalizando automáticamente...");
-        
-        // Abrir el diálogo de finalización automáticamente
-        setFinalizarOpen(true);
-      }
-      
-      // Focus de nuevo en el input de escaneo
-      setTimeout(() => {
-        if (escanerInputRef.current) {
-          escanerInputRef.current.focus();
-        }
-      }, 100);
+      // Mostrar mensaje de éxito
+      toast({
+        title: "Producto registrado",
+        description: `Código ${data.producto.codigo} registrado correctamente`,
+      });
     },
     onError: (error: Error) => {
-      // Extraer detalles adicionales si están disponibles en la respuesta
-      let responseData: any = {};
-      try {
-        if (error.message && error.message.includes('{')) {
-          const jsonPart = error.message.substring(error.message.indexOf('{'));
-          responseData = JSON.parse(jsonPart);
-        }
-      } catch (e) {
-        console.log("No se pudo extraer datos adicionales del error:", e);
-      }
+      console.error("Error completo al escanear:", error);
       
-      toast({
-        title: "Error al escanear producto",
-        description: error.message,
-        variant: "destructive",
-      });
+      // Verificar si es un error de código no encontrado
+      const errorData = (error as any).data || {};
+      const codigo = (error as any).codigo || "";
       
-      // Agregar al historial de escaneos si hay un código no encontrado
-      if (error.message.includes("no pertenece a este pedido") && responseData.codigo) {
-        console.log("Agregando código no encontrado al historial:", responseData.codigo);
-        
-        // Configurar la información del código no encontrado para mostrar la alerta
+      if (errorData.tipo === 'CODIGO_NO_ENCONTRADO') {
+        // Mostrar alerta específica de código no encontrado
         setCodigoNoEncontrado({
-          codigo: responseData.codigo || "Código desconocido",
-          descripcion: responseData.descripcion || "Sin descripción"
+          codigo: codigo,
+          descripcion: errorData.message || "Código no encontrado en este pedido"
         });
         setAlertOpen(true);
         
-        setControlState(prev => {
-          // Verificar si ya existe este código en el historial
-          const existente = prev.historialEscaneos.find(p => p.codigo === responseData.codigo);
-          
-          if (existente) {
-            // Si ya existe, actualizar solo la marca de tiempo
-            return {
-              ...prev,
-              historialEscaneos: prev.historialEscaneos.map(p => {
-                if (p.codigo === responseData.codigo) {
-                  return {
-                    ...p,
-                    timestamp: new Date()
-                  };
-                }
-                return p;
-              })
-            };
-          } else {
-            // Si no existe, agregar nuevo registro
-            return {
-              ...prev,
-              historialEscaneos: [
-                ...prev.historialEscaneos, 
-                {
-                  id: null as any,
-                  codigo: responseData.codigo || "Código desconocido",
-                  cantidad: 0,
-                  controlado: 0,
-                  descripcion: "Código no encontrado en este pedido",
-                  ubicacion: null as any,
-                  timestamp: new Date(),
-                  escaneado: false,
-                  estado: 'excedente'
-                }
-              ]
-            };
-          }
+        // Sonido de error
+        try {
+          const audio = new Audio('/sounds/error.mp3');
+          audio.play();
+        } catch (e) {
+          console.log('Error reproduciendo sonido:', e);
+        }
+      } else {
+        // Mensaje de error genérico
+        toast({
+          title: "Error al registrar producto",
+          description: error.message,
+          variant: "destructive",
         });
       }
-      
-      // Focus de nuevo en el input de escaneo
-      setTimeout(() => {
-        if (escanerInputRef.current) {
-          escanerInputRef.current.focus();
-        }
-      }, 100);
     },
   });
   
   // Finalizar control mutation
   const finalizarControlMutation = useMutation({
-    mutationFn: async (data: { comentarios: string, resultado: string }) => {
+    mutationFn: async ({ resultado, comentarios }: { resultado: ControlEstado, comentarios?: string }) => {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
       try {
-        console.log("Finalizando control:", { pedidoId, ...data });
-        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/finalizar`, data);
+        // Enviamos la solicitud para finalizar el control
+        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/finalizar`, {
+          resultado,
+          comentarios
+        });
         
         // Manejo mejorado de errores
         if (!res.ok) {
-          // Intentamos obtener el error como JSON primero
           let errorMessage = "Error al finalizar control";
           try {
             const errorData = await res.json();
             errorMessage = errorData.message || errorMessage;
-          } catch (jsonError) {
-            // Si falla al parsear JSON, intentamos obtener el texto del error
+          } catch (e) {
             try {
               const errorText = await res.text();
-              console.error("Respuesta de error (texto):", errorText);
               if (errorText && errorText.length > 0) {
                 errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}...`;
               }
@@ -590,11 +608,25 @@ export default function ControlPedidoPage() {
     onSuccess: (data) => {
       toast({
         title: "Control finalizado",
-        description: `El control del pedido ha sido finalizado. Tiempo total: ${data.tiempoControl}`,
+        description: `El control del pedido ha sido finalizado como: ${data.resultado.toUpperCase()}`,
       });
       
-      // Redireccionar al historial
-      setLocation("/control/historial");
+      // Detener el control
+      setControlState(prev => ({
+        ...prev,
+        isRunning: false
+      }));
+      
+      // Cerrar el dialog de finalización
+      setFinalizarOpen(false);
+      
+      // Actualizar datos del pedido
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+      
+      // Redireccionar a la lista de controles después de 2 segundos
+      setTimeout(() => {
+        setLocation("/control");
+      }, 2000);
     },
     onError: (error: Error) => {
       toast({
@@ -602,759 +634,352 @@ export default function ControlPedidoPage() {
         description: error.message,
         variant: "destructive",
       });
+      console.error("Error al finalizar control:", error);
     },
   });
   
-  // Timer para actualizar el tiempo transcurrido
+  // Cancelar control mutation
+  const cancelarControlMutation = useMutation({
+    mutationFn: async ({ comentarios }: { comentarios?: string }) => {
+      if (!pedidoId) throw new Error("ID de pedido no válido");
+      
+      try {
+        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/cancelar`, {
+          comentarios
+        });
+        
+        if (!res.ok) {
+          let errorMessage = "Error al cancelar control";
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            const errorText = await res.text();
+            errorMessage = `${errorMessage}: ${errorText}`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Error en cancelarControlMutation:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Control cancelado",
+        description: "El control del pedido ha sido cancelado",
+      });
+      
+      // Detener el control
+      setControlState(prev => ({
+        ...prev,
+        isRunning: false
+      }));
+      
+      // Actualizar datos del pedido
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+      
+      // Redireccionar a la lista de controles después de 1 segundo
+      setTimeout(() => {
+        setLocation("/control");
+      }, 1000);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al cancelar control",
+        description: error.message,
+        variant: "destructive",
+      });
+      console.error("Error al cancelar control:", error);
+    },
+  });
+  
+  // Función para manejar el escaneo de productos
+  const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
+    if (!codigo) return;
+    
+    console.log(`Escaneando producto: código=${codigo}, cantidad=${cantidad}`);
+    escanearProductoMutation.mutate({ codigo, cantidad });
+  };
+  
+  // Función para iniciar control
+  const handleIniciarControl = () => {
+    setCargandoControl(true);
+    iniciarControlMutation.mutate();
+  };
+  
+  // Función para finalizar control
+  const handleFinalizarControl = (resultado: ControlEstado) => {
+    finalizarControlMutation.mutate({ 
+      resultado, 
+      comentarios 
+    });
+  };
+  
+  // Función para cancelar un control
+  const handleCancelarControl = () => {
+    if (window.confirm("¿Está seguro que desea cancelar este control?")) {
+      cancelarControlMutation.mutate({ comentarios });
+    }
+  };
+  
+  // Verificar si hay productos faltantes
+  const hasFaltantes = controlState.productosControlados.some(p => 
+    p.controlado < p.cantidad
+  );
+  
+  // Actualizar temporizador cada segundo
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | null = null;
     
     if (controlState.isRunning && controlState.startTime) {
-      intervalId = setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - controlState.startTime!) / 1000);
+      interval = setInterval(() => {
         setControlState(prev => ({
           ...prev,
-          segundos: elapsedSeconds
+          segundos: Math.floor((Date.now() - (prev.startTime || 0)) / 1000)
         }));
       }, 1000);
     }
     
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      if (interval) clearInterval(interval);
     };
   }, [controlState.isRunning, controlState.startTime]);
   
-  // Formatear tiempo
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-  
-  // Iniciar el control
-  const handleIniciarControl = () => {
-    iniciarControlMutation.mutate();
-  };
-  
-  // Función simplificada para iniciar control directamente
-  const handleIniciarControlDirecto = async () => {
-    if (!pedido || pedido.estado !== 'completado') {
-      toast({
-        title: "Estado de pedido incorrecto",
-        description: "Solo se pueden controlar pedidos en estado completado",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Indicamos que estamos cargando
-    setCargandoControl(true);
-    
-    try {
-      console.log("INICIANDO CONTROL CON NUEVO ENDPOINT PRE-CONTROL");
-      
-      // Usamos nuestro nuevo endpoint simplificado que evita el problema de JSON
-      const preControlRes = await fetch(`/api/control/pedidos/${pedidoId}/pre-control`, {
-        credentials: 'include'
-      });
-      
-      if (!preControlRes.ok) {
-        const errorMsg = await preControlRes.text();
-        console.error("Error en pre-control:", errorMsg);
-        throw new Error(`Error al preparar el control: ${errorMsg || preControlRes.status}`);
-      }
-      
-      // Intentamos procesar la respuesta como JSON
-      let responseData;
-      try {
-        responseData = await preControlRes.json();
-      } catch (jsonError) {
-        console.error("Error al procesar JSON:", jsonError);
-        throw new Error("Error al procesar la respuesta del servidor");
-      }
-      
-      if (!responseData.success) {
-        toast({
-          title: "Error",
-          description: responseData.message || "Error desconocido",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Verificar que tengamos productos
-      if (!responseData.productos || responseData.productos.length === 0) {
-        toast({
-          title: "Error",
-          description: "No hay productos asociados a este pedido",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Usamos los productos directamente del endpoint seguro
-      const productosData = responseData.productos;
-      
-      // Preparamos datos para la interfaz
+  // Exponer los datos del pedido para debugging en la consola
+  useEffect(() => {
+    if (pedido && typeof window !== 'undefined') {
       window.dataPedido = {
-        message: "Control iniciado correctamente",
-        pedido: pedido
+        pedido,
+        productos,
+        controlState
       };
-      
-      // Iniciamos el control en la UI
-      setControlState({
-        isRunning: true,
-        startTime: Date.now(),
-        pedidoId: pedidoId,
-        pedidoYaControlado: false,
-        mensajeError: null,
-        codigoPedido: pedido?.pedidoId || null,
-        productosControlados: productosData.map((p: any) => ({
-          id: p.id,
-          codigo: p.codigo ? String(p.codigo).trim() : "",
-          cantidad: p.cantidad,
-          controlado: 0,
-          descripcion: p.descripcion,
-          ubicacion: p.ubicacion || "",
-          estado: ""
-        })),
-        historialEscaneos: [],
-        segundos: 0
-      });
-      
-      // Notificamos al usuario
-      toast({
-        title: "Control iniciado",
-        description: "El control ha comenzado correctamente"
-      });
-      
-      // Enfocar el campo de escaneo
-      setTimeout(() => {
-        if (escanerInputRef.current) {
-          escanerInputRef.current.focus();
-        }
-      }, 100);
-      
-      // Intento registrar en el servidor (aunque falle seguimos adelante)
-      fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        credentials: 'include'
-      }).catch(err => {
-        console.warn("Error al registrar control (no crítico)", err);
-      });
-      
-    } catch (error) {
-      console.error("Error al iniciar control:", error);
-      toast({
-        title: "Error al iniciar control",
-        description: error instanceof Error ? error.message : 'Error desconocido',
-        variant: "destructive",
-      });
-    } finally {
-      setCargandoControl(false);
+      console.log("Datos del pedido disponibles en window.dataPedido");
     }
-  };
+  }, [pedido, productos, controlState]);
   
-  // Abrir diálogo de finalización
-  const handleOpenFinalizar = () => {
-    setFinalizarOpen(true);
-  };
+  // Extraer horas, minutos y segundos del temporizador
+  const horas = Math.floor(controlState.segundos / 3600);
+  const minutos = Math.floor((controlState.segundos % 3600) / 60);
+  const segundos = controlState.segundos % 60;
   
-  // Finalizar control y redirigir tras completar
-  const handleFinalizarControl = (resultado: string) => {
-    finalizarControlMutation.mutate({ 
-      comentarios, 
-      resultado 
-    }, {
-      onSuccess: () => {
-        // Mostrar mensaje de éxito
-        toast({
-          title: "Control finalizado",
-          description: "El control ha sido finalizado correctamente. Redirigiendo a la lista de pedidos...",
-        });
-        
-        // Redireccionar a la página de búsqueda después de 2 segundos
-        setTimeout(() => {
-          window.location.href = '/control';
-        }, 2000);
-      }
-    });
-    setFinalizarOpen(false);
-  };
-  
-  // Función mejorada para normalizar y comparar códigos
-  const normalizeCode = (code: string | number | null | undefined) => {
-    if (code === null || code === undefined) return '';
-    
-    // Convertir a string y eliminar espacios
-    let normalizedCode = String(code).trim().toLowerCase().replace(/\s+/g, '');
-    
-    // Eliminar caracteres no alfanuméricos al inicio o fin
-    normalizedCode = normalizedCode.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
-    
-    // Caso especial: los códigos 17061 y 18001 deben conservarse exactamente como están
-    // para el pedido P0025
-    if (normalizedCode === '17061' || normalizedCode === '18001') {
-      console.log(`⚠️ Código especial detectado en normalización: ${normalizedCode} - ¡Preservando valor exacto!`);
-      return normalizedCode;
-    }
-    
-    // Para códigos numéricos, eliminar ceros a la izquierda si no es un caso especial
-    if (/^\d+$/.test(normalizedCode)) {
-      normalizedCode = String(parseInt(normalizedCode, 10));
-    }
-    
-    return normalizedCode;
-  };
-  
-  // Escanear producto
-  const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
-    // Imprimir para depuración
-    console.log("Escaneando código:", codigo);
-    
-    // Verificar si hay productos en el estado del control
-    if (!controlState.productosControlados || controlState.productosControlados.length === 0) {
-      console.error("⚠️ ERROR CRÍTICO: No hay productos en el estado del control");
-      toast({
-        title: "Error de inicialización",
-        description: "No se han cargado productos para este pedido. Por favor, reinicie el control.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    console.log("Productos controlados:", controlState.productosControlados.map(p => p.codigo));
-    
-    // CASO ESPECIAL PARA CÓDIGOS ESPECÍFICOS DEL PEDIDO P0025
-    if ((pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) && 
-        (codigo === '17061' || codigo.trim() === '17061')) {
-        
-      console.log("🔴 DETECCIÓN PRIORITARIA: Código 17061 detectado en pedido P0025");
-      
-      // Buscar manualmente el producto con código 17061
-      const productoEspecial = controlState.productosControlados.find(p => 
-        p.codigo === '17061' || p.codigo === '17061.0' || p.codigo.trim() === '17061'
-      );
-      
-      if (productoEspecial) {
-        console.log("✅ ÉXITO: Producto con código 17061 encontrado directamente");
-        escanearProductoMutation.mutate({ codigo: productoEspecial.codigo, cantidad });
-        return;
-      } else {
-        console.log("⚠️ ADVERTENCIA: No se encontró un producto con código 17061 directamente");
-        
-        // Búsqueda secundaria: verificar si algún código contiene 17061
-        const productoAlternativo = controlState.productosControlados.find(p => 
-          String(p.codigo).includes('17061')
-        );
-        
-        if (productoAlternativo) {
-          console.log("✅ ÉXITO ALTERNATIVO: Se encontró un producto que contiene 17061:", productoAlternativo.codigo);
-          escanearProductoMutation.mutate({ codigo: productoAlternativo.codigo, cantidad });
-          return;
-        }
-      }
-    }
-    
-    // CASO ESPECIAL PARA CÓDIGO 18001
-    if ((pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) && 
-        (codigo === '18001' || codigo.trim() === '18001')) {
-        
-      console.log("🔴 DETECCIÓN PRIORITARIA: Código 18001 detectado en pedido P0025");
-      
-      // Buscar manualmente el producto con código 18001
-      const productoEspecial = controlState.productosControlados.find(p => 
-        p.codigo === '18001' || p.codigo === '18001.0' || p.codigo.trim() === '18001'
-      );
-      
-      if (productoEspecial) {
-        console.log("✅ ÉXITO: Producto con código 18001 encontrado directamente");
-        escanearProductoMutation.mutate({ codigo: productoEspecial.codigo, cantidad });
-        return;
-      } else {
-        console.log("⚠️ ADVERTENCIA: No se encontró un producto con código 18001 directamente");
-        
-        // Búsqueda secundaria: verificar si algún código contiene 18001
-        const productoAlternativo = controlState.productosControlados.find(p => 
-          String(p.codigo).includes('18001')
-        );
-        
-        if (productoAlternativo) {
-          console.log("✅ ÉXITO ALTERNATIVO: Se encontró un producto que contiene 18001:", productoAlternativo.codigo);
-          escanearProductoMutation.mutate({ codigo: productoAlternativo.codigo, cantidad });
-          return;
-        }
-      }
-    }
-    
-    // Normalizar el código escaneado
-    const normalizedInput = normalizeCode(codigo);
-    console.log("Código normalizado:", normalizedInput);
-    
-    // Imprimir todos los productos del pedido para depuración
-    console.log("Productos en control state:", JSON.stringify(controlState.productosControlados.map(p => ({
-      id: p.id,
-      codigo: p.codigo,
-      cantidad: p.cantidad,
-      tipo: typeof p.codigo
-    }))));
-    
-    // Verificar si el código pertenece al pedido usando estrategias múltiples de comparación
-    const productoEnPedido = controlState.productosControlados.find(p => {
-      const normalizedProductCode = normalizeCode(p.codigo);
-      console.log(`Comparando con: "${normalizedProductCode}" (${typeof p.codigo})`);
-      
-      // 1. Comparación directa entre valores sin normalizar
-      if (codigo === p.codigo) {
-        console.log(`✓ COINCIDENCIA EXACTA: "${codigo}" coincide con "${p.codigo}"`);
-        return true;
-      }
-      
-      // 2. Comparación directa entre valores normalizados como strings
-      if (normalizedProductCode === normalizedInput) {
-        console.log(`✓ Coincidencia exacta normalizada: ${normalizedProductCode} === ${normalizedInput}`);
-        return true;
-      }
-      
-      // 3. Comparación numérica si ambos pueden ser números
-      const numInput = !isNaN(Number(codigo)) ? Number(codigo) : null;
-      const numProductCode = !isNaN(Number(p.codigo)) ? Number(p.codigo) : null;
-      
-      if (numInput !== null && numProductCode !== null && numInput === numProductCode) {
-        console.log(`✓ Coincidencia numérica: ${numInput} === ${numProductCode}`);
-        return true;
-      }
-      
-      // 4. Comparación de subsecuencias
-      if (normalizedProductCode.includes(normalizedInput) || normalizedInput.includes(normalizedProductCode)) {
-        console.log(`✓ Coincidencia parcial: ${normalizedProductCode} ~ ${normalizedInput}`);
-        return true;
-      }
-      
-      // 5. Eliminar caracteres no alfanuméricos y volver a comparar
-      const cleanInput = normalizedInput.replace(/[^a-z0-9]/g, '');
-      const cleanProductCode = normalizedProductCode.replace(/[^a-z0-9]/g, '');
-      
-      if (cleanInput === cleanProductCode) {
-        console.log(`✓ Coincidencia limpia: ${cleanInput} === ${cleanProductCode}`);
-        return true;
-      }
-      
-      return false;
-    });
-    
-    console.log("¿Producto encontrado?:", !!productoEnPedido);
-    
-    // Registro detallado para entender la relación entre IDs del pedido
-    console.log("Detalles del pedido:", {
-      id_interno: pedido?.id, // Este es el ID en la base de datos (número)
-      id_visual: pedido?.pedidoId, // Este es el ID visible para usuarios (ej: "P0025")
-      id_en_estado: controlState.pedidoId, // Este es el ID que se usa en el estado
-      clienteId: pedido?.clienteId,
-      codigo_buscado: codigo,
-      productos_total: controlState.productosControlados.length
-    });
-    
-    if (!productoEnPedido) {
-      // Mostrar alerta de código no encontrado
-      setCodigoNoEncontrado({
-        codigo,
-        descripcion: "Producto no pertenece a este pedido"
-      });
-      setAlertOpen(true);
-      
-      // Agregar al historial de escaneos incluso si no pertenece al pedido
-      setControlState(prev => ({
-        ...prev,
-        historialEscaneos: [
-          ...prev.historialEscaneos, 
-          {
-            codigo,
-            cantidad: 0,
-            controlado: 0,
-            descripcion: "Código no encontrado en este pedido",
-            timestamp: new Date(),
-            escaneado: false,
-            id: null as any,
-            ubicacion: null as any,
-            estado: 'excedente'
-          }
-        ]
-      }));
-      
-      // Focus de nuevo en el input de escaneo después de cerrar la alerta
-      setTimeout(() => {
-        if (escanerInputRef.current) {
-          escanerInputRef.current.focus();
-        }
-      }, 100);
-      
-      return;
-    }
-    
-    // Si el código es válido, continuar con el escaneo
-    escanearProductoMutation.mutate({ codigo, cantidad });
-  };
-  
-  // Calcular estadísticas
-  const totalProductos = controlState.productosControlados.length;
-  const productosControlados = controlState.productosControlados.filter(p => p.controlado > 0).length;
-  const productosCorrectos = controlState.productosControlados.filter(p => p.estado === 'correcto').length;
-  const productosFaltantes = controlState.productosControlados.filter(p => p.estado === 'faltante').length;
-  const productosExcedentes = controlState.productosControlados.filter(p => p.estado === 'excedente').length;
-  
-  // Determinar si todos los productos están controlados
-  const todosControlados = totalProductos > 0 && 
-    controlState.productosControlados.every(p => p.controlado >= p.cantidad);
-  
-  // Handler para confirmar un código no encontrado
-  const handleConfirmNoEncontrado = () => {
-    setAlertOpen(false);
-    
-    // Focus nuevamente en el input
-    setTimeout(() => {
-      if (escanerInputRef.current) {
-        escanerInputRef.current.focus();
-      }
-    }, 100);
-  };
+  // Manejar estado de carga
+  const isLoading = isLoadingPedido || iniciarControlMutation.isPending || cargandoControl;
   
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center">
-            <Button variant="outline" size="icon" asChild className="mr-4">
-              <Link to="/control">
+      <div className="container py-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Link href="/control">
+              <Button variant="outline" size="icon">
                 <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-semibold">Control de Pedido</h1>
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold">Control de Pedido</h1>
           </div>
           
-          {/* Mostrar ID del pedido como parte del título */}
-          {pedido && (
-            <div className="flex items-center bg-muted px-3 py-1 rounded-md">
-              <span className="font-semibold">Pedido: {pedido.pedidoId}</span>
-              <span className="mx-2">|</span>
-              <span>Cliente: {pedido.clienteId}</span>
+          {controlState.isRunning && (
+            <div className="flex items-center gap-2">
+              <Timer className="h-5 w-5 text-muted-foreground" />
+              <span className="text-lg font-semibold">
+                {horas > 0 ? `${horas}h ` : ''}
+                {String(minutos).padStart(2, '0')}:{String(segundos).padStart(2, '0')}
+              </span>
             </div>
           )}
         </div>
         
-        {/* Alerta de código no encontrado */}
-        <CodigoNoEncontradoAlert
-          open={alertOpen}
-          onOpenChange={setAlertOpen}
-          codigo={codigoNoEncontrado.codigo}
-          descripcion={codigoNoEncontrado.descripcion}
-          onConfirm={handleConfirmNoEncontrado}
-        />
-        
-        {/* Información del Pedido */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Información del Pedido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingPedido ? (
-              <div className="text-center">Cargando información del pedido...</div>
-            ) : pedidoError ? (
-              <div className="text-center text-red-600">
-                Error al cargar la información del pedido
+        {/* Información del pedido */}
+        {!isLoading && pedido ? (
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Información del Pedido</CardTitle>
+                {pedido.estado && (
+                  <Badge className={`
+                    ${pedido.estado === 'pendiente' ? 'bg-orange-500' : ''}
+                    ${pedido.estado === 'armando' ? 'bg-blue-500' : ''}
+                    ${pedido.estado === 'finalizado' ? 'bg-green-500' : ''}
+                    ${pedido.estado === 'controlando' ? 'bg-purple-500' : ''}
+                    ${pedido.estado === 'pre-finalizado' ? 'bg-amber-500' : ''}
+                  `}>
+                    {pedido.estado.toUpperCase()}
+                  </Badge>
+                )}
               </div>
-            ) : pedido ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardDescription>
+                Nº {pedido.orden} - {pedido.pedidoId || 'Sin ID'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-neutral-500">ID de Pedido</p>
-                  <p className="font-medium">{pedido.pedidoId}</p>
+                  <p><span className="font-semibold">Cliente:</span> {pedido.cliente}</p>
+                  <p><span className="font-semibold">Fecha:</span> {formatDate(pedido.fecha)}</p>
+                  {pedido.prioridad && (
+                    <p><span className="font-semibold">Prioridad:</span> {pedido.prioridad}</p>
+                  )}
                 </div>
                 <div>
-                  <p className="text-sm text-neutral-500">Cliente</p>
-                  <p className="font-medium">{pedido.clienteId}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-500">Fecha</p>
-                  <p className="font-medium">{formatDate(pedido.fecha)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-500">Armador</p>
-                  <p className="font-medium">
-                    {isLoadingArmador ? (
-                      <span className="text-neutral-400">Cargando...</span>
-                    ) : armador ? (
-                      armador.username || `ID: ${pedido.armadorId}`
-                    ) : (
-                      pedido.armadorId ? `ID: ${pedido.armadorId}` : "-"
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-500">Vendedor</p>
-                  <p className="font-medium">{pedido.vendedor || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-neutral-500">Productos</p>
-                  <p className="font-medium">{pedido.totalProductos}</p>
+                  <p><span className="font-semibold">Vendedor:</span> {pedido.vendedor}</p>
+                  <p><span className="font-semibold">Armador:</span> {armador?.nombre || pedido.armadorId}</p>
+                  {pedido.tipo && (
+                    <p><span className="font-semibold">Tipo:</span> {pedido.tipo}</p>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="text-center text-neutral-500">
-                Pedido no encontrado
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="border-t pt-4">
-            {controlState.pedidoYaControlado ? (
-              <div className="w-full">
-                <div className="flex items-center mb-2 text-red-600">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  <span className="font-medium">Este pedido ya fue controlado</span>
-                </div>
-                <p className="text-sm text-neutral-600 mb-3">{controlState.mensajeError}</p>
-                <div className="flex space-x-2">
-                  <Button variant="outline" asChild>
-                    <Link to="/control">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Volver a la lista de pedidos
-                    </Link>
+            </CardContent>
+            <CardFooter className="flex justify-end">
+              {!controlState.isRunning && !controlState.pedidoYaControlado && pedido.estado === 'finalizado' && (
+                <Button onClick={handleIniciarControl} disabled={isLoading}>
+                  {isLoading ? 'Cargando...' : 'Iniciar Control'}
+                </Button>
+              )}
+              
+              {!controlState.isRunning && !controlState.pedidoYaControlado && pedido.estado === 'controlando' && (
+                <Button onClick={handleIniciarControl} disabled={isLoading}>
+                  {isLoading ? 'Cargando...' : 'Continuar Control'}
+                </Button>
+              )}
+              
+              {controlState.isRunning && (
+                <div className="flex gap-2">
+                  <Button variant="destructive" onClick={handleCancelarControl}>
+                    Cancelar Control
                   </Button>
-                  <Button variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] })}>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="w-4 h-4 mr-2"
-                    >
-                      <path d="M21 2v6h-6"></path>
-                      <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
-                      <path d="M3 22v-6h6"></path>
-                      <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
-                    </svg>
-                    Actualizar pedidos
+                  <Button onClick={() => setFinalizarOpen(true)}>
+                    Finalizar Control
                   </Button>
                 </div>
-              </div>
-            ) : !controlState.isRunning ? (
-              <Button 
-                onClick={handleIniciarControlDirecto} 
-                disabled={cargandoControl || !pedido || pedido.estado !== 'completado'}
-              >
-                {cargandoControl ? "Iniciando..." : "Iniciar Control"}
-              </Button>
-            ) : (
-              <Button 
-                variant="destructive" 
-                onClick={handleOpenFinalizar}
-                disabled={finalizarControlMutation.isPending}
-              >
-                <StopCircle className="mr-2 h-4 w-4" />
-                {finalizarControlMutation.isPending ? "Finalizando..." : "Finalizar Control"}
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+              )}
+              
+              {controlState.pedidoYaControlado && (
+                <div className="text-red-500 font-medium">
+                  {controlState.mensajeError || "Este pedido ya fue controlado."}
+                </div>
+              )}
+            </CardFooter>
+          </Card>
+        ) : isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        ) : pedidoError ? (
+          <Card className="mb-6 border-red-200">
+            <CardHeader>
+              <CardTitle className="text-red-500">Error al cargar pedido</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>{pedidoError instanceof Error ? pedidoError.message : "Error desconocido"}</p>
+            </CardContent>
+          </Card>
+        ) : null}
         
-        {controlState.isRunning && !controlState.pedidoYaControlado && (
-          <>
-            {/* Escaneo de Productos */}
-            <Card className="mb-6">
+        {/* Área de control activo */}
+        {controlState.isRunning && (
+          <div className="mb-6 space-y-6">
+            {/* Escáner de productos */}
+            <Card>
               <CardHeader>
-                <CardTitle>Escaneo de Productos</CardTitle>
-                <CardDescription>
-                  Escanea el código de barras de cada producto
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Barcode className="h-5 w-5" />
+                  Escanear Productos
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ProductoEscanerForm 
-                  onEscanear={handleEscanearProducto}
-                  isLoading={escanearProductoMutation.isPending}
+                  onEscanear={handleEscanearProducto} 
+                  isLoading={escanearProductoMutation.isPending} 
                   inputRef={escanerInputRef}
                 />
               </CardContent>
             </Card>
             
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <ClipboardList className="h-5 w-5 text-neutral-500" />
-                    <span className="text-sm text-neutral-500">Total:</span>
-                    <span className="text-xl font-semibold">{totalProductos}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Check className="h-5 w-5 text-green-500" />
-                    <span className="text-sm text-neutral-500">Correctos:</span>
-                    <span className="text-xl font-semibold">{productosCorrectos}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Minus className="h-5 w-5 text-red-500" />
-                    <span className="text-sm text-neutral-500">Faltantes:</span>
-                    <span className="text-xl font-semibold">{productosFaltantes}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Plus className="h-5 w-5 text-amber-500" />
-                    <span className="text-sm text-neutral-500">Excedentes:</span>
-                    <span className="text-xl font-semibold">{productosExcedentes}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Botón para ver/ocultar el resumen del control */}
-            <div className="flex justify-center my-6">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="flex items-center"
-                onClick={() => setResumenVisible(prev => !prev)}
-              >
-                <ClipboardList className="mr-2 h-4 w-4" />
-                {resumenVisible ? 'Ocultar Resumen' : 'Ver Resumen'}
-              </Button>
-            </div>
-            
-            {/* Resumen Estadístico (Sólo visible cuando se haga clic en el botón) */}
-            {resumenVisible && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Resumen del Control</CardTitle>
-                  <CardDescription>
-                    Estadísticas del control en curso
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                    <div className="rounded-lg border p-4">
-                      <div className="flex flex-col items-center">
-                        <span className="text-sm text-neutral-500 mb-2">Productos en Pedido</span>
-                        <span className="text-3xl font-bold">{totalProductos}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="rounded-lg border p-4">
-                      <div className="flex flex-col items-center">
-                        <span className="text-sm text-neutral-500 mb-2">Productos Controlados</span>
-                        <span className="text-3xl font-bold">{productosControlados}</span>
-                        <span className="text-sm text-neutral-500 mt-1">
-                          {Math.round((productosControlados / totalProductos) * 100)}% completado
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="rounded-lg border p-4">
-                      <div className="flex flex-col items-center">
-                        <span className="text-sm text-neutral-500 mb-2">Productos Pendientes</span>
-                        <span className="text-3xl font-bold">{totalProductos - productosControlados}</span>
-                      </div>
-                    </div>
-                  </div>
+            {/* Productos escaneados */}
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Productos Registrados</CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setResumenVisible(!resumenVisible)}
+                    className="text-xs"
+                  >
+                    {resumenVisible ? 'Ocultar Resumen' : 'Mostrar Resumen'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="historial" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="historial">Historial de Escaneos</TabsTrigger>
+                    <TabsTrigger value="resumen">Resumen {resumenVisible ? 'Detallado' : ''}</TabsTrigger>
+                  </TabsList>
                   
-                  <div className="grid grid-cols-1 gap-6 mt-6 md:grid-cols-2">
-                    <div className="rounded-lg border p-4 bg-red-50">
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center mb-2">
-                          <Minus className="h-4 w-4 text-red-500 mr-2" />
-                          <span className="text-sm text-neutral-500">Faltantes</span>
-                        </div>
-                        <span className="text-3xl font-bold text-red-600">{productosFaltantes}</span>
+                  <TabsContent value="historial" className="pt-4">
+                    <CodigosRegistradosList 
+                      registros={controlState.historialEscaneos}
+                      showEmpty={true}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="resumen" className="pt-4">
+                    {resumenVisible ? (
+                      <div className="space-y-4">
+                        {controlState.productosControlados.length > 0 ? (
+                          controlState.productosControlados.map(producto => (
+                            <ControlProductoItem 
+                              key={producto.id} 
+                              producto={producto} 
+                            />
+                          ))
+                        ) : (
+                          <p className="text-center text-muted-foreground py-8">
+                            No hay productos para controlar en este pedido
+                          </p>
+                        )}
                       </div>
-                    </div>
-                    
-                    <div className="rounded-lg border p-4 bg-amber-50">
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center mb-2">
-                          <Plus className="h-4 w-4 text-amber-500 mr-2" />
-                          <span className="text-sm text-neutral-500">Excedentes</span>
-                        </div>
-                        <span className="text-3xl font-bold text-amber-600">{productosExcedentes}</span>
+                    ) : (
+                      <div className="py-8 text-center">
+                        <p className="text-muted-foreground">
+                          Resumen oculto para simplificar la interfaz. Haga clic en "Mostrar Resumen" para ver todos los productos.
+                        </p>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </>
-        )}
-        
-        {/* Diálogo de finalización */}
-        <ControlFinalizarDialog 
-          open={finalizarOpen} 
-          onOpenChange={setFinalizarOpen}
-          onFinalizar={handleFinalizarControl}
-          comentarios={comentarios}
-          onComentariosChange={setComentarios}
-          hasFaltantes={productosFaltantes > 0}
-          hasExcedentes={productosExcedentes > 0}
-        />
-        
-        {/* Alerta de código no encontrado */}
-        <CodigoNoEncontradoAlert
-          open={alertOpen}
-          onOpenChange={setAlertOpen}
-          codigo={codigoNoEncontrado.codigo}
-          descripcion={codigoNoEncontrado.descripcion}
-          onConfirm={() => {
-            if (escanerInputRef.current) {
-              escanerInputRef.current.focus();
-            }
-          }}
-        />
-        
-        {/* Alerta de producto excedente */}
-        <ProductoExcedenteAlert
-          open={excedenteAlertOpen}
-          onOpenChange={setExcedenteAlertOpen}
-          codigo={productoExcedente.codigo}
-          descripcion={productoExcedente.descripcion}
-          cantidadEsperada={productoExcedente.cantidadEsperada}
-          cantidadActual={productoExcedente.cantidadActual}
-          onConfirm={() => {
-            if (escanerInputRef.current) {
-              escanerInputRef.current.focus();
-            }
-          }}
-        />
-        
-        {/* Códigos Registrados */}
-        {controlState.isRunning && !controlState.pedidoYaControlado && controlState.historialEscaneos?.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Códigos Registrados</CardTitle>
-              <CardDescription>
-                Historial de todos los códigos escaneados durante este control
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CodigosRegistradosList productos={controlState.historialEscaneos} />
-            </CardContent>
-          </Card>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
+      
+      {/* Alertas y diálogos */}
+      <CodigoNoEncontradoAlert 
+        open={alertOpen}
+        onOpenChange={setAlertOpen}
+        codigo={codigoNoEncontrado.codigo}
+        descripcion={codigoNoEncontrado.descripcion}
+      />
+      
+      <ProductoExcedenteAlert
+        open={excedenteAlertOpen}
+        onOpenChange={setExcedenteAlertOpen}
+        producto={productoExcedente}
+      />
+      
+      <ControlFinalizarDialog
+        open={finalizarOpen}
+        onOpenChange={setFinalizarOpen}
+        onFinalizar={handleFinalizarControl}
+        hasFaltantes={hasFaltantes}
+        comentarios={comentarios}
+        onComentariosChange={setComentarios}
+      />
     </MainLayout>
   );
 }
