@@ -262,7 +262,8 @@ export default function ControlHistorialPage() {
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
                             {control.tiempoTotal || "-"}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700 flex gap-2">
+                            {/* Botón Ver detalles */}
                             <Button
                               variant="outline"
                               size="sm"
@@ -274,6 +275,20 @@ export default function ControlHistorialPage() {
                                 <Search className="h-4 w-4" />
                               </Link>
                             </Button>
+                            
+                            {/* Botón Continuar Control (solo para controles en proceso) */}
+                            {control.resultado === 'en-proceso' && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                asChild
+                                className="h-8 p-0 px-2"
+                              >
+                                <Link to={`/control/pedido/${control.pedidoId}`}>
+                                  <span>Continuar</span>
+                                </Link>
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       );

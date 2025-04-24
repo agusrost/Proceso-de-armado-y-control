@@ -196,31 +196,42 @@ export default function ControlHistorialDetallePage() {
                 </div>
               </CardContent>
               <CardFooter className="border-t pt-4">
-                <div className="flex items-center">
-                  <span className="font-medium mr-2">Resultado:</span>
-                  <Badge 
-                    className={`
-                      ${controlHistorico.resultado === 'completo' 
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center">
+                    <span className="font-medium mr-2">Resultado:</span>
+                    <Badge 
+                      className={`
+                        ${controlHistorico.resultado === 'completo' 
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : controlHistorico.resultado === 'faltantes'
+                          ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                          : controlHistorico.resultado === 'excedentes'
+                          ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                          : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                        }
+                      `}
+                      variant="outline"
+                    >
+                      {controlHistorico.resultado === 'completo' 
+                        ? 'Completo' 
                         : controlHistorico.resultado === 'faltantes'
-                        ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                        ? 'Faltantes'
                         : controlHistorico.resultado === 'excedentes'
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                        : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                      }
-                    `}
-                    variant="outline"
-                  >
-                    {controlHistorico.resultado === 'completo' 
-                      ? 'Completo' 
-                      : controlHistorico.resultado === 'faltantes'
-                      ? 'Faltantes'
-                      : controlHistorico.resultado === 'excedentes'
-                      ? 'Excedentes'
-                      : controlHistorico.resultado === 'en-proceso'
-                      ? 'En Proceso'
-                      : controlHistorico.resultado}
-                  </Badge>
+                        ? 'Excedentes'
+                        : controlHistorico.resultado === 'en-proceso'
+                        ? 'En Proceso'
+                        : controlHistorico.resultado}
+                    </Badge>
+                  </div>
+                  
+                  {/* Botón para continuar control si está en proceso */}
+                  {controlHistorico.resultado === 'en-proceso' && (
+                    <Button asChild>
+                      <Link to={`/control/pedido/${controlHistorico.pedidoId}`}>
+                        Continuar Control
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </CardFooter>
             </Card>

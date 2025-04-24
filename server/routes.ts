@@ -2125,16 +2125,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         resultado: resultado as string
       });
       
-      // Filtrar solo los que tienen fecha de fin (controles finalizados)
-      const historicosFiltrados = historicos.filter(historico => historico.fin !== null);
-      
-      console.log(`Total de controles: ${historicos.length}, Finalizados: ${historicosFiltrados.length}`);
+      // No filtramos para incluir también los controles en proceso
+      // Los controles sin fin serán mostrados como "en-proceso"
+      console.log(`Total de controles: ${historicos.length}, Finalizados: ${historicos.filter(h => h.fin !== null).length}`);
       
       // Enriquecer con información adicional
-      const historicoDetallado = await Promise.all(historicosFiltrados.map(async (historico) => {
+      const historicoDetallado = await Promise.all(historicos.map(async (historico) => {
         const pedido = await storage.getPedidoById(historico.pedidoId);
         const controlador = historico.controladoPor ? await storage.getUser(historico.controladoPor) : undefined;
         const detalles = await storage.getControlDetalleByControlId(historico.id);
+        
+        // Verificar si el resultado debe ser 'en-proceso'
+        let resultado = historico.resultado;
+        if (!historico.fin) {
+          resultado = 'en-proceso';
+        }
         
         // Obtener nombre del armador si existe
         let armadorNombre = null;
@@ -2147,6 +2152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         return {
           ...historico,
+          resultado,
           pedido: pedido ? {
             ...pedido,
             armadorNombre
