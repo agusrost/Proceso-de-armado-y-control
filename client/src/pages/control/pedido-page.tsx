@@ -541,6 +541,157 @@ export default function ControlPedidoPage() {
     iniciarControlMutation.mutate();
   };
   
+  // Función alternativa para iniciar el control directamente con fetch
+  const handleIniciarControlDirecto = async () => {
+    if (!pedido || pedido.estado !== 'completado') {
+      toast({
+        title: "Estado de pedido incorrecto",
+        description: "Solo se pueden controlar pedidos en estado completado",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Indicamos que estamos cargando
+    setCargandoControl(true);
+    toast({
+      title: "Iniciando control",
+      description: "Cargando datos del pedido...",
+    });
+    
+    try {
+      // Paso 1: Obtener productos actualizados del pedido
+      console.log("Obteniendo productos del pedido:", pedidoId);
+      const productosRes = await fetch(`/api/pedidos/${pedidoId}/productos`);
+      
+      if (!productosRes.ok) {
+        throw new Error(`Error al cargar productos: ${productosRes.status}`);
+      }
+      
+      const productosActuales = await productosRes.json();
+      console.log("Productos obtenidos:", productosActuales.length);
+      
+      if (!productosActuales || productosActuales.length === 0) {
+        toast({
+          title: "Error",
+          description: "No hay productos asociados a este pedido",
+          variant: "destructive",
+        });
+        setCargandoControl(false);
+        return;
+      }
+      
+      // Paso 2: Iniciar el control
+      console.log("Enviando solicitud para iniciar control del pedido:", pedidoId);
+      const response = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+        credentials: 'include'
+      });
+      
+      // Obtenemos el tipo de contenido
+      const contentType = response.headers.get('content-type');
+      console.log("Respuesta recibida:", response.status, contentType);
+      
+      // Verificamos si la respuesta es exitosa
+      if (!response.ok) {
+        // Si es JSON, obtenemos el mensaje de error
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          // Verificamos si es un pedido ya controlado
+          if (errorData.message && errorData.message.includes('ya fue controlado')) {
+            console.log("El pedido ya fue controlado:", errorData);
+            
+            // Actualizar el estado para mostrar mensaje de pedido ya controlado
+            setControlState(prevState => ({
+              ...prevState,
+              isRunning: false,
+              pedidoId: pedidoId,
+              pedidoYaControlado: true,
+              mensajeError: errorData.message
+            }));
+            
+            toast({
+              title: "Pedido ya controlado",
+              description: errorData.message,
+              variant: "destructive",
+              duration: 8000
+            });
+            
+            setCargandoControl(false);
+            return;
+          }
+          
+          // Otro tipo de error
+          throw new Error(errorData.message || 'Error al iniciar control');
+        } else {
+          // No es JSON, obtenemos el texto
+          const errorText = await response.text();
+          console.error("Respuesta de error en texto:", errorText);
+          throw new Error(`Error ${response.status} al iniciar control`);
+        }
+      }
+      
+      // La respuesta es exitosa, obtenemos los datos
+      const data = await response.json();
+      console.log("Control iniciado correctamente:", data);
+      
+      // Actualizamos el estado local
+      toast({
+        title: "Control iniciado",
+        description: "El control del pedido ha sido iniciado correctamente",
+      });
+      
+      // Inicializar estado del control con los productos
+      setControlState({
+        isRunning: true,
+        startTime: Date.now(),
+        pedidoId: pedidoId,
+        pedidoYaControlado: false,
+        mensajeError: null,
+        codigoPedido: data.pedido?.pedidoId || pedido?.pedidoId || null,
+        productosControlados: productosActuales.map((p: any) => {
+          console.log(`Producto con código ${p.codigo} agregado al estado`);
+          return {
+            id: p.id,
+            // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
+            codigo: p.codigo ? String(p.codigo).trim() : "",
+            cantidad: p.cantidad,
+            controlado: 0,
+            descripcion: p.descripcion,
+            ubicacion: p.ubicacion || "",
+            estado: ""
+          };
+        }),
+        historialEscaneos: [],
+        segundos: 0
+      });
+      
+      // Actualizar datos del pedido
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+      
+      // Focus en el input de escaneo
+      setTimeout(() => {
+        if (escanerInputRef.current) {
+          escanerInputRef.current.focus();
+        }
+      }, 100);
+    } catch (error) {
+      console.error("Error al iniciar control:", error);
+      toast({
+        title: "Error al iniciar control",
+        description: error instanceof Error ? error.message : 'Error desconocido',
+        variant: "destructive",
+        duration: 8000
+      });
+    } finally {
+      setCargandoControl(false);
+    }
+  };
+  
   // Abrir diálogo de finalización
   const handleOpenFinalizar = () => {
     setFinalizarOpen(true);
