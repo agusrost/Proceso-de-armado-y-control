@@ -23,7 +23,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 export default function ControlHistorialDetallePage() {
   const { toast } = useToast();
-  const [, params] = useParams();
+  const params = useParams();
   const controlId = params?.id;
   
   const [controlHistorico, setControlHistorico] = useState<ControlHistoricoWithDetails | null>(null);
