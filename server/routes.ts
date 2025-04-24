@@ -1470,9 +1470,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Iniciar control de pedido
   app.post("/api/control/pedidos/:pedidoId/iniciar", requireAccess('control'), async (req, res, next) => {
     try {
+      // Asegurarse de que la respuesta sea JSON
+      res.setHeader('Content-Type', 'application/json');
+      
       const pedidoId = parseInt(req.params.pedidoId);
+      console.log(`Iniciando control para pedido ID: ${pedidoId}`);
       
       if (isNaN(pedidoId)) {
+        console.log("Error: ID de pedido inválido");
         return res.status(400).json({ message: "ID de pedido inválido" });
       }
       
@@ -1480,6 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pedido = await storage.getPedidoById(pedidoId);
       
       if (!pedido) {
+        console.log(`Error: Pedido ${pedidoId} no encontrado`);
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
@@ -1488,6 +1494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const controlCompletado = controlHistoricos.find(h => h.fin !== null);
       
       if (controlCompletado) {
+        console.log(`Pedido ${pedidoId} ya fue controlado anteriormente, ID de control: ${controlCompletado.id}`);
         return res.status(400).json({ 
           message: "Este pedido ya fue controlado y finalizado anteriormente",
           historico: {
@@ -1562,10 +1569,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Finalizar control de pedido
   app.post("/api/control/pedidos/:pedidoId/finalizar", requireAccess('control'), async (req, res, next) => {
     try {
+      // Asegurarse de que la respuesta sea JSON
+      res.setHeader('Content-Type', 'application/json');
+      
       const pedidoId = parseInt(req.params.pedidoId);
       const { comentarios, resultado } = req.body;
       
+      console.log(`Finalizando control para pedido ID: ${pedidoId}, Resultado: ${resultado || "No especificado"}`);
+      
       if (isNaN(pedidoId)) {
+        console.log("Error: ID de pedido inválido");
         return res.status(400).json({ message: "ID de pedido inválido" });
       }
       
@@ -1633,6 +1646,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Registrar código escaneado en control
   app.post("/api/control/pedidos/:pedidoId/escanear", requireAccess('control'), async (req, res, next) => {
     try {
+      // Asegurarse de que la respuesta sea JSON
+      res.setHeader('Content-Type', 'application/json');
+      
       const pedidoId = parseInt(req.params.pedidoId);
       const { codigo, cantidad } = req.body;
       

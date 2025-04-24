@@ -116,7 +116,16 @@ export default function ControlPedidoPage() {
         
         // Luego iniciamos el control
         console.log("Iniciando control para pedido", pedidoId);
-        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/iniciar`, {});
+        console.log("Enviando solicitud para iniciar control...");
+        const res = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({})
+        });
+        
+        console.log("Respuesta recibida, status:", res.status);
         
         // Manejo mejorado de errores
         if (!res.ok) {
@@ -124,32 +133,47 @@ export default function ControlPedidoPage() {
           let errorMessage = "Error al iniciar control";
           let errorData;
           
-          try {
-            errorData = await res.json();
-            errorMessage = errorData.message || errorMessage;
-            
-            // Verificar si es un error de pedido ya controlado
-            if (errorData.message && errorData.message.includes("ya fue controlado")) {
-              // Lanzar un error específico para pedidos ya controlados
-              throw new Error(`PEDIDO_YA_CONTROLADO: ${errorData.message}`);
+          const contentType = res.headers.get("content-type");
+          console.log("Tipo de contenido de la respuesta:", contentType);
+          
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              errorData = await res.json();
+              console.log("Datos de error:", errorData);
+              errorMessage = errorData.message || errorMessage;
+              
+              // Verificar si es un error de pedido ya controlado
+              if (errorData.message && errorData.message.includes("ya fue controlado")) {
+                // Lanzar un error específico para pedidos ya controlados
+                throw new Error(`PEDIDO_YA_CONTROLADO: ${errorData.message}`);
+              }
+            } catch (jsonError) {
+              console.error("Error al procesar JSON de error:", jsonError);
+              if (jsonError instanceof Error && jsonError.message.startsWith("PEDIDO_YA_CONTROLADO:")) {
+                throw jsonError; // Re-lanzar nuestro error especial
+              }
             }
-          } catch (jsonError) {
-            if (jsonError instanceof Error && jsonError.message.startsWith("PEDIDO_YA_CONTROLADO:")) {
-              throw jsonError; // Re-lanzar nuestro error especial
-            }
-            
-            // Si falla al parsear JSON, intentamos obtener el texto del error
+          } else {
+            // No es JSON, obtener como texto
             try {
               const errorText = await res.text();
               console.error("Respuesta de error (texto):", errorText);
+              // Mensaje más descriptivo con código de estado
+              errorMessage = `Error ${res.status} al iniciar control`;
               // Solo usar los primeros 100 caracteres para no sobrecargar
               if (errorText && errorText.length > 0) {
-                errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}...`;
+                if (errorText.includes("<")) {
+                  // Probable HTML, no incluirlo en el mensaje
+                  errorMessage += ": El servidor respondió con HTML en lugar de JSON";
+                } else {
+                  errorMessage += `: ${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}`;
+                }
               }
             } catch (textError) {
               console.error("No se pudo obtener el texto del error:", textError);
             }
           }
+          
           throw new Error(errorMessage);
         }
         
