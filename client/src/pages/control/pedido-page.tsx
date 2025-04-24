@@ -829,20 +829,16 @@ export default function ControlPedidoPage() {
       // Verificar si el pedido está en estado de control
       const esEnControl = pedido.estado?.toLowerCase().includes('controlando');
       
-      // Verificar si el pedido tiene un control en curso
-      const tieneControlIniciado = pedido.control?.inicio && !pedido.control?.fin;
-      
       // También iniciar si venimos de la página de controles en curso
       const referer = document.referrer;
       const vieneDePaginaControl = referer.includes('/control') && !referer.includes('/historial');
       
-      if (esEnControl || tieneControlIniciado || vieneDePaginaControl) {
-        console.log("Iniciando control automáticamente");
-        setCargandoControl(true);
-        setTimeout(() => {
-          iniciarControlMutation.mutate();
-        }, 500); // Pequeño retraso para evitar problemas de sincronización
-      }
+      // Iniciar automáticamente en cualquier caso para asegurar que el control siempre se inicie
+      console.log("Iniciando control automáticamente");
+      setCargandoControl(true);
+      setTimeout(() => {
+        iniciarControlMutation.mutate();
+      }, 500); // Pequeño retraso para evitar problemas de sincronización
     }
   }, [pedido, productos, controlState.isRunning, isLoadingPedido, isLoadingProductos, cargandoControl]);
 

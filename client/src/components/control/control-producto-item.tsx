@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface ControlProductoItemProps {
   producto: ProductoControlado;
-  onEscanear: (cantidad?: number) => void;
+  onEscanear?: (cantidad?: number) => void;
 }
 
 export function ControlProductoItem({ producto, onEscanear }: ControlProductoItemProps) {
@@ -105,15 +105,17 @@ export function ControlProductoItem({ producto, onEscanear }: ControlProductoIte
               {getStatusIcon()}
             </div>
             <div className="flex space-x-1">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="px-2 h-8" 
-                onClick={() => onEscanear(1)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              {producto.controlado > 0 && (
+              {onEscanear && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="px-2 h-8" 
+                  onClick={() => onEscanear(1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+              {onEscanear && producto.controlado > 0 && (
                 <Button 
                   size="sm" 
                   variant="outline" 
