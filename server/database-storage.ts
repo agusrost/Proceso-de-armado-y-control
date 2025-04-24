@@ -155,8 +155,26 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined> {
-    // Primero buscar pedidos asignados al armador que estén pendientes
+    // Si hay un armadorId especificado, primero buscamos pedidos en proceso asignados a ese armador
     if (armadorId) {
+      // Buscar pedidos asignados al armador que estén en proceso
+      const [inProcessPedido] = await db
+        .select()
+        .from(pedidos)
+        .where(
+          and(
+            eq(pedidos.estado, 'en-proceso'),
+            eq(pedidos.armadorId, armadorId)
+          )
+        )
+        .orderBy(asc(pedidos.fecha))
+        .limit(1);
+      
+      if (inProcessPedido) {
+        return inProcessPedido;
+      }
+      
+      // Si no hay pedidos en proceso, buscar pedidos pendientes asignados
       const [assignedPedido] = await db
         .select()
         .from(pedidos)
@@ -174,7 +192,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // Si no hay asignados, buscar pedidos pendientes sin asignar
+    // Si no hay pedidos asignados (o no se especificó armadorId), buscar pedidos pendientes sin asignar
     const [unassignedPedido] = await db
       .select()
       .from(pedidos)
