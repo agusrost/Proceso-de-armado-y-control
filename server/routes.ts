@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 import { comparePasswords, hashPassword } from "./auth";
 import { AccessPermission, ControlHistoricoWithDetails } from "@shared/types";
+import { normalizeCode, areCodesEquivalent } from "./utils/code-normalizer";
 
 // Middleware to check authentication
 function requireAuth(req: Request, res: Response, next: NextFunction) {

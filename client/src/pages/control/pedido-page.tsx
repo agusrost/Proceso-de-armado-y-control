@@ -183,13 +183,17 @@ export default function ControlPedidoPage() {
         // Agregar al historial de escaneos
         const productoEncontrado = prev.productosControlados.find(p => p.codigo === data.producto.codigo);
         
-        const nuevoEscaneo = {
+        // Creamos un nuevo escaneo con todos los campos requeridos de ProductoControlado
+        const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
+          id: productoEncontrado?.id,
           codigo: data.producto.codigo,
-          cantidad: data.cantidadControlada,
+          cantidad: productoEncontrado?.cantidad || 0,
+          controlado: data.cantidadControlada,
           descripcion: productoEncontrado?.descripcion || '',
+          ubicacion: productoEncontrado?.ubicacion,
+          estado: data.controlEstado,
           timestamp: new Date(),
-          escaneado: true,
-          estado: data.controlEstado
+          escaneado: true
         };
         
         return {
