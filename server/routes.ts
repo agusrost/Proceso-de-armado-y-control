@@ -2187,6 +2187,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Obtener un historial específico por id
+  app.get("/api/control/historial/:id", requireAuth, async (req, res, next) => {
+    try {
+      const historicalId = parseInt(req.params.id);
+      
+      if (isNaN(historicalId)) {
+        return res.status(400).json({ message: "ID de historial inválido" });
+      }
+      
+      // Obtener el control histórico
+      const historico = await storage.getControlHistoricoById(historicalId);
+      
+      if (!historico) {
+        return res.status(404).json({ message: "Historial de control no encontrado" });
+      }
+      
+      // Obtener información adicional
+      const pedido = await storage.getPedidoById(historico.pedidoId);
+      const controlador = historico.controladoPor ? await storage.getUser(historico.controladoPor) : undefined;
+      const detalles = await storage.getControlDetalleByControlId(historico.id);
+      
+      // Verificar si el resultado debe ser 'en-proceso'
+      let resultado = historico.resultado;
+      if (!historico.fin) {
+        resultado = 'en-proceso';
+      }
+      
+      // Obtener nombre del armador si existe
+      let armadorNombre = null;
+      if (pedido && pedido.armadorId) {
+        const armador = await storage.getUser(pedido.armadorId);
+        if (armador) {
+          armadorNombre = armador.username;
+        }
+      }
+      
+      // Enriquecer los detalles con información de productos
+      const detallesEnriquecidos = await Promise.all(detalles.map(async (detalle) => {
+        if (detalle.productoId) {
+          const producto = await storage.getProductoById(detalle.productoId);
+          return {
+            ...detalle,
+            producto
+          };
+        }
+        return detalle;
+      }));
+      
+      // Construir la respuesta con todos los datos necesarios
+      const historicoDetallado = {
+        ...historico,
+        resultado,
+        pedido: pedido ? {
+          ...pedido,
+          armadorNombre
+        } : null,
+        controlador,
+        detalles: detallesEnriquecidos
+      };
+      
+      res.json(historicoDetallado);
+    } catch (error) {
+      console.error("Error al obtener detalle de historial de control:", error);
+      next(error);
+    }
+  });
+  
   // Endpoint de diagnóstico para verificar códigos específicos (solo en desarrollo)
   if (process.env.NODE_ENV === 'development') {
     app.get("/api/diagnostico/codigo/:codigo/pedido/:pedidoId", async (req, res, next) => {
