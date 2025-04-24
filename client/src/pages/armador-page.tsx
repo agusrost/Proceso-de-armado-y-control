@@ -203,14 +203,22 @@ export default function ArmadorPage() {
               <div id="armador-initial-view">
                 <div className="flex flex-col items-center justify-center py-12">
                   <Package className="h-24 w-24 text-neutral-300 mb-4" />
-                  <p className="text-lg text-neutral-600 mb-6">No tienes pedidos en preparación</p>
+                  <p className="text-lg text-neutral-600 mb-6">
+                    {startPedidoMutation.data?.estado === 'en-proceso' 
+                      ? 'Tienes un pedido en proceso de armado' 
+                      : 'No tienes pedidos en preparación'}
+                  </p>
                   <Button 
                     className="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-md flex items-center space-x-2 text-lg"
                     onClick={handleStartArmado}
                     disabled={startPedidoMutation.isPending}
                   >
                     <Play className="h-5 w-5" />
-                    <span>Comenzar</span>
+                    <span>
+                      {startPedidoMutation.data?.estado === 'en-proceso' 
+                        ? 'Continuar Pedido en Proceso' 
+                        : 'Comenzar'}
+                    </span>
                   </Button>
                 </div>
               </div>
