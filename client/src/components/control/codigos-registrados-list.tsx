@@ -10,8 +10,39 @@ export function CodigosRegistradosList({ productos }: CodigosRegistradosListProp
   // Filtrar solo los productos que han sido escaneados
   const productosEscaneados = productos.filter(p => p.escaneado || p.controlado > 0);
   
+  // Agrupar productos por código para evitar duplicados
+  const productosAgrupados = productosEscaneados.reduce((acc: Record<string, any>, producto) => {
+    // Si ya existe el código, actualizar los datos
+    if (acc[producto.codigo]) {
+      // Actualizar la cantidad controlada sumándola
+      acc[producto.codigo].controlado += producto.controlado;
+      
+      // Actualizar el timestamp si el actual es más reciente
+      if (producto.timestamp && (!acc[producto.codigo].timestamp || 
+          producto.timestamp.getTime() > acc[producto.codigo].timestamp.getTime())) {
+        acc[producto.codigo].timestamp = producto.timestamp;
+      }
+      
+      // Determinar el estado basado en la cantidad actualizada
+      if (acc[producto.codigo].controlado > acc[producto.codigo].cantidad) {
+        acc[producto.codigo].estado = 'excedente';
+      } else if (acc[producto.codigo].controlado < acc[producto.codigo].cantidad) {
+        acc[producto.codigo].estado = 'faltante';
+      } else {
+        acc[producto.codigo].estado = 'correcto';
+      }
+    } else {
+      // Si no existe, agregarlo al acumulador
+      acc[producto.codigo] = { ...producto };
+    }
+    return acc;
+  }, {});
+  
+  // Convertir el objeto de productos agrupados a un array
+  const productosConsolidados = Object.values(productosAgrupados);
+  
   // Ordenar por timestamp más reciente primero
-  const productosOrdenados = [...productosEscaneados].sort((a, b) => {
+  const productosOrdenados = [...productosConsolidados].sort((a: any, b: any) => {
     if (!a.timestamp) return 1;
     if (!b.timestamp) return -1;
     return b.timestamp.getTime() - a.timestamp.getTime();
@@ -27,7 +58,7 @@ export function CodigosRegistradosList({ productos }: CodigosRegistradosListProp
 
   return (
     <div className="space-y-2">
-      {productosOrdenados.map((producto, index) => (
+      {productosOrdenados.map((producto: any, index: number) => (
         <div 
           key={`${producto.codigo}-${index}`} 
           className="flex items-center justify-between border p-3 rounded-md"

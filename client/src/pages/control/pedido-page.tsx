@@ -53,6 +53,7 @@ export default function ControlPedidoPage() {
   const [alertOpen, setAlertOpen] = useState(false);
   const [excedenteAlertOpen, setExcedenteAlertOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
+  const [resumenVisible, setResumenVisible] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
     codigo: "",
     descripcion: ""
@@ -417,12 +418,13 @@ export default function ControlPedidoPage() {
         }
       }
       
-      // Si todos los productos están controlados, sugerir finalizar
+      // Si todos los productos están controlados, finalizar automáticamente
       if (data.todosControlados) {
-        toast({
-          title: "Control completo",
-          description: "Todos los productos han sido controlados. Puedes finalizar el control.",
-        });
+        // Iniciar proceso de finalización automática
+        console.log("Control completo detectado. Finalizando automáticamente...");
+        
+        // Abrir el diálogo de finalización automáticamente
+        setFinalizarOpen(true);
       }
       
       // Focus de nuevo en el input de escaneo
@@ -1160,64 +1162,79 @@ export default function ControlPedidoPage() {
               </Card>
             </div>
             
-            {/* Resumen Estadístico (Reemplaza el listado de productos) */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Resumen del Control</CardTitle>
-                <CardDescription>
-                  Estadísticas del control en curso
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                  <div className="rounded-lg border p-4">
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm text-neutral-500 mb-2">Productos en Pedido</span>
-                      <span className="text-3xl font-bold">{totalProductos}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="rounded-lg border p-4">
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm text-neutral-500 mb-2">Productos Controlados</span>
-                      <span className="text-3xl font-bold">{productosControlados}</span>
-                      <span className="text-sm text-neutral-500 mt-1">
-                        {Math.round((productosControlados / totalProductos) * 100)}% completado
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="rounded-lg border p-4">
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm text-neutral-500 mb-2">Productos Pendientes</span>
-                      <span className="text-3xl font-bold">{totalProductos - productosControlados}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-6 mt-6 md:grid-cols-2">
-                  <div className="rounded-lg border p-4 bg-red-50">
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center mb-2">
-                        <Minus className="h-4 w-4 text-red-500 mr-2" />
-                        <span className="text-sm text-neutral-500">Faltantes</span>
+            {/* Botón para ver/ocultar el resumen del control */}
+            <div className="flex justify-center my-6">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="flex items-center"
+                onClick={() => setResumenVisible(prev => !prev)}
+              >
+                <ClipboardList className="mr-2 h-4 w-4" />
+                {resumenVisible ? 'Ocultar Resumen' : 'Ver Resumen'}
+              </Button>
+            </div>
+            
+            {/* Resumen Estadístico (Sólo visible cuando se haga clic en el botón) */}
+            {resumenVisible && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumen del Control</CardTitle>
+                  <CardDescription>
+                    Estadísticas del control en curso
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    <div className="rounded-lg border p-4">
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm text-neutral-500 mb-2">Productos en Pedido</span>
+                        <span className="text-3xl font-bold">{totalProductos}</span>
                       </div>
-                      <span className="text-3xl font-bold text-red-600">{productosFaltantes}</span>
+                    </div>
+                    
+                    <div className="rounded-lg border p-4">
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm text-neutral-500 mb-2">Productos Controlados</span>
+                        <span className="text-3xl font-bold">{productosControlados}</span>
+                        <span className="text-sm text-neutral-500 mt-1">
+                          {Math.round((productosControlados / totalProductos) * 100)}% completado
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="rounded-lg border p-4">
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm text-neutral-500 mb-2">Productos Pendientes</span>
+                        <span className="text-3xl font-bold">{totalProductos - productosControlados}</span>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="rounded-lg border p-4 bg-amber-50">
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center mb-2">
-                        <Plus className="h-4 w-4 text-amber-500 mr-2" />
-                        <span className="text-sm text-neutral-500">Excedentes</span>
+                  <div className="grid grid-cols-1 gap-6 mt-6 md:grid-cols-2">
+                    <div className="rounded-lg border p-4 bg-red-50">
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center mb-2">
+                          <Minus className="h-4 w-4 text-red-500 mr-2" />
+                          <span className="text-sm text-neutral-500">Faltantes</span>
+                        </div>
+                        <span className="text-3xl font-bold text-red-600">{productosFaltantes}</span>
                       </div>
-                      <span className="text-3xl font-bold text-amber-600">{productosExcedentes}</span>
+                    </div>
+                    
+                    <div className="rounded-lg border p-4 bg-amber-50">
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center mb-2">
+                          <Plus className="h-4 w-4 text-amber-500 mr-2" />
+                          <span className="text-sm text-neutral-500">Excedentes</span>
+                        </div>
+                        <span className="text-3xl font-bold text-amber-600">{productosExcedentes}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
         
