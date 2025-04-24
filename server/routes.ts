@@ -1467,12 +1467,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Iniciar control de pedido
+  // Iniciar control de pedido (ENDPOINT CRÍTICO, NO MODIFICAR SIN PRUEBAS)
   app.post("/api/control/pedidos/:pedidoId/iniciar", requireAccess('control'), async (req, res, next) => {
+    // Asegurarse de que siempre respondamos con JSON para evitar errores de parseo en el cliente
+    res.setHeader('Content-Type', 'application/json');
+    
     try {
-      // Asegurarse de que la respuesta sea JSON
-      res.setHeader('Content-Type', 'application/json');
-      
       const pedidoId = parseInt(req.params.pedidoId);
       console.log(`Iniciando control para pedido ID: ${pedidoId}`);
       
@@ -1568,10 +1568,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Finalizar control de pedido
   app.post("/api/control/pedidos/:pedidoId/finalizar", requireAccess('control'), async (req, res, next) => {
+    // Asegurarse de que siempre respondamos con JSON para evitar errores de parseo en el cliente
+    res.setHeader('Content-Type', 'application/json');
+    
     try {
-      // Asegurarse de que la respuesta sea JSON
-      res.setHeader('Content-Type', 'application/json');
-      
       const pedidoId = parseInt(req.params.pedidoId);
       const { comentarios, resultado } = req.body;
       

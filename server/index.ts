@@ -44,14 +44,26 @@ app.use((req, res, next) => {
     const message = err.message || "Error del servidor";
 
     // Asegurar que siempre enviemos un JSON, nunca HTML
-    if (!res.headersSent) {
-      // Establecer explícitamente el tipo de contenido a JSON
-      res.setHeader('Content-Type', 'application/json');
-      res.status(status).json({ 
-        message, 
-        error: true,
-        timestamp: new Date().toISOString() 
-      });
+    // IMPORTANTE: Este middleware es crítico para el manejo de errores
+    try {
+      if (!res.headersSent) {
+        // Establecer explícitamente el tipo de contenido a JSON
+        res.setHeader('Content-Type', 'application/json');
+        res.status(status).json({ 
+          message, 
+          error: true,
+          timestamp: new Date().toISOString(),
+          source: "error_middleware"
+        });
+      }
+    } catch (middlewareError) {
+      // Último recurso si todo falla: asegurarnos de que no se caiga el servidor
+      console.error("ERROR CRÍTICO en middleware de errores:", middlewareError);
+      // Si no podemos enviar JSON, enviamos un texto plano
+      if (!res.headersSent) {
+        res.setHeader('Content-Type', 'text/plain');
+        res.status(500).send(`Error crítico del servidor: ${message}`);
+      }
     }
     console.error("Error en middleware:", err);
   });

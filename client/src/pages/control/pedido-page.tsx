@@ -542,7 +542,8 @@ export default function ControlPedidoPage() {
   };
   
   // Función alternativa para iniciar el control directamente con fetch
-  const handleIniciarControlDirecto = async () => {
+  // Utilizar este método para iniciar el control directamente sin depender de la mutation
+const handleIniciarControlDirecto = async () => {
     if (!pedido || pedido.estado !== 'completado') {
       toast({
         title: "Estado de pedido incorrecto",
@@ -635,8 +636,32 @@ export default function ControlPedidoPage() {
         }
       }
       
-      // La respuesta es exitosa, obtenemos los datos
-      const data = await response.json();
+      // La respuesta es exitosa, obtenemos los datos con manejo especial
+      let data;
+      try {
+        // Intentamos obtener los datos como JSON
+        const responseText = await response.text();
+        console.log("Texto de respuesta:", responseText);
+        
+        // En caso que la respuesta esté vacía o no sea un JSON válido
+        if (!responseText || responseText.trim() === '') {
+          data = { message: "Control iniciado (sin datos)" };
+        } else {
+          try {
+            data = JSON.parse(responseText);
+          } catch (jsonError) {
+            console.error("Error al parsear JSON:", jsonError);
+            console.error("Texto recibido:", responseText);
+            // Si falla el parseo pero tenemos respuesta 200, continuamos con un objeto vacío
+            data = { message: "Control iniciado (error de parseo)" };
+          }
+        }
+      } catch (responseError) {
+        console.error("Error al obtener texto de respuesta:", responseError);
+        // Si todo falla, creamos un objeto mínimo para continuar
+        data = { message: "Control iniciado (error de respuesta)" };
+      }
+      
       console.log("Control iniciado correctamente:", data);
       
       // Actualizamos el estado local
