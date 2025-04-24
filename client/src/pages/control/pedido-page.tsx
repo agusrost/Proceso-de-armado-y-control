@@ -857,10 +857,31 @@ export default function ControlPedidoPage() {
   // Función para completar finalización después de retirar excedentes
   const completarFinalizacion = () => {
     console.log("Completando finalización después de retirar excedentes");
-    finalizarControlMutation.mutate({
-      resultado: 'completo' as any, // Tipo temporal para resolver error
-      comentarios: comentarios + ' (Excedentes retirados)'
+    
+    // Primero cerrar el diálogo de excedentes
+    setRetirarExcedenteOpen(false);
+    
+    // Mostrar notificación de que los excedentes fueron retirados
+    toast({
+      title: "Excedentes retirados",
+      description: "Los productos excedentes han sido retirados correctamente",
     });
+    
+    // Pequeña pausa para que se vea la notificación
+    setTimeout(() => {
+      // Finalizar el control con estado completo
+      finalizarControlMutation.mutate({
+        resultado: 'completo' as any, // Tipo temporal para resolver error
+        comentarios: (comentarios ? comentarios + ' - ' : '') + 'Excedentes retirados correctamente'
+      });
+      
+      // Mostrar notificación de éxito
+      toast({
+        title: "Control finalizado con éxito",
+        description: "El control ha sido completado correctamente",
+        variant: "default"
+      });
+    }, 800);
   };
   
   // Función para cancelar un control
