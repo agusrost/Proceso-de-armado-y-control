@@ -1579,17 +1579,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Convertir a string y eliminar espacios
         let normalizedCode = String(code).trim().toLowerCase().replace(/\s+/g, '');
         
+        // Guardar una versión original trimmeada para casos especiales
+        const trimmedCode = normalizedCode;
+        
         // Eliminar caracteres no alfanuméricos al inicio o fin
         normalizedCode = normalizedCode.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
         
-        // Caso especial: los códigos 17061 y 18001 deben conservarse exactamente como están
-        // para el pedido P0025
-        if (normalizedCode === '17061' || normalizedCode === '18001') {
-          console.log(`⚠️ Código especial detectado en normalización: ${normalizedCode} - ¡Preservando valor exacto!`);
+        // Lista de códigos especiales que requieren tratamiento específico
+        const codigosEspeciales = ['17061', '18001', '17133'];
+        
+        // Verificar códigos especiales (preserva el valor exacto para ciertos códigos)
+        if (codigosEspeciales.includes(normalizedCode) || codigosEspeciales.includes(trimmedCode)) {
+          const codigoOriginal = codigosEspeciales.find(c => c === normalizedCode || c === trimmedCode) || normalizedCode;
+          console.log(`⚠️ Código especial detectado en normalización: ${codigoOriginal} - ¡Preservando valor exacto!`);
+          return codigoOriginal;
+        }
+        
+        // Verificar si es un código numérico que empieza con ceros
+        const numericWithLeadingZeros = /^0+\d+$/.test(normalizedCode);
+        if (numericWithLeadingZeros) {
+          // Preservar la versión original con ceros para comparar exactamente después
+          console.log(`Detectado código con ceros iniciales: ${normalizedCode}`);
+          // También guardamos versión sin ceros para comparaciones alternativas
+          const withoutZeros = String(parseInt(normalizedCode, 10));
+          console.log(`Versión sin ceros: ${withoutZeros}`);
+          // Mantenemos la versión original con ceros si hay una diferencia significativa
           return normalizedCode;
         }
         
-        // Para códigos numéricos, eliminar ceros a la izquierda si no es un caso especial
+        // Para códigos numéricos normales, eliminar ceros a la izquierda
         if (/^\d+$/.test(normalizedCode)) {
           normalizedCode = String(parseInt(normalizedCode, 10));
         }

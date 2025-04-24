@@ -75,6 +75,9 @@ export function ControlProductoItem({ producto, onEscanear }: ControlProductoIte
             <div className="flex items-center mb-1">
               <Package className="h-4 w-4 mr-2 text-neutral-500" />
               <span className="font-medium">{producto.codigo}</span>
+              <Badge variant="outline" className={`ml-3 ${getBadgeClass()}`}>
+                {getStatusText()}
+              </Badge>
             </div>
             <p className="text-sm mb-1 line-clamp-2">{producto.descripcion}</p>
             {producto.ubicacion && (
@@ -83,35 +86,43 @@ export function ControlProductoItem({ producto, onEscanear }: ControlProductoIte
                 <span>{producto.ubicacion}</span>
               </div>
             )}
-            <div className="flex items-center mt-1 space-x-4">
-              <div>
-                <span className="text-xs text-neutral-500 block">Esperado</span>
+            <div className="flex items-center mt-2 space-x-6">
+              <div className="flex items-center">
+                <span className="text-xs text-neutral-500 mr-2">Esperado:</span>
                 <span className="font-medium">{producto.cantidad}</span>
               </div>
-              <div>
-                <span className="text-xs text-neutral-500 block">Controlado</span>
-                <span className="font-medium">{producto.controlado}</span>
-              </div>
-              <div>
-                <span className="text-xs text-neutral-500 block">Estado</span>
-                <Badge variant="outline" className={getBadgeClass()}>
-                  {getStatusText()}
-                </Badge>
+              <div className="flex items-center">
+                <span className="text-xs text-neutral-500 mr-2">Controlado:</span>
+                <span className={`font-medium ${producto.controlado < producto.cantidad ? 'text-red-600' : producto.controlado > producto.cantidad ? 'text-amber-600' : 'text-green-600'}`}>
+                  {producto.controlado}
+                </span>
               </div>
             </div>
           </div>
           
           <div className="flex flex-col items-center justify-center ml-4">
-            {getStatusIcon()}
-            <div className="flex mt-2">
+            <div className="flex mb-2">
+              {getStatusIcon()}
+            </div>
+            <div className="flex space-x-1">
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="px-2" 
+                className="px-2 h-8" 
                 onClick={() => onEscanear(1)}
               >
                 <Plus className="h-4 w-4" />
               </Button>
+              {producto.controlado > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="px-2 h-8 text-red-600 hover:text-red-700" 
+                  onClick={() => onEscanear(-1)}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -553,7 +553,14 @@ export default function ControlPedidoPage() {
             <h1 className="text-2xl font-semibold">Control de Pedido</h1>
           </div>
           
-          {/* Eliminado el timer según requerimiento */}
+          {/* Mostrar ID del pedido como parte del título */}
+          {pedido && (
+            <div className="flex items-center bg-muted px-3 py-1 rounded-md">
+              <span className="font-semibold">Pedido: {pedido.pedidoId}</span>
+              <span className="mx-2">|</span>
+              <span>Cliente: {pedido.clienteId}</span>
+            </div>
+          )}
         </div>
         
         {/* Alerta de código no encontrado */}
@@ -594,11 +601,9 @@ export default function ControlPedidoPage() {
                 <div>
                   <p className="text-sm text-neutral-500">Armador</p>
                   <p className="font-medium">
-                    {pedido.armadorNombre
-                      ? pedido.armadorNombre
-                      : pedido.armador?.username
-                        ? pedido.armador.username
-                        : pedido.armadorId ? `ID: ${pedido.armadorId}` : "-"}
+                    {pedido.armadorId 
+                      ? `ID: ${pedido.armadorId}` 
+                      : "-"}
                   </p>
                 </div>
                 <div>

@@ -63,9 +63,9 @@ export function ProductoEscanerForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <div className="md:col-span-4">
-          <Label htmlFor="codigo-producto">Código de Producto</Label>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-7">
+          <Label htmlFor="codigo-producto" className="text-sm font-medium">Código de Producto</Label>
           <div className="flex items-center mt-1">
             <div className="mr-2">
               <Barcode className="h-5 w-5 text-neutral-500" />
@@ -79,32 +79,35 @@ export function ProductoEscanerForm({
               className="flex-1"
               disabled={isLoading}
               onKeyDown={handleKeyDown}
+              autoFocus
               autoComplete="off"
             />
           </div>
           <p className="text-xs text-neutral-500 mt-1">
-            Presiona Enter después de escanear o ingresa el código manualmente
+            Escanea el código de barras o ingresa el código manualmente y presiona Enter
           </p>
         </div>
         
-        <div>
-          <Label htmlFor="cantidad-producto">Cantidad</Label>
-          <Input
-            id="cantidad-producto"
-            ref={cantidadInputRef}
-            type="number"
-            min="1"
-            value={cantidad}
-            onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
-            disabled={isLoading}
-            className="mt-1"
-          />
+        <div className="md:col-span-2">
+          <Label htmlFor="cantidad-producto" className="text-sm font-medium">Cantidad</Label>
+          <div className="flex items-center mt-1">
+            <Input
+              id="cantidad-producto"
+              ref={cantidadInputRef}
+              type="number"
+              min="1"
+              value={cantidad}
+              onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
+              disabled={isLoading}
+              className="w-full"
+            />
+          </div>
         </div>
         
-        <div className="flex items-end">
+        <div className="md:col-span-3 flex items-end">
           <Button 
             type="submit" 
-            className="w-full" 
+            className="w-full h-10" 
             disabled={isLoading || !codigo.trim()}
           >
             {isLoading ? (
@@ -112,7 +115,7 @@ export function ProductoEscanerForm({
             ) : (
               <>
                 <Send className="mr-2 h-4 w-4" />
-                Registrar
+                Registrar Código
               </>
             )}
           </Button>
