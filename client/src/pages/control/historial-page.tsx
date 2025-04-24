@@ -282,7 +282,7 @@ export default function ControlHistorialPage() {
                                 variant="default"
                                 size="sm"
                                 asChild
-                                className="h-8 p-0 px-2"
+                                className="h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                               >
                                 <Link to={`/control/pedido/${control.pedidoId}`}>
                                   <span>Continuar</span>

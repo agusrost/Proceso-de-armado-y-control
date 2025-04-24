@@ -770,17 +770,27 @@ export default function ControlPedidoPage() {
   useEffect(() => {
     // Si tenemos pedido, productos y no está en curso un control
     if (pedido && productos.length > 0 && !controlState.isRunning && 
-        !isLoadingPedido && !isLoadingProductos) {
+        !isLoadingPedido && !isLoadingProductos && !cargandoControl) {
       
       // Verificar si el pedido está en estado de control
       const esEnControl = pedido.estado?.toLowerCase().includes('controlando');
       
-      if (esEnControl) {
-        console.log("Pedido en estado de control, iniciando control automáticamente");
-        iniciarControlMutation.mutate();
+      // Verificar si el pedido tiene un control en curso
+      const tieneControlIniciado = pedido.control?.inicio && !pedido.control?.fin;
+      
+      // También iniciar si venimos de la página de controles en curso
+      const referer = document.referrer;
+      const vieneDePaginaControl = referer.includes('/control') && !referer.includes('/historial');
+      
+      if (esEnControl || tieneControlIniciado || vieneDePaginaControl) {
+        console.log("Iniciando control automáticamente");
+        setCargandoControl(true);
+        setTimeout(() => {
+          iniciarControlMutation.mutate();
+        }, 500); // Pequeño retraso para evitar problemas de sincronización
       }
     }
-  }, [pedido, productos, controlState.isRunning, isLoadingPedido, isLoadingProductos]);
+  }, [pedido, productos, controlState.isRunning, isLoadingPedido, isLoadingProductos, cargandoControl]);
 
   // Exponer los datos del pedido para debugging en la consola
   useEffect(() => {
