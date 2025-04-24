@@ -96,26 +96,59 @@ export default function ControlPedidoPage() {
     mutationFn: async () => {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
-      // Primero cargamos los productos del pedido para asegurarnos de tener los datos más recientes
-      const productosRes = await apiRequest("GET", `/api/pedidos/${pedidoId}/productos`);
-      if (!productosRes.ok) {
-        throw new Error("Error al cargar los productos del pedido");
+      try {
+        // Primero cargamos los productos del pedido para asegurarnos de tener los datos más recientes
+        console.log("Cargando productos del pedido", pedidoId);
+        const productosRes = await apiRequest("GET", `/api/pedidos/${pedidoId}/productos`);
+        if (!productosRes.ok) {
+          console.error("Error al obtener productos:", await productosRes.text());
+          throw new Error("Error al cargar los productos del pedido");
+        }
+        const productosActuales = await productosRes.json();
+        console.log("Productos cargados:", productosActuales.length);
+        
+        // Verificamos que haya productos antes de iniciar el control
+        if (!productosActuales || productosActuales.length === 0) {
+          throw new Error("No hay productos asociados a este pedido");
+        }
+        
+        // Luego iniciamos el control
+        console.log("Iniciando control para pedido", pedidoId);
+        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/iniciar`, {});
+        
+        // Manejo mejorado de errores
+        if (!res.ok) {
+          // Intentamos obtener el error como JSON primero
+          let errorMessage = "Error al iniciar control";
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (jsonError) {
+            // Si falla al parsear JSON, intentamos obtener el texto del error
+            try {
+              const errorText = await res.text();
+              console.error("Respuesta de error (texto):", errorText);
+              // Solo usar los primeros 100 caracteres para no sobrecargar
+              if (errorText && errorText.length > 0) {
+                errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}...`;
+              }
+            } catch (textError) {
+              console.error("No se pudo obtener el texto del error:", textError);
+            }
+          }
+          throw new Error(errorMessage);
+        }
+        
+        // Devolvemos los datos del control y los productos actualizados
+        const controlData = await res.json();
+        return { 
+          ...controlData, 
+          productosActuales 
+        };
+      } catch (error) {
+        console.error("Error en iniciarControlMutation:", error);
+        throw error;
       }
-      const productosActuales = await productosRes.json();
-      
-      // Luego iniciamos el control
-      const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/iniciar`, {});
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Error al iniciar control");
-      }
-      
-      // Devolvemos los datos del control y los productos actualizados
-      const controlData = await res.json();
-      return { 
-        ...controlData, 
-        productosActuales 
-      };
     },
     onSuccess: (data) => {
       toast({
@@ -199,17 +232,47 @@ export default function ControlPedidoPage() {
     mutationFn: async ({ codigo, cantidad }: { codigo: string, cantidad: number }) => {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
-      const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/escanear`, {
-        codigo,
-        cantidad
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Error al escanear producto");
+      try {
+        console.log(`Enviando escaneo: código=${codigo}, cantidad=${cantidad}, pedidoId=${pedidoId}`);
+        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/escanear`, {
+          codigo,
+          cantidad
+        });
+        
+        // Manejo mejorado de errores
+        if (!res.ok) {
+          // Intentamos obtener el error como JSON primero
+          let errorMessage = "Error al escanear producto";
+          let errorData: any = {};
+          
+          try {
+            errorData = await res.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (jsonError) {
+            // Si falla al parsear JSON, intentamos obtener el texto del error
+            try {
+              const errorText = await res.text();
+              console.error("Respuesta de error (texto):", errorText);
+              if (errorText && errorText.length > 0) {
+                errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}...`;
+              }
+            } catch (textError) {
+              console.error("No se pudo obtener el texto del error:", textError);
+            }
+          }
+          
+          // Añadir información adicional para depuración
+          const errorWithData = new Error(errorMessage);
+          (errorWithData as any).data = errorData;
+          (errorWithData as any).codigo = codigo;
+          throw errorWithData;
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Error en escanearProductoMutation:", error);
+        throw error;
       }
-      
-      return await res.json();
     },
     onSuccess: (data) => {
       // Actualizar estado local
@@ -318,14 +381,37 @@ export default function ControlPedidoPage() {
     mutationFn: async (data: { comentarios: string, resultado: string }) => {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
-      const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/finalizar`, data);
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Error al finalizar control");
+      try {
+        console.log("Finalizando control:", { pedidoId, ...data });
+        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/finalizar`, data);
+        
+        // Manejo mejorado de errores
+        if (!res.ok) {
+          // Intentamos obtener el error como JSON primero
+          let errorMessage = "Error al finalizar control";
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (jsonError) {
+            // Si falla al parsear JSON, intentamos obtener el texto del error
+            try {
+              const errorText = await res.text();
+              console.error("Respuesta de error (texto):", errorText);
+              if (errorText && errorText.length > 0) {
+                errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}...`;
+              }
+            } catch (textError) {
+              console.error("No se pudo obtener el texto del error:", textError);
+            }
+          }
+          throw new Error(errorMessage);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Error en finalizarControlMutation:", error);
+        throw error;
       }
-      
-      return await res.json();
     },
     onSuccess: (data) => {
       toast({
