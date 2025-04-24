@@ -224,8 +224,18 @@ export class MemStorage implements IStorage {
   async getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined> {
     const pedidos = Array.from(this.pedidos.values());
     
-    // First, look for pedidos assigned to this armador that are pending
+    // Si hay un armadorId especificado, primero buscamos pedidos en proceso asignados a ese armador
     if (armadorId) {
+      // Buscar pedidos asignados al armador que estén en proceso
+      const inProcessPedido = pedidos.find(p => 
+        p.estado === 'en-proceso' && p.armadorId === armadorId
+      );
+      
+      if (inProcessPedido) {
+        return inProcessPedido;
+      }
+      
+      // Si no hay pedidos en proceso, buscar pedidos pendientes asignados
       const assignedPendingPedido = pedidos.find(p => 
         p.estado === 'pendiente' && p.armadorId === armadorId
       );
@@ -235,7 +245,7 @@ export class MemStorage implements IStorage {
       }
     }
     
-    // Then, look for unassigned pending pedidos
+    // Si no hay pedidos asignados (o no se especificó armadorId), buscar pedidos pendientes sin asignar
     const unassignedPedidos = pedidos.filter(p => 
       p.estado === 'pendiente' && (!p.armadorId || p.armadorId === 0)
     );
