@@ -542,7 +542,8 @@ export default function ControlPedidoPage() {
   };
   
   // Función alternativa para iniciar el control directamente con fetch
-  // Utilizar este método para iniciar el control directamente sin depender de la mutation
+  // SOLUCIÓN V2: Este método utiliza la API de verificación primero y luego inicializa el control
+// Esto separa la verificación de la inicialización para evitar problemas de parseo JSON
 const handleIniciarControlDirecto = async () => {
     if (!pedido || pedido.estado !== 'completado') {
       toast({
@@ -557,11 +558,48 @@ const handleIniciarControlDirecto = async () => {
     setCargandoControl(true);
     toast({
       title: "Iniciando control",
-      description: "Cargando datos del pedido...",
+      description: "Verificando pedido...",
     });
     
     try {
-      // Paso 1: Obtener productos actualizados del pedido
+      // Paso 1: Verificar si el pedido puede ser controlado
+      console.log("Verificando si el pedido puede ser controlado:", pedidoId);
+      const verificacionRes = await fetch(`/api/control/pedidos/${pedidoId}/verificar`, {
+        credentials: 'include'
+      });
+      
+      const verificacionData = await verificacionRes.json();
+      console.log("Resultado de verificación:", verificacionData);
+      
+      // Si hay un error en la verificación
+      if (!verificacionRes.ok || verificacionData.error) {
+        // Verificamos si es un pedido ya controlado
+        if (verificacionData.message && verificacionData.message.includes('ya fue controlado')) {
+          // Actualizar el estado para mostrar mensaje de pedido ya controlado
+          setControlState(prevState => ({
+            ...prevState,
+            isRunning: false,
+            pedidoId: pedidoId,
+            pedidoYaControlado: true,
+            mensajeError: verificacionData.message
+          }));
+          
+          toast({
+            title: "Pedido ya controlado",
+            description: verificacionData.message,
+            variant: "destructive",
+            duration: 8000
+          });
+          
+          setCargandoControl(false);
+          return;
+        }
+        
+        // Otro tipo de error
+        throw new Error(verificacionData.message || 'El pedido no puede ser controlado');
+      }
+      
+      // Paso 2: Obtener productos actualizados del pedido
       console.log("Obteniendo productos del pedido:", pedidoId);
       const productosRes = await fetch(`/api/pedidos/${pedidoId}/productos`);
       
@@ -582,9 +620,9 @@ const handleIniciarControlDirecto = async () => {
         return;
       }
       
-      // Paso 2: Iniciar el control
+      // Paso 3: Iniciar el control
       console.log("Enviando solicitud para iniciar control del pedido:", pedidoId);
-      const response = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+      const inicioRes = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -593,76 +631,26 @@ const handleIniciarControlDirecto = async () => {
         credentials: 'include'
       });
       
-      // Obtenemos el tipo de contenido
-      const contentType = response.headers.get('content-type');
-      console.log("Respuesta recibida:", response.status, contentType);
-      
-      // Verificamos si la respuesta es exitosa
-      if (!response.ok) {
-        // Si es JSON, obtenemos el mensaje de error
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          // Verificamos si es un pedido ya controlado
-          if (errorData.message && errorData.message.includes('ya fue controlado')) {
-            console.log("El pedido ya fue controlado:", errorData);
-            
-            // Actualizar el estado para mostrar mensaje de pedido ya controlado
-            setControlState(prevState => ({
-              ...prevState,
-              isRunning: false,
-              pedidoId: pedidoId,
-              pedidoYaControlado: true,
-              mensajeError: errorData.message
-            }));
-            
-            toast({
-              title: "Pedido ya controlado",
-              description: errorData.message,
-              variant: "destructive",
-              duration: 8000
-            });
-            
-            setCargandoControl(false);
-            return;
-          }
-          
-          // Otro tipo de error
-          throw new Error(errorData.message || 'Error al iniciar control');
-        } else {
-          // No es JSON, obtenemos el texto
-          const errorText = await response.text();
-          console.error("Respuesta de error en texto:", errorText);
-          throw new Error(`Error ${response.status} al iniciar control`);
+      // Si hay error al iniciar control
+      if (!inicioRes.ok) {
+        try {
+          const errorData = await inicioRes.json();
+          throw new Error(errorData.message || `Error ${inicioRes.status} al iniciar control`);
+        } catch (jsonError) {
+          console.error("Error al parsear respuesta de error:", jsonError);
+          throw new Error(`Error ${inicioRes.status} al iniciar control`);
         }
       }
       
-      // La respuesta es exitosa, obtenemos los datos con manejo especial
-      let data;
-      try {
-        // Intentamos obtener los datos como JSON
-        const responseText = await response.text();
-        console.log("Texto de respuesta:", responseText);
-        
-        // En caso que la respuesta esté vacía o no sea un JSON válido
-        if (!responseText || responseText.trim() === '') {
-          data = { message: "Control iniciado (sin datos)" };
-        } else {
-          try {
-            data = JSON.parse(responseText);
-          } catch (jsonError) {
-            console.error("Error al parsear JSON:", jsonError);
-            console.error("Texto recibido:", responseText);
-            // Si falla el parseo pero tenemos respuesta 200, continuamos con un objeto vacío
-            data = { message: "Control iniciado (error de parseo)" };
-          }
-        }
-      } catch (responseError) {
-        console.error("Error al obtener texto de respuesta:", responseError);
-        // Si todo falla, creamos un objeto mínimo para continuar
-        data = { message: "Control iniciado (error de respuesta)" };
-      }
+      // Optimización: No intentamos parsear el JSON de inicioRes, ya hemos verificado
+      // que el pedido puede ser controlado y hemos obtenido los productos
+      console.log("Control iniciado correctamente");
       
-      console.log("Control iniciado correctamente:", data);
+      // Pedido actualizado con datos mínimos
+      const data = {
+        message: "Control iniciado correctamente",
+        pedido: verificacionData.pedido || pedido
+      };
       
       // Actualizamos el estado local
       toast({
@@ -722,11 +710,24 @@ const handleIniciarControlDirecto = async () => {
     setFinalizarOpen(true);
   };
   
-  // Finalizar control
+  // Finalizar control y redirigir tras completar
   const handleFinalizarControl = (resultado: string) => {
     finalizarControlMutation.mutate({ 
       comentarios, 
       resultado 
+    }, {
+      onSuccess: () => {
+        // Mostrar mensaje de éxito
+        toast({
+          title: "Control finalizado",
+          description: "El control ha sido finalizado correctamente. Redirigiendo a la lista de pedidos...",
+        });
+        
+        // Redireccionar a la página de búsqueda después de 2 segundos
+        setTimeout(() => {
+          window.location.href = '/control';
+        }, 2000);
+      }
     });
     setFinalizarOpen(false);
   };

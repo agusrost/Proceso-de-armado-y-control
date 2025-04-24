@@ -237,11 +237,11 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-medium">Pedidos pendientes de control</h3>
             <Button 
-              variant="ghost" 
+              variant="outline" 
               size="sm" 
               onClick={() => refetch()}
               disabled={isLoadingPedidos}
-              title="Actualizar lista de pedidos"
+              className="flex items-center gap-1"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -258,6 +258,7 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                 <path d="M3 22v-6h6"></path>
                 <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
               </svg>
+              {isLoadingPedidos ? 'Actualizando...' : 'Actualizar lista'}
             </Button>
           </div>
           {isLoadingPedidos ? (

@@ -1467,6 +1467,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Verificar si un pedido puede ser controlado (sin efectos secundarios)
+  app.get("/api/control/pedidos/:pedidoId/verificar", requireAccess('control'), async (req, res, next) => {
+    // Asegurarse que siempre respondamos con JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      console.log(`Verificando si el pedido ID: ${pedidoId} puede ser controlado`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido", error: true });
+      }
+      
+      // Verificar que el pedido exista y esté en estado completado
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ 
+          message: "Pedido no encontrado", 
+          error: true,
+          pedidoId
+        });
+      }
+      
+      // Verificar si el pedido ya fue controlado 
+      const controlHistoricos = await storage.getControlHistoricoByPedidoId(pedidoId);
+      const controlCompletado = controlHistoricos.find(h => h.fin !== null);
+      
+      if (controlCompletado) {
+        return res.status(400).json({ 
+          message: "Este pedido ya fue controlado y finalizado anteriormente",
+          error: true,
+          historico: {
+            id: controlCompletado.id,
+            fecha: controlCompletado.fecha,
+            resultado: controlCompletado.resultado
+          }
+        });
+      }
+      
+      if (pedido.estado !== 'completado') {
+        return res.status(400).json({ 
+          message: "Solo se pueden controlar pedidos en estado completado",
+          error: true,
+          estado: pedido.estado
+        });
+      }
+      
+      // Verificar si ya hay un control en curso para este pedido
+      if (pedido.controladoId) {
+        // Si el mismo usuario ya lo está controlando, devolvemos la info
+        if (pedido.controladoId === req.user?.id) {
+          return res.json({
+            message: "Control ya iniciado por ti para este pedido",
+            error: false,
+            pedido
+          });
+        }
+        
+        // Si otro usuario lo está controlando, error
+        return res.status(400).json({
+          message: "Este pedido ya está siendo controlado por otro usuario",
+          error: true
+        });
+      }
+      
+      // Obtener productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Verificar que haya productos en el pedido
+      if (!productos || productos.length === 0) {
+        return res.status(400).json({
+          message: "No hay productos asociados a este pedido",
+          error: true
+        });
+      }
+      
+      // Si todo está bien, el pedido puede ser controlado
+      return res.status(200).json({
+        message: "El pedido puede ser controlado",
+        error: false,
+        pedido,
+        productos_count: productos.length
+      });
+      
+    } catch (error) {
+      console.error("Error al verificar pedido:", error);
+      next(error);
+    }
+  });
+  
   // Iniciar control de pedido (ENDPOINT CRÍTICO, NO MODIFICAR SIN PRUEBAS)
   app.post("/api/control/pedidos/:pedidoId/iniciar", requireAccess('control'), async (req, res, next) => {
     // Asegurarse de que siempre respondamos con JSON para evitar errores de parseo en el cliente
