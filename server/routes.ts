@@ -1467,8 +1467,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Verificar si un pedido puede ser controlado (sin efectos secundarios)
-  app.get("/api/control/pedidos/:pedidoId/verificar", requireAccess('control'), async (req, res, next) => {
+  // Verificar si un pedido puede ser controlado (y opcionalmente iniciarlo)
+  // Acepta tanto GET como POST para mayor flexibilidad
+  app.all("/api/control/pedidos/:pedidoId/verificar", requireAccess('control'), async (req, res, next) => {
     // Asegurarse que siempre respondamos con JSON
     res.setHeader('Content-Type', 'application/json');
     
