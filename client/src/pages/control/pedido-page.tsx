@@ -43,6 +43,7 @@ export default function ControlPedidoPage() {
   
   // Estados para los diálogos
   const [alertOpen, setAlertOpen] = useState(false);
+  const [cargandoControl, setCargandoControl] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
     codigo: "",
     descripcion: ""
@@ -909,10 +910,10 @@ export default function ControlPedidoPage() {
               </div>
             ) : !controlState.isRunning ? (
               <Button 
-                onClick={handleIniciarControl} 
-                disabled={iniciarControlMutation.isPending || !pedido || pedido.estado !== 'completado'}
+                onClick={handleIniciarControlDirecto} 
+                disabled={cargandoControl || !pedido || pedido.estado !== 'completado'}
               >
-                {iniciarControlMutation.isPending ? "Iniciando..." : "Iniciar Control"}
+                {cargandoControl ? "Iniciando..." : "Iniciar Control"}
               </Button>
             ) : (
               <Button 
