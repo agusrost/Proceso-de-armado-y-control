@@ -213,23 +213,8 @@ export default function ControlPedidoPage() {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
       try {
-        // Primero cargamos los productos del pedido para asegurarnos de tener los datos más recientes
-        console.log("Cargando productos del pedido", pedidoId);
-        const productosRes = await apiRequest("GET", `/api/pedidos/${pedidoId}/productos`);
-        if (!productosRes.ok) {
-          console.error("Error al obtener productos:", await productosRes.text());
-          throw new Error("Error al cargar los productos del pedido");
-        }
-        const productosActuales = await productosRes.json();
-        console.log("Productos cargados:", productosActuales.length);
-        
-        // Verificamos que haya productos antes de iniciar el control
-        if (!productosActuales || productosActuales.length === 0) {
-          throw new Error("No hay productos asociados a este pedido");
-        }
-        
-        // Luego iniciamos el control
-        console.log("Iniciando control para pedido", pedidoId);
+        // Iniciamos o continuamos el control
+        console.log("Iniciando/continuando control para pedido", pedidoId);
         console.log("Enviando solicitud para iniciar control...");
         const res = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
           method: 'POST',
@@ -293,10 +278,16 @@ export default function ControlPedidoPage() {
         
         // Devolvemos los datos del control y los productos actualizados
         const controlData = await res.json();
-        return { 
-          ...controlData, 
-          productosActuales 
-        };
+        console.log("Datos del control:", controlData);
+        
+        // Verificar si se está continuando un control existente
+        const esContinuacion = controlData.message && controlData.message.includes("Continuando control");
+        
+        if (esContinuacion) {
+          console.log("Continuando un control existente con datos:", controlData);
+        }
+        
+        return controlData;
       } catch (error) {
         console.error("Error en iniciarControlMutation:", error);
         
@@ -345,12 +336,10 @@ export default function ControlPedidoPage() {
       });
       
       // Mostramos información de depuración sobre los productos cargados
-      console.log("PRODUCTOS ACTUALES CARGADOS:", data.productosActuales);
+      console.log("PRODUCTOS CARGADOS:", data.productos?.length || 0);
       
-      // Obtenemos los productos actualizados de la respuesta o usamos los que ya teníamos cargados
-      const productosParaControl = data.productosActuales && data.productosActuales.length > 0 
-        ? data.productosActuales 
-        : productos;
+      // Obtenemos los productos de la respuesta
+      const productosParaControl = data.productos || productos;
       
       // Verificar si hay productos
       if (!productosParaControl || productosParaControl.length === 0) {
@@ -364,6 +353,29 @@ export default function ControlPedidoPage() {
         console.log(`✓ ${productosParaControl.length} productos cargados correctamente`);
       }
       
+      // Verificar si se está continuando un control
+      const esContinuacion = data.message && data.message.includes("Continuando control");
+      const detallesControl = data.detallesControl || [];
+      
+      // Escaneos previos si estamos continuando un control
+      const escaneosPrevios = detallesControl.map((detalle: any) => {
+        return {
+          id: detalle.productoId,
+          codigo: detalle.codigo,
+          cantidad: detalle.cantidadEsperada,
+          controlado: detalle.cantidadControlada,
+          descripcion: detalle.producto?.descripcion || "",
+          timestamp: new Date(detalle.timestamp),
+          escaneado: true,
+          ubicacion: detalle.producto?.ubicacion || "",
+          estado: detalle.estado
+        };
+      });
+      
+      if (esContinuacion) {
+        console.log(`Continuando control con ${detallesControl.length} productos ya escaneados`);
+      }
+      
       // Inicializar estado del control con los productos actualizados
       setControlState({
         isRunning: true,
@@ -374,18 +386,24 @@ export default function ControlPedidoPage() {
         codigoPedido: data.pedido?.pedidoId || null,
         productosControlados: productosParaControl.map((p: any) => {
           console.log(`Producto con código ${p.codigo} agregado al estado`);
+          
+          // Buscar si ya está controlado (en caso de continuación)
+          const detalleExistente = detallesControl.find((d: any) => 
+            d.codigo === p.codigo || d.productoId === p.id
+          );
+          
           return {
             id: p.id,
             // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
             codigo: p.codigo ? String(p.codigo).trim() : "",
             cantidad: p.cantidad,
-            controlado: 0,
+            controlado: detalleExistente ? detalleExistente.cantidadControlada : 0,
             descripcion: p.descripcion,
             ubicacion: p.ubicacion || "",
-            estado: ""
+            estado: detalleExistente ? detalleExistente.estado : ""
           };
         }),
-        historialEscaneos: [],
+        historialEscaneos: esContinuacion ? escaneosPrevios : [],
         segundos: 0
       });
       
