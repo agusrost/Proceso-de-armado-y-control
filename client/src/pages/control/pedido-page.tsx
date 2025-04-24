@@ -706,7 +706,7 @@ export default function ControlPedidoPage() {
     onSuccess: (data) => {
       toast({
         title: "Control finalizado",
-        description: `El control del pedido ha sido finalizado como: ${data.resultado.toUpperCase()}`,
+        description: `El control del pedido ha sido finalizado correctamente`,
       });
       
       // Detener el control
@@ -858,30 +858,55 @@ export default function ControlPedidoPage() {
   const completarFinalizacion = () => {
     console.log("Completando finalización después de retirar excedentes");
     
-    // Primero cerrar el diálogo de excedentes
-    setRetirarExcedenteOpen(false);
-    
-    // Mostrar notificación de que los excedentes fueron retirados
-    toast({
-      title: "Excedentes retirados",
-      description: "Los productos excedentes han sido retirados correctamente",
-    });
-    
-    // Pequeña pausa para que se vea la notificación
-    setTimeout(() => {
-      // Finalizar el control con estado completo
-      finalizarControlMutation.mutate({
-        resultado: 'completo' as any, // Tipo temporal para resolver error
-        comentarios: (comentarios ? comentarios + ' - ' : '') + 'Excedentes retirados correctamente'
+    try {
+      // Primero cerrar el diálogo de excedentes
+      setRetirarExcedenteOpen(false);
+      
+      // Mostrar notificación de que los excedentes fueron retirados
+      toast({
+        title: "Excedentes retirados",
+        description: "Los productos excedentes han sido retirados correctamente",
       });
       
-      // Mostrar notificación de éxito
+      // Pequeña pausa para que se vea la notificación
+      setTimeout(() => {
+        try {
+          // Finalizar el control con estado completo
+          finalizarControlMutation.mutate({
+            resultado: 'completo' as any, // Tipo temporal para resolver error
+            comentarios: (comentarios ? comentarios + ' - ' : '') + 'Excedentes retirados correctamente'
+          });
+          
+          // Redirigir a la lista de controles después de 2 segundos
+          setTimeout(() => {
+            setLocation("/control");
+          }, 2000);
+        } catch (error) {
+          console.error("Error al ejecutar finalización del control:", error);
+          toast({
+            title: "Error al finalizar",
+            description: "Ocurrió un error al finalizar el control. Volviendo a la lista de controles.",
+            variant: "destructive"
+          });
+          
+          // En caso de error, igualmente redirigir a la lista de controles
+          setTimeout(() => {
+            setLocation("/control");
+          }, 2000);
+        }
+      }, 800);
+    } catch (error) {
+      console.error("Error en completarFinalizacion:", error);
+      // En caso de error crítico, forzar redirección a la lista de controles
       toast({
-        title: "Control finalizado con éxito",
-        description: "El control ha sido completado correctamente",
-        variant: "default"
+        title: "Error",
+        description: "Se produjo un error inesperado. Volviendo a la lista de controles.",
+        variant: "destructive"
       });
-    }, 800);
+      setTimeout(() => {
+        setLocation("/control");
+      }, 1500);
+    }
   };
   
   // Función para cancelar un control
