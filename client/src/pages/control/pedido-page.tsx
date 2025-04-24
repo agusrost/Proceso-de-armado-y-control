@@ -849,7 +849,41 @@ export default function ControlPedidoPage() {
             )}
           </CardContent>
           <CardFooter className="border-t pt-4">
-            {!controlState.isRunning ? (
+            {controlState.pedidoYaControlado ? (
+              <div className="w-full">
+                <div className="flex items-center mb-2 text-red-600">
+                  <AlertTriangle className="h-5 w-5 mr-2" />
+                  <span className="font-medium">Este pedido ya fue controlado</span>
+                </div>
+                <p className="text-sm text-neutral-600 mb-3">{controlState.mensajeError}</p>
+                <div className="flex space-x-2">
+                  <Button variant="outline" asChild>
+                    <Link to="/control">
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Volver a la lista de pedidos
+                    </Link>
+                  </Button>
+                  <Button variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] })}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-4 h-4 mr-2"
+                    >
+                      <path d="M21 2v6h-6"></path>
+                      <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                      <path d="M3 22v-6h6"></path>
+                      <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                    </svg>
+                    Actualizar pedidos
+                  </Button>
+                </div>
+              </div>
+            ) : !controlState.isRunning ? (
               <Button 
                 onClick={handleIniciarControl} 
                 disabled={iniciarControlMutation.isPending || !pedido || pedido.estado !== 'completado'}
@@ -869,7 +903,7 @@ export default function ControlPedidoPage() {
           </CardFooter>
         </Card>
         
-        {controlState.isRunning && (
+        {controlState.isRunning && !controlState.pedidoYaControlado && (
           <>
             {/* Escaneo de Productos */}
             <Card className="mb-6">
@@ -1068,7 +1102,7 @@ export default function ControlPedidoPage() {
         />
         
         {/* Códigos Registrados */}
-        {controlState.isRunning && controlState.historialEscaneos?.length > 0 && (
+        {controlState.isRunning && !controlState.pedidoYaControlado && controlState.historialEscaneos?.length > 0 && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Códigos Registrados</CardTitle>
