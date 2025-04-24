@@ -35,7 +35,7 @@ export default function ControlHistorialPage() {
   
   // Estado para filtros
   const [filtroFecha, setFiltroFecha] = useState<string>("");
-  const [filtroResultado, setFiltroResultado] = useState<string>("");
+  const [filtroResultado, setFiltroResultado] = useState<string>("todos");
   const [mostrarSoloFinalizados, setMostrarSoloFinalizados] = useState<boolean>(true);
   
   // Query para obtener lista de controles
@@ -49,7 +49,7 @@ export default function ControlHistorialPage() {
       // Construir parámetros de filtro
       const params = new URLSearchParams();
       if (filtroFecha) params.append("fecha", filtroFecha);
-      if (filtroResultado) params.append("resultado", filtroResultado);
+      if (filtroResultado && filtroResultado !== "todos") params.append("resultado", filtroResultado);
       
       const res = await apiRequest("GET", `/api/control/historial?${params.toString()}`);
       if (!res.ok) throw new Error("Error al cargar historial");
@@ -72,7 +72,7 @@ export default function ControlHistorialPage() {
   // Resetear filtros
   const handleResetearFiltros = () => {
     setFiltroFecha("");
-    setFiltroResultado("");
+    setFiltroResultado("todos");
     setTimeout(() => {
       refetch();
     }, 100);
@@ -149,12 +149,12 @@ export default function ControlHistorialPage() {
               
               <div>
                 <Label htmlFor="filtro-resultado">Resultado</Label>
-                <Select value={filtroResultado} onValueChange={setFiltroResultado}>
+                <Select value={filtroResultado || "todos"} onValueChange={setFiltroResultado}>
                   <SelectTrigger id="filtro-resultado" className="mt-1">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="completo">Completo</SelectItem>
                     <SelectItem value="faltantes">Faltantes</SelectItem>
                     <SelectItem value="excedentes">Excedentes</SelectItem>
