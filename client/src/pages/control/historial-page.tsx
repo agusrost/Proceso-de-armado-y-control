@@ -239,7 +239,7 @@ export default function ControlHistorialPage() {
                             {control.pedido?.pedidoId || `#${control.pedidoId}`}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                            {control.pedido?.cliente || control.pedido?.clienteId || "-"}
+                            {control.pedido?.clienteId || "-"}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
                             {formatDate(control.fecha)}

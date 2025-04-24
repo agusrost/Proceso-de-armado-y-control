@@ -162,7 +162,7 @@ export default function ControlIndexPage() {
                           {control.pedido?.pedidoId || `#${control.pedidoId}`}
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
-                          {control.pedido?.cliente || control.pedido?.clienteId || "-"}
+                          {control.pedido?.clienteId || "-"}
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
                           {formatDate(control.fecha)}

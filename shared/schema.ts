@@ -17,7 +17,6 @@ export const pedidos = pgTable("pedidos", {
   id: serial("id").primaryKey(),
   pedidoId: text("pedido_id").notNull().unique(), // PED-001 format
   clienteId: text("cliente_id").notNull(),
-  cliente: text("cliente"), // Nombre del cliente
   fecha: date("fecha").notNull(),
   items: integer("items").notNull(),
   totalProductos: integer("total_productos").notNull(),
