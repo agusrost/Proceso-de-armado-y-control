@@ -606,8 +606,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
+      // Si el pedido ya está en proceso para este armador, simplemente retornarlo
+      if (pedido.estado === 'en-proceso' && pedido.armadorId === req.user.id) {
+        return res.json(pedido);
+      }
+      
+      // Solo permitir iniciar pedidos pendientes
       if (pedido.estado !== 'pendiente') {
-        return res.status(400).json({ message: "El pedido ya no está pendiente" });
+        return res.status(400).json({ message: "El pedido ya no está disponible para iniciar" });
       }
       
       try {
