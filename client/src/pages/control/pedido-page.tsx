@@ -39,6 +39,7 @@ import { ControlFinalizarDialog } from "@/components/control/control-finalizar-d
 import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontrado-alert";
 import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list-new";
 import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
+import { RetirarExcedenteAlert } from "@/components/control/retirar-excedente-alert";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -53,6 +54,7 @@ export default function ControlPedidoPage() {
   // Estados para los diálogos
   const [alertOpen, setAlertOpen] = useState(false);
   const [excedenteAlertOpen, setExcedenteAlertOpen] = useState(false);
+  const [retirarExcedenteOpen, setRetirarExcedenteOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
   const [resumenVisible, setResumenVisible] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
@@ -65,6 +67,11 @@ export default function ControlPedidoPage() {
     cantidadEsperada: 0,
     cantidadActual: 0
   });
+  const [productosExcedentes, setProductosExcedentes] = useState<Array<{
+    codigo: string;
+    descripcion: string;
+    cantidadExcedente: number;
+  }>>([]);
   
   // Estado del control
   const [controlState, setControlState] = useState<ControlState>({
@@ -728,11 +735,50 @@ export default function ControlPedidoPage() {
     iniciarControlMutation.mutate();
   };
   
+  // Función para verificar excedentes que deben ser retirados
+  const verificarExcedentesParaRetirar = () => {
+    // Buscar productos con cantidades excedentes
+    const excedentes = controlState.productosControlados
+      .filter(p => p.controlado > p.cantidad)
+      .map(p => ({
+        codigo: p.codigo,
+        descripcion: p.descripcion,
+        cantidadExcedente: p.controlado - p.cantidad
+      }));
+    
+    // Si hay excedentes, mostrar alerta
+    if (excedentes.length > 0) {
+      setProductosExcedentes(excedentes);
+      setRetirarExcedenteOpen(true);
+      return true;
+    }
+    
+    return false;
+  };
+  
   // Función para finalizar control
-  const handleFinalizarControl = (resultado: ControlEstado) => {
+  const handleFinalizarControl = (resultado: string) => {
+    // Si la finalización es correcta y hay excedentes, verificar si deben ser retirados
+    if (resultado === 'completo' && !hasFaltantes) {
+      const hayExcedentes = verificarExcedentesParaRetirar();
+      if (hayExcedentes) {
+        // El diálogo se encargará de llamar a completarFinalizacion después
+        return;
+      }
+    }
+    
+    // Si no hay excedentes o si se está finalizando con faltantes, continuar normalmente
     finalizarControlMutation.mutate({ 
       resultado, 
       comentarios 
+    });
+  };
+  
+  // Función para completar finalización después de retirar excedentes
+  const completarFinalizacion = () => {
+    finalizarControlMutation.mutate({
+      resultado: 'completo',
+      comentarios: comentarios + ' (Excedentes retirados)'
     });
   };
   
@@ -825,15 +871,7 @@ export default function ControlPedidoPage() {
             <h1 className="text-2xl font-bold">Control de Pedido</h1>
           </div>
           
-          {controlState.isRunning && (
-            <div className="flex items-center gap-2">
-              <Timer className="h-5 w-5 text-muted-foreground" />
-              <span className="text-lg font-semibold">
-                {horas > 0 ? `${horas}h ` : ''}
-                {String(minutos).padStart(2, '0')}:{String(segundos).padStart(2, '0')}
-              </span>
-            </div>
-          )}
+          {/* El tiempo transcurrido se ha ocultado según requerimiento */}
         </div>
         
         {/* Información del pedido */}
@@ -1021,8 +1059,16 @@ export default function ControlPedidoPage() {
         onOpenChange={setFinalizarOpen}
         onFinalizar={handleFinalizarControl}
         hasFaltantes={hasFaltantes}
+        hasExcedentes={controlState.productosControlados.some(p => p.controlado > p.cantidad)}
         comentarios={comentarios}
         onComentariosChange={setComentarios}
+      />
+      
+      <RetirarExcedenteAlert
+        open={retirarExcedenteOpen}
+        onOpenChange={setRetirarExcedenteOpen}
+        excedentes={productosExcedentes}
+        onRetirarConfirm={completarFinalizacion}
       />
     </MainLayout>
   );
