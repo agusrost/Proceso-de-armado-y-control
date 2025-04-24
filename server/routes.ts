@@ -1987,6 +1987,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Obtener pedidos en curso de control (estado "controlando")
+  app.get("/api/control/en-curso", requireAuth, async (req, res, next) => {
+    try {
+      // Obtenemos pedidos que estén en estado "controlando"
+      const pedidosControlando = await storage.getPedidos({ estado: "controlando" });
+      
+      // Agregamos información adicional para cada pedido
+      const pedidosDetallados = await Promise.all(pedidosControlando.map(async (pedido) => {
+        // Obtener información del armador si existe
+        let armadorInfo = null;
+        if (pedido.armadorId) {
+          armadorInfo = await storage.getUser(pedido.armadorId);
+        }
+        
+        // Obtener datos del último control iniciado
+        const historicos = await storage.getControlHistoricoByPedidoId(pedido.id);
+        const ultimoControl = historicos.length > 0 
+          ? historicos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0]
+          : null;
+        
+        return {
+          ...pedido,
+          armadorNombre: armadorInfo?.username || null,
+          control: ultimoControl
+            ? {
+                id: ultimoControl.id,
+                inicio: ultimoControl.fecha,
+                controladoPor: ultimoControl.controladoPor
+              }
+            : null
+        };
+      }));
+      
+      return res.json(pedidosDetallados);
+    } catch (error) {
+      console.error("Error al obtener pedidos en control:", error);
+      return res.status(500).json({ message: "Error al obtener pedidos en control" });
+    }
+  });
+  
   // Obtener historial de controles
   app.get("/api/control/historial", requireAuth, async (req, res, next) => {
     try {

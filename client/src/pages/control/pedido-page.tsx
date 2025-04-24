@@ -96,6 +96,20 @@ export default function ControlPedidoPage() {
     enabled: !!pedidoId,
   });
   
+  // Obtener información del armador
+  const {
+    data: armador,
+    isLoading: isLoadingArmador
+  } = useQuery<User>({
+    queryKey: ["/api/users", pedido?.armadorId],
+    queryFn: async () => {
+      if (!pedido?.armadorId) throw new Error("No hay armador asignado");
+      const res = await apiRequest("GET", `/api/users/${pedido.armadorId}`);
+      return res.json();
+    },
+    enabled: !!pedido?.armadorId,
+  });
+  
   // Cargar productos del pedido
   const { 
     data: productos = [], 
@@ -1070,9 +1084,13 @@ export default function ControlPedidoPage() {
                 <div>
                   <p className="text-sm text-neutral-500">Armador</p>
                   <p className="font-medium">
-                    {pedido.armadorId 
-                      ? `ID: ${pedido.armadorId}` 
-                      : "-"}
+                    {isLoadingArmador ? (
+                      <span className="text-neutral-400">Cargando...</span>
+                    ) : armador ? (
+                      armador.username || `ID: ${pedido.armadorId}`
+                    ) : (
+                      pedido.armadorId ? `ID: ${pedido.armadorId}` : "-"
+                    )}
                   </p>
                 </div>
                 <div>
