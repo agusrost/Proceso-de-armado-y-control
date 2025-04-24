@@ -563,20 +563,39 @@ export default function ControlPedidoPage() {
     setCargandoControl(true);
     
     try {
-      console.log("INICIANDO CONTROL CON SOLUCIÓN SIMPLE Y DIRECTA");
+      console.log("INICIANDO CONTROL CON NUEVO ENDPOINT PRE-CONTROL");
       
-      // Paso 1: Obtener productos del pedido (este endpoint siempre funciona)
-      const productosRes = await fetch(`/api/pedidos/${pedidoId}/productos`, {
+      // Usamos nuestro nuevo endpoint simplificado que evita el problema de JSON
+      const preControlRes = await fetch(`/api/control/pedidos/${pedidoId}/pre-control`, {
         credentials: 'include'
       });
       
-      if (!productosRes.ok) {
-        throw new Error(`Error al cargar productos: ${productosRes.status}`);
+      if (!preControlRes.ok) {
+        const errorMsg = await preControlRes.text();
+        console.error("Error en pre-control:", errorMsg);
+        throw new Error(`Error al preparar el control: ${errorMsg || preControlRes.status}`);
       }
       
-      const productosData = await productosRes.json();
+      // Intentamos procesar la respuesta como JSON
+      let responseData;
+      try {
+        responseData = await preControlRes.json();
+      } catch (jsonError) {
+        console.error("Error al procesar JSON:", jsonError);
+        throw new Error("Error al procesar la respuesta del servidor");
+      }
       
-      if (!productosData || productosData.length === 0) {
+      if (!responseData.success) {
+        toast({
+          title: "Error",
+          description: responseData.message || "Error desconocido",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Verificar que tengamos productos
+      if (!responseData.productos || responseData.productos.length === 0) {
         toast({
           title: "Error",
           description: "No hay productos asociados a este pedido",
@@ -584,6 +603,9 @@ export default function ControlPedidoPage() {
         });
         return;
       }
+      
+      // Usamos los productos directamente del endpoint seguro
+      const productosData = responseData.productos;
       
       // Preparamos datos para la interfaz
       window.dataPedido = {
