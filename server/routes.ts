@@ -1586,17 +1586,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verificar si el pedido ya fue controlado (tienen un histórico con fin no nulo)
       const controlHistoricos = await storage.getControlHistoricoByPedidoId(pedidoId);
       const controlCompletado = controlHistoricos.find(h => h.fin !== null);
+      const controlEnCurso = controlHistoricos.find(h => h.fin === null);
       
-      if (controlCompletado) {
+      // Si ya hay un control completado y no hay uno en curso, mostramos información pero 
+      // permitimos iniciar un nuevo control (por si hubiera que corregir algo)
+      if (controlCompletado && !controlEnCurso) {
         console.log(`Pedido ${pedidoId} ya fue controlado anteriormente, ID de control: ${controlCompletado.id}`);
-        return res.status(400).json({ 
-          message: "Este pedido ya fue controlado y finalizado anteriormente",
-          historico: {
-            id: controlCompletado.id,
-            fecha: controlCompletado.fecha,
-            resultado: controlCompletado.resultado
-          }
-        });
+        console.log(`Permitiendo nuevo control para el pedido ${pedidoId}`);
       }
       
       // Verificar que el pedido esté en un estado válido para control
@@ -1609,11 +1605,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verificar si ya hay un control en curso para este pedido
       if (pedido.controladoId) {
-        // Si el mismo usuario ya lo está controlando, devolvemos la info
+        // Si el mismo usuario ya lo está controlando, devolvemos la info completa para continuar
         if (pedido.controladoId === req.user?.id) {
+          // Obtener productos del pedido para permitir continuar el control
+          const productos = await storage.getProductosByPedidoId(pedidoId);
+          
+          // Obtener el historial de control para obtener datos de continuación
+          const historicosPedido = await storage.getControlHistoricoByPedidoId(pedidoId);
+          // Encontrar el control en curso (más reciente y sin fin)
+          const controlActivo = historicosPedido
+            .filter(h => h.fin === null)
+            .sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())[0];
+          
+          // Obtener detalles de lo ya controlado
+          let detallesControl = [];
+          if (controlActivo) {
+            detallesControl = await storage.getControlDetalleByControlId(controlActivo.id);
+          }
+          
+          console.log(`Continuando control ya iniciado por el mismo usuario, historial ID: ${controlActivo?.id}`);
+          
           return res.json({
-            message: "Control ya iniciado por ti para este pedido",
-            pedido
+            message: "Continuando control ya iniciado por ti",
+            pedido,
+            productos,
+            controlHistorico: controlActivo || null,
+            detallesControl
           });
         }
         
@@ -1637,7 +1654,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ahora = new Date();
       const pedidoActualizado = await storage.updatePedido(pedidoId, {
         controladoId: req.user?.id as number,
-        controlInicio: ahora
+        controlInicio: ahora,
+        estado: 'controlando' // Actualizar estado a "controlando" para indicar que está en proceso
       });
       
       // Crear registro histórico
