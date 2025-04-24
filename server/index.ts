@@ -45,7 +45,13 @@ app.use((req, res, next) => {
 
     // Asegurar que siempre enviemos un JSON, nunca HTML
     if (!res.headersSent) {
-      res.status(status).json({ message, error: true });
+      // Establecer explícitamente el tipo de contenido a JSON
+      res.setHeader('Content-Type', 'application/json');
+      res.status(status).json({ 
+        message, 
+        error: true,
+        timestamp: new Date().toISOString() 
+      });
     }
     console.error("Error en middleware:", err);
   });
