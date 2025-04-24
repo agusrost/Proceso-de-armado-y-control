@@ -1740,6 +1740,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Cancelar control de pedido
+  app.post("/api/control/pedidos/:pedidoId/cancelar", requireAccess('control'), async (req, res, next) => {
+    // Asegurarse de que siempre respondamos con JSON para evitar errores de parseo en el cliente
+    res.setHeader('Content-Type', 'application/json');
+    
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { comentarios } = req.body;
+      
+      console.log(`Cancelando control para pedido ID: ${pedidoId}`);
+      
+      if (isNaN(pedidoId)) {
+        console.log("Error: ID de pedido inválido");
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el pedido exista y esté siendo controlado por este usuario
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      if (pedido.controladoId !== req.user?.id) {
+        return res.status(403).json({ 
+          message: "No tienes permiso para cancelar este control o no lo iniciaste tú"
+        });
+      }
+      
+      // Cancelar el control - revertir al estado completado para que pueda ser controlado nuevamente
+      const pedidoActualizado = await storage.updatePedido(pedidoId, {
+        controladoId: null,
+        controlInicio: null,
+        estado: 'completado' // Volver al estado completado para permitir iniciar control de nuevo
+      });
+      
+      // Actualizar control histórico - marcar como cancelado
+      const historicosPedido = await storage.getControlHistoricoByPedidoId(pedidoId);
+      if (historicosPedido.length > 0) {
+        // Encontrar el más reciente
+        const ultimoHistorico = historicosPedido.reduce((ultimo, actual) => {
+          if (!ultimo) return actual;
+          return new Date(actual.inicio) > new Date(ultimo.inicio) ? actual : ultimo;
+        }, null as ControlHistorico | null);
+        
+        if (ultimoHistorico) {
+          await storage.updateControlHistorico(ultimoHistorico.id, {
+            fin: new Date(),
+            comentarios: comentarios || "Control cancelado",
+            resultado: 'cancelado'
+          });
+        }
+      }
+      
+      res.json({
+        message: "Control cancelado correctamente",
+        pedido: pedidoActualizado
+      });
+    } catch (error) {
+      console.error("Error al cancelar control de pedido:", error);
+      next(error);
+    }
+  });
+  
   // Registrar código escaneado en control
   app.post("/api/control/pedidos/:pedidoId/escanear", requireAccess('control'), async (req, res, next) => {
     try {
