@@ -218,6 +218,7 @@ export default function ControlHistorialPage() {
                     <tr>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">ID</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fecha</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Controlador</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Resultado</th>
@@ -236,6 +237,9 @@ export default function ControlHistorialPage() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-neutral-900">
                             {control.pedido?.pedidoId || `#${control.pedidoId}`}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            {control.pedido?.cliente || control.pedido?.clienteId || "-"}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
                             {formatDate(control.fecha)}

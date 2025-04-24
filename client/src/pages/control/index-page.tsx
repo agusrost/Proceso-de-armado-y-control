@@ -150,6 +150,7 @@ export default function ControlIndexPage() {
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Pedido</th>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Fecha</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Controlado por</th>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Resultado</th>
                       <th scope="col" className="px-3 py-2 text-xs font-medium text-neutral-500"></th>
                     </tr>
@@ -161,10 +162,16 @@ export default function ControlIndexPage() {
                           {control.pedido?.pedidoId || `#${control.pedidoId}`}
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
-                          {control.pedido?.clienteId || "-"}
+                          {control.pedido?.cliente || control.pedido?.clienteId || "-"}
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
                           {formatDate(control.fecha)}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-neutral-700">
+                          {control.controlador ? 
+                            (control.controlador.firstName || control.controlador.username) : 
+                            `Usuario #${control.controladoPor}`
+                          }
                         </td>
                         <td className="px-3 py-2">
                           <span 
