@@ -32,9 +32,27 @@ export default function ControlIndexPage() {
     enabled: true,
   });
   
-  // Filtrar solo los controles que están finalizados (tienen fecha de fin)
+  // Filtrar solo los controles que están finalizados (tienen fecha de fin) y son del último día
   const historialControles = useMemo(() => {
-    return historialControlesRaw.filter((control: any) => control.fin !== null);
+    // Obtener la fecha actual y restarle 24 horas para obtener el límite
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+    
+    return historialControlesRaw
+      .filter((control: any) => {
+        // Verificamos que tenga fecha de fin
+        if (!control.fin) return false;
+        
+        // Convertimos la fecha de fin a objeto Date para compararla
+        const finDate = new Date(control.fin);
+        return finDate >= oneDayAgo;
+      })
+      // Ordenamos por fecha de fin descendente (más reciente primero)
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.fin || 0);
+        const dateB = new Date(b.fin || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
   }, [historialControlesRaw]);
 
   // State para búsqueda de pedidos
@@ -141,7 +159,7 @@ export default function ControlIndexPage() {
           <CardHeader>
             <CardTitle>Controles Recientes</CardTitle>
             <CardDescription>
-              Historial de los últimos controles realizados
+              Controles finalizados en las últimas 24 horas
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -158,7 +176,7 @@ export default function ControlIndexPage() {
                     <tr>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Pedido</th>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
-                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Fecha</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Fecha fin</th>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Controlado por</th>
                       <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Resultado</th>
                       <th scope="col" className="px-3 py-2 text-xs font-medium text-neutral-500"></th>
@@ -174,7 +192,7 @@ export default function ControlIndexPage() {
                           {control.pedido?.clienteId || "-"}
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
-                          {formatDate(control.fecha)}
+                          {formatDate(control.fin)}
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
                           {control.controlador ? 
