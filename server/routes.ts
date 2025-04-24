@@ -1470,22 +1470,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Verificar si un pedido puede ser controlado (y opcionalmente iniciarlo)
   // Acepta tanto GET como POST para mayor flexibilidad
   app.all("/api/control/pedidos/:pedidoId/verificar", requireAccess('control'), async (req, res, next) => {
-    // SOLUCIÓN AL ERROR DE PARSEO: Responder SIEMPRE con texto plano en lugar de JSON
-    res.setHeader('Content-Type', 'text/plain');
+    // Asegurarse que siempre respondamos con JSON
+    res.setHeader('Content-Type', 'application/json');
     
     try {
       const pedidoId = parseInt(req.params.pedidoId);
       console.log(`Verificando si el pedido ID: ${pedidoId} puede ser controlado`);
       
       if (isNaN(pedidoId)) {
-        return res.status(400).send("ID de pedido inválido");
+        return res.status(400).json({ message: "ID de pedido inválido", error: true });
       }
       
       // Verificar que el pedido exista y esté en estado completado
       const pedido = await storage.getPedidoById(pedidoId);
       
       if (!pedido) {
-        return res.status(404).send("Pedido no encontrado");
+        return res.status(404).json({ 
+          message: "Pedido no encontrado", 
+          error: true,
+          pedidoId
+        });
       }
       
       // Verificar si el pedido ya fue controlado 
@@ -1493,22 +1497,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const controlCompletado = controlHistoricos.find(h => h.fin !== null);
       
       if (controlCompletado) {
-        return res.status(400).send("Este pedido ya fue controlado y finalizado anteriormente");
+        return res.status(400).json({ 
+          message: "Este pedido ya fue controlado y finalizado anteriormente",
+          error: true,
+          historico: {
+            id: controlCompletado.id,
+            fecha: controlCompletado.fecha,
+            resultado: controlCompletado.resultado
+          }
+        });
       }
       
       if (pedido.estado !== 'completado') {
-        return res.status(400).send("Solo se pueden controlar pedidos en estado completado");
+        return res.status(400).json({ 
+          message: "Solo se pueden controlar pedidos en estado completado",
+          error: true,
+          estado: pedido.estado
+        });
       }
       
       // Verificar si ya hay un control en curso para este pedido
       if (pedido.controladoId) {
-        // Si el mismo usuario ya lo está controlando, devolvemos OK
+        // Si el mismo usuario ya lo está controlando, devolvemos la info
         if (pedido.controladoId === req.user?.id) {
-          return res.send("OK_YA_INICIADO");
+          return res.json({
+            message: "Control ya iniciado por ti para este pedido",
+            error: false,
+            pedido
+          });
         }
         
         // Si otro usuario lo está controlando, error
-        return res.status(400).send("Este pedido ya está siendo controlado por otro usuario");
+        return res.status(400).json({
+          message: "Este pedido ya está siendo controlado por otro usuario",
+          error: true
+        });
       }
       
       // Obtener productos del pedido
@@ -1516,15 +1539,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verificar que haya productos en el pedido
       if (!productos || productos.length === 0) {
-        return res.status(400).send("No hay productos asociados a este pedido");
+        return res.status(400).json({
+          message: "No hay productos asociados a este pedido",
+          error: true
+        });
       }
       
       // Si todo está bien, el pedido puede ser controlado
-      return res.status(200).send("OK");
+      return res.status(200).json({
+        message: "El pedido puede ser controlado",
+        error: false,
+        pedido,
+        productos_count: productos.length
+      });
       
     } catch (error) {
       console.error("Error al verificar pedido:", error);
-      return res.status(500).send("Error interno al verificar pedido");
+      next(error);
     }
   });
   
@@ -2066,6 +2097,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   }
+  
+  /**
+   * SOLUCIÓN ALTERNATIVA PARA CARGAR PRODUCTOS DE UN PEDIDO SIN NECESIDAD DE INICIAR CONTROL
+   * Este endpoint funciona como una alternativa segura para iniciar los controles, evitando
+   * el problema de parseo JSON que ocurre con ciertos pedidos.
+   */
+  app.get("/api/control/pedidos/:pedidoId/pre-control", requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      console.log(`Ejecutando pre-control para pedido ID: ${pedidoId}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "ID de pedido inválido" 
+        });
+      }
+      
+      // Solo necesitamos los productos y la información básica del pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Pedido no encontrado" 
+        });
+      }
+      
+      // Obtenemos los productos sin más validaciones
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Solo enviamos la respuesta básica sin validar estado o control previo
+      return res.json({
+        success: true,
+        pedido: {
+          id: pedido.id,
+          pedidoId: pedido.pedidoId,
+          clienteId: pedido.clienteId,
+          estado: pedido.estado
+        },
+        productos: productos.map(p => ({
+          id: p.id,
+          codigo: p.codigo,
+          cantidad: p.cantidad,
+          descripcion: p.descripcion,
+          ubicacion: p.ubicacion || ""
+        })),
+        productos_count: productos.length
+      });
+      
+    } catch (error) {
+      console.error("Error en endpoint pre-control:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Error interno del servidor al procesar la solicitud" 
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

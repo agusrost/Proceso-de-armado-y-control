@@ -563,45 +563,7 @@ export default function ControlPedidoPage() {
     setCargandoControl(true);
     
     try {
-      console.log("INICIANDO CONTROL CON SOLUCIÓN ROBUSTA (RESPUESTA DE TEXTO)");
-      
-      // Paso 0: Verificar con el nuevo endpoint que responde texto plano 
-      // esto evita cualquier problema de parseo JSON
-      try {
-        console.log("Verificando pedido con método a prueba de errores...");
-        const verificarRes = await fetch(`/api/control/pedidos/${pedidoId}/verificar`, {
-          credentials: 'include'
-        });
-        
-        // Leemos la respuesta como texto plano
-        const verificarText = await verificarRes.text();
-        console.log(`Respuesta de verificación: ${verificarText}`);
-        
-        if (!verificarRes.ok) {
-          // Aquí mostramos el texto de error sin intentar parsearlo como JSON
-          toast({
-            title: "No se puede controlar",
-            description: verificarText || `Error ${verificarRes.status}`,
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        // Si la respuesta no es "OK" u "OK_YA_INICIADO", es un error aunque el status sea 200
-        if (verificarText !== "OK" && verificarText !== "OK_YA_INICIADO") {
-          toast({
-            title: "Respuesta inesperada",
-            description: verificarText || "Respuesta de servidor inválida",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        console.log("Verificación exitosa, continuando con la carga de productos");
-      } catch (verifyError) {
-        console.error("Error en verificación de texto:", verifyError);
-        // Continuamos aunque falle la verificación
-      }
+      console.log("INICIANDO CONTROL CON SOLUCIÓN SIMPLE Y DIRECTA");
       
       // Paso 1: Obtener productos del pedido (este endpoint siempre funciona)
       const productosRes = await fetch(`/api/pedidos/${pedidoId}/productos`, {
