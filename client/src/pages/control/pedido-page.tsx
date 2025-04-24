@@ -833,7 +833,7 @@ export default function ControlPedidoPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              {!controlState.isRunning && !controlState.pedidoYaControlado && pedido.estado === 'finalizado' && (
+              {!controlState.isRunning && !controlState.pedidoYaControlado && (pedido.estado === 'finalizado' || pedido.estado === 'completado') && (
                 <Button onClick={handleIniciarControl} disabled={isLoading}>
                   {isLoading ? 'Cargando...' : 'Iniciar Control'}
                 </Button>

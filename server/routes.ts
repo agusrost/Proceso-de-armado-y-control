@@ -1599,9 +1599,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      if (pedido.estado !== 'completado') {
+      // Verificar que el pedido esté en un estado válido para control
+      if (pedido.estado !== 'completado' && pedido.estado !== 'finalizado' && pedido.estado !== 'controlando') {
         return res.status(400).json({ 
-          message: "Solo se pueden controlar pedidos en estado completado",
+          message: "Solo se pueden controlar pedidos en estado completado, finalizado o en control",
           estado: pedido.estado
         });
       }
@@ -1700,11 +1701,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const horas = Math.floor(minutos / 60);
       const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${(minutos % 60).toString().padStart(2, '0')}`;
       
-      // Actualizar pedido
+      // Actualizar pedido - Estado 'controlado' indica que ya pasó por control
       const pedidoActualizado = await storage.updatePedido(pedidoId, {
         controlFin: fin,
         controlComentario: comentarios,
-        controlTiempo: tiempoFormateado
+        controlTiempo: tiempoFormateado,
+        estado: 'controlado', // Cambiar el estado a 'controlado' 
+        controladoId: null // Quitar el ID del controlador para liberar el pedido
       });
       
       // Actualizar control histórico
@@ -1990,11 +1993,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Obtener pedidos en curso de control (estado "controlando")
   app.get("/api/control/en-curso", requireAuth, async (req, res, next) => {
     try {
-      // Obtenemos pedidos que estén en estado "controlando"
-      const pedidosControlando = await storage.getPedidos({ estado: "controlando" });
+      // Obtenemos pedidos que tengan un control iniciado pero no finalizado
+      // También debemos buscar los históricos en proceso
+      const historicosEnProceso = await storage.getControlHistorico({ resultado: "en-proceso" });
+      
+      // Obtenemos los IDs de pedidos de estos históricos
+      const pedidoIdsEnControl = historicosEnProceso
+        .filter(historico => !historico.fin) // Aseguramos que no tengan fecha de fin
+        .map(historico => historico.pedidoId);
+      
+      console.log(`Pedidos en proceso de control: ${pedidoIdsEnControl.length}`);
+      
+      // Obtenemos los detalles de estos pedidos
+      const pedidosEnControl = [];
+      
+      for (const pedidoId of pedidoIdsEnControl) {
+        const pedido = await storage.getPedidoById(pedidoId);
+        if (pedido) {
+          pedidosEnControl.push(pedido);
+        }
+      }
       
       // Agregamos información adicional para cada pedido
-      const pedidosDetallados = await Promise.all(pedidosControlando.map(async (pedido) => {
+      const pedidosDetallados = await Promise.all(pedidosEnControl.map(async (pedido) => {
         // Obtener información del armador si existe
         let armadorInfo = null;
         if (pedido.armadorId) {
