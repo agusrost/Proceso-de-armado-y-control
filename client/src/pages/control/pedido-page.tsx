@@ -37,7 +37,7 @@ import { ControlProductoItem } from "@/components/control/control-producto-item"
 import { ProductoEscanerForm } from "@/components/control/producto-escaner-form";
 import { ControlFinalizarDialog } from "@/components/control/control-finalizar-dialog";
 import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontrado-alert";
-import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list";
+import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list-new";
 import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
 
 export default function ControlPedidoPage() {
