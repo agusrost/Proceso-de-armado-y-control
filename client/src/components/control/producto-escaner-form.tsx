@@ -37,6 +37,7 @@ export function ProductoEscanerForm({
         console.log(`⚠️⚠️⚠️ CÓDIGO ESPECIAL DETECTADO: ${codigoTrim} - Enviando sin normalizar`);
         onEscanear(codigoTrim, cantidad);
         setCodigo("");
+        setCantidad(1); // Reiniciar la cantidad a 1
         return;
       }
       
@@ -48,6 +49,7 @@ export function ProductoEscanerForm({
         console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 17061 DETECTADA: ${codigoTrim} - Normalizando a 17061`);
         onEscanear('17061', cantidad);
         setCodigo("");
+        setCantidad(1); // Reiniciar la cantidad a 1
         return;
       }
       
@@ -59,6 +61,7 @@ export function ProductoEscanerForm({
         console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 18001 DETECTADA: ${codigoTrim} - Normalizando a 18001`);
         onEscanear('18001', cantidad);
         setCodigo("");
+        setCantidad(1); // Reiniciar la cantidad a 1
         return;
       }
       
@@ -69,6 +72,8 @@ export function ProductoEscanerForm({
       // Enviamos el código normalizado
       onEscanear(normalizedCode, cantidad);
       setCodigo("");
+      // Reiniciamos la cantidad a 1 después de escanear
+      setCantidad(1);
     }
   };
   
