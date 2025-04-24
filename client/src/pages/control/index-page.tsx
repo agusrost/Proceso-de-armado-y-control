@@ -74,10 +74,19 @@ export default function ControlIndexPage() {
         {pedidosEnCurso.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Controles en Curso</CardTitle>
-              <CardDescription>
-                Pedidos que están siendo controlados actualmente
-              </CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Controles en Curso</CardTitle>
+                  <CardDescription>
+                    Pedidos que están siendo controlados actualmente
+                  </CardDescription>
+                </div>
+                <div className="text-sm">
+                  <Link to="/control/historial" className="text-primary hover:underline">
+                    Ver todos
+                  </Link>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoadingEnCurso ? (
@@ -87,11 +96,11 @@ export default function ControlIndexPage() {
                   <table className="min-w-full divide-y divide-neutral-200">
                     <thead className="bg-neutral-50">
                       <tr>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Pedido</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">ID</th>
                         <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Armador</th>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Inicio</th>
-                        <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-neutral-500">Acción</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Finalizado</th>
+                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Armado por</th>
+                        <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-neutral-500">Acción</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-neutral-200">
@@ -104,15 +113,15 @@ export default function ControlIndexPage() {
                             {pedido.clienteId || "-"}
                           </td>
                           <td className="px-3 py-2 text-sm text-neutral-700">
-                            {pedido.armadorNombre || (pedido.armadorId ? `ID: ${pedido.armadorId}` : "-")}
+                            {formatDate(pedido.fecha)}
                           </td>
                           <td className="px-3 py-2 text-sm text-neutral-700">
-                            {pedido.control?.inicio ? formatDate(pedido.control.inicio) : "-"}
+                            {pedido.armadorNombre || "-"}
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-3 py-2 text-right">
                             <Link 
                               to={`/control/pedido/${pedido.id}`} 
-                              className="px-3 py-1 text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200"
+                              className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                             >
                               Continuar
                             </Link>
