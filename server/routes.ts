@@ -1573,48 +1573,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tipoCodigo: typeof p.codigo 
       })))}`);
       
-      // Función mejorada para normalizar y comparar códigos
-      const normalizeCode = (code: string | number | null | undefined) => {
-        if (code === null || code === undefined) return '';
-        
-        // Convertir a string y eliminar espacios
-        let normalizedCode = String(code).trim().toLowerCase().replace(/\s+/g, '');
-        
-        // Guardar una versión original trimmeada para casos especiales
-        const trimmedCode = normalizedCode;
-        
-        // Eliminar caracteres no alfanuméricos al inicio o fin
-        normalizedCode = normalizedCode.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, '');
-        
-        // Lista de códigos especiales que requieren tratamiento específico
-        const codigosEspeciales = ['17061', '18001', '17133'];
-        
-        // Verificar códigos especiales (preserva el valor exacto para ciertos códigos)
-        if (codigosEspeciales.includes(normalizedCode) || codigosEspeciales.includes(trimmedCode)) {
-          const codigoOriginal = codigosEspeciales.find(c => c === normalizedCode || c === trimmedCode) || normalizedCode;
-          console.log(`⚠️ Código especial detectado en normalización: ${codigoOriginal} - ¡Preservando valor exacto!`);
-          return codigoOriginal;
-        }
-        
-        // Verificar si es un código numérico que empieza con ceros
-        const numericWithLeadingZeros = /^0+\d+$/.test(normalizedCode);
-        if (numericWithLeadingZeros) {
-          // Preservar la versión original con ceros para comparar exactamente después
-          console.log(`Detectado código con ceros iniciales: ${normalizedCode}`);
-          // También guardamos versión sin ceros para comparaciones alternativas
-          const withoutZeros = String(parseInt(normalizedCode, 10));
-          console.log(`Versión sin ceros: ${withoutZeros}`);
-          // Mantenemos la versión original con ceros si hay una diferencia significativa
-          return normalizedCode;
-        }
-        
-        // Para códigos numéricos normales, eliminar ceros a la izquierda
-        if (/^\d+$/.test(normalizedCode)) {
-          normalizedCode = String(parseInt(normalizedCode, 10));
-        }
-        
-        return normalizedCode;
-      };
+      // Utilizamos la función de normalización centralizada
+      console.log(`Utilizando la normalización centralizada para mejor consistencia...`);
       
       const normalizedInput = normalizeCode(codigo);
       console.log(`Código normalizado: "${normalizedInput}"`);
@@ -1696,12 +1656,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Utilizamos la función centralizada areCodesEquivalent para mejor consistencia
       const producto = productos.find(p => {
-        const normalizedProductCode = normalizeCode(p.codigo);
-        console.log(`Comparando con: "${normalizedProductCode}" (${typeof p.codigo})`);
+        // Usar la función centralizada para comparar códigos con mayor robustez y soporte para casos especiales
+        const codigosEquivalentes = areCodesEquivalent(p.codigo, codigo, pedidoId);
+        
+        if (codigosEquivalentes) {
+          console.log(`✓ Códigos equivalentes detectados con función centralizada: "${p.codigo}" ≈ "${codigo}"`);
+          return true;
+        }
         
         // Caso especial para los códigos del pedido P0025 (id 23)
-        // Verificamos usando tanto el id numérico como la versión visual "P0025"
         const esPedidoP0025 = pedidoId === 23 || 
                              pedido?.pedidoId === 'P0025' || 
                              String(pedidoId) === '23';
@@ -1720,13 +1685,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return true;
           }
           
-          // Comprobar normalizado
-          if ((normalizeCode(codigo) === '17061' && normalizedProductCode === '17061') || 
-              (normalizeCode(codigo) === '18001' && normalizedProductCode === '18001')) {
-            console.log(`✓ Caso especial detectado y normalizado: código ${codigo} en pedido P0025`);
-            return true;
-          }
-          
           // Comparación numérica si ambos son números
           if (!isNaN(Number(codigo)) && !isNaN(Number(p.codigo))) {
             if (Number(codigo) === Number(p.codigo)) {
@@ -1736,46 +1694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // 1. Comparación directa entre valores normalizados como strings
-        if (normalizedProductCode === normalizedInput) {
-          console.log(`✓ Coincidencia exacta normalizada: ${normalizedProductCode} === ${normalizedInput}`);
-          return true;
-        }
-        
-        // 2. Comparación numérica si ambos pueden ser números
-        const numInput = !isNaN(Number(codigo)) ? Number(codigo) : null;
-        const numProductCode = !isNaN(Number(p.codigo)) ? Number(p.codigo) : null;
-        
-        if (numInput !== null && numProductCode !== null && numInput === numProductCode) {
-          console.log(`✓ Coincidencia numérica: ${numInput} === ${numProductCode}`);
-          return true;
-        }
-        
-        // 3. Comparación con prefijos/sufijos - por si hay códigos con ceros a la izquierda o sufijos
-        if (normalizedProductCode.startsWith(normalizedInput) || normalizedInput.startsWith(normalizedProductCode)) {
-          console.log(`✓ Coincidencia parcial (prefijo): ${normalizedProductCode} ~ ${normalizedInput}`);
-          return true;
-        }
-        
-        // 4. Eliminar caracteres no alfanuméricos y volver a comparar
-        const cleanInput = normalizedInput.replace(/[^a-z0-9]/g, '');
-        const cleanProductCode = normalizedProductCode.replace(/[^a-z0-9]/g, '');
-        
-        if (cleanInput === cleanProductCode) {
-          console.log(`✓ Coincidencia limpia: ${cleanInput} === ${cleanProductCode}`);
-          return true;
-        }
-        
-        // 5. Para códigos numéricos, quitar ceros a la izquierda y comparar
-        if (!isNaN(Number(normalizedInput)) && !isNaN(Number(normalizedProductCode))) {
-          const numInput = Number(normalizedInput);
-          const numProductCode = Number(normalizedProductCode);
-          if (numInput === numProductCode) {
-            console.log(`✓ Coincidencia numérica sin ceros: ${numInput} === ${numProductCode}`);
-            return true;
-          }
-        }
-        
+        // Si llegamos aquí, las comparaciones especializadas no tuvieron éxito
         return false;
       });
       
@@ -1824,41 +1743,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Verificar si ya hay un detalle para este producto
           const detalles = await storage.getControlDetalleByControlId(ultimoHistorico.id);
           
-          // Usar la misma función de normalización para comparar códigos en detalles
+          // Usar la función centralizada areCodesEquivalent para comparar códigos en detalles también
           const detalleExistente = detalles.find(d => {
-            const normalizedDetailCode = normalizeCode(d.codigo);
-            const normalizedScanCode = normalizeCode(codigo);
+            // Utilizamos la función centralizada para unificar la lógica de comparación
+            const codigosEquivalentes = areCodesEquivalent(d.codigo, codigo, pedidoId);
+            
+            if (codigosEquivalentes) {
+              console.log(`✓ Códigos equivalentes detectados en detalles: "${d.codigo}" ≈ "${codigo}"`);
+              return true;
+            }
             
             // Caso especial para el código 17133 en pedido P0001 (id 22)
             if (pedidoId == '22' && (normalizeCode(codigo) === '17133' || codigo === '17133') && d.codigo === '17133') {
               console.log(`✓ Caso especial detectado en detalle: código 17133 en pedido P0001`);
               return true;
-            }
-            
-            // Comparación directa normalizada
-            if (normalizedDetailCode === normalizedScanCode) return true;
-            
-            // Comparación numérica si es posible
-            const numDetailCode = !isNaN(Number(d.codigo)) ? Number(d.codigo) : null;
-            const numScanCode = !isNaN(Number(codigo)) ? Number(codigo) : null;
-            if (numDetailCode !== null && numScanCode !== null && numDetailCode === numScanCode) return true;
-            
-            // Comparación por prefijos
-            if (normalizedDetailCode.startsWith(normalizedScanCode) || normalizedScanCode.startsWith(normalizedDetailCode)) return true;
-            
-            // Comparación limpia (sin caracteres no alfanuméricos)
-            const cleanDetailCode = normalizedDetailCode.replace(/[^a-z0-9]/g, '');
-            const cleanScanCode = normalizedScanCode.replace(/[^a-z0-9]/g, '');
-            if (cleanDetailCode === cleanScanCode) return true;
-            
-            // Para códigos numéricos, quitar ceros a la izquierda y comparar
-            if (!isNaN(Number(normalizedDetailCode)) && !isNaN(Number(normalizedScanCode))) {
-              const numDetailCode = Number(normalizedDetailCode);
-              const numScanCode = Number(normalizedScanCode);
-              if (numDetailCode === numScanCode) {
-                console.log(`✓ Coincidencia numérica sin ceros en detalle: ${numDetailCode} === ${numScanCode}`);
-                return true;
-              }
             }
             
             return false;
