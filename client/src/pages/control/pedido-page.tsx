@@ -40,6 +40,7 @@ import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontra
 import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list-new";
 import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
 import { RetirarExcedenteAlert } from "@/components/control/retirar-excedente-alert";
+import { ControlFinalizadoDialog } from "@/components/control/control-finalizado-dialog";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -55,6 +56,7 @@ export default function ControlPedidoPage() {
   const [alertOpen, setAlertOpen] = useState(false);
   const [excedenteAlertOpen, setExcedenteAlertOpen] = useState(false);
   const [retirarExcedenteOpen, setRetirarExcedenteOpen] = useState(false);
+  const [finalizadoOpen, setFinalizadoOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
   const [resumenVisible, setResumenVisible] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
@@ -704,11 +706,6 @@ export default function ControlPedidoPage() {
       }
     },
     onSuccess: (data) => {
-      toast({
-        title: "Control finalizado",
-        description: `El control del pedido ha sido finalizado correctamente`,
-      });
-      
       // Detener el control
       setControlState(prev => ({
         ...prev,
@@ -721,10 +718,8 @@ export default function ControlPedidoPage() {
       // Actualizar datos del pedido
       queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
       
-      // Redireccionar a la lista de controles después de 2 segundos
-      setTimeout(() => {
-        setLocation("/control");
-      }, 2000);
+      // Mostrar el diálogo de control finalizado con éxito
+      setFinalizadoOpen(true);
     },
     onError: (error: Error) => {
       toast({
@@ -862,13 +857,7 @@ export default function ControlPedidoPage() {
       // Primero cerrar el diálogo de excedentes
       setRetirarExcedenteOpen(false);
       
-      // Mostrar notificación de que los excedentes fueron retirados
-      toast({
-        title: "Excedentes retirados",
-        description: "Los productos excedentes han sido retirados correctamente",
-      });
-      
-      // Pequeña pausa para que se vea la notificación
+      // Pequeña pausa antes de iniciar el proceso de finalización
       setTimeout(() => {
         try {
           // Finalizar el control con estado completo
@@ -876,36 +865,22 @@ export default function ControlPedidoPage() {
             resultado: 'completo' as any, // Tipo temporal para resolver error
             comentarios: (comentarios ? comentarios + ' - ' : '') + 'Excedentes retirados correctamente'
           });
-          
-          // Redirigir a la lista de controles después de 2 segundos
-          setTimeout(() => {
-            setLocation("/control");
-          }, 2000);
         } catch (error) {
           console.error("Error al ejecutar finalización del control:", error);
           toast({
             title: "Error al finalizar",
-            description: "Ocurrió un error al finalizar el control. Volviendo a la lista de controles.",
+            description: "Ocurrió un error al finalizar el control.",
             variant: "destructive"
           });
-          
-          // En caso de error, igualmente redirigir a la lista de controles
-          setTimeout(() => {
-            setLocation("/control");
-          }, 2000);
         }
-      }, 800);
+      }, 500);
     } catch (error) {
       console.error("Error en completarFinalizacion:", error);
-      // En caso de error crítico, forzar redirección a la lista de controles
       toast({
         title: "Error",
-        description: "Se produjo un error inesperado. Volviendo a la lista de controles.",
+        description: "Se produjo un error inesperado al procesar la finalización.",
         variant: "destructive"
       });
-      setTimeout(() => {
-        setLocation("/control");
-      }, 1500);
     }
   };
   
@@ -1040,15 +1015,9 @@ export default function ControlPedidoPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-              {!controlState.isRunning && !controlState.pedidoYaControlado && (pedido.estado === 'finalizado' || pedido.estado === 'completado') && (
+              {!controlState.isRunning && !controlState.pedidoYaControlado && (
                 <Button onClick={handleIniciarControl} disabled={isLoading}>
-                  {isLoading ? 'Cargando...' : 'Iniciar Control'}
-                </Button>
-              )}
-              
-              {!controlState.isRunning && !controlState.pedidoYaControlado && pedido.estado === 'controlando' && (
-                <Button onClick={handleIniciarControl} disabled={isLoading}>
-                  {isLoading ? 'Cargando...' : 'Continuar Control'}
+                  {isLoading ? 'Cargando...' : pedido.estado === 'controlando' ? 'Continuar Control' : 'Iniciar Control'}
                 </Button>
               )}
               
@@ -1197,6 +1166,12 @@ export default function ControlPedidoPage() {
         onOpenChange={setRetirarExcedenteOpen}
         excedentes={productosExcedentes}
         onRetirarConfirm={completarFinalizacion}
+      />
+      
+      <ControlFinalizadoDialog 
+        open={finalizadoOpen}
+        onOpenChange={setFinalizadoOpen}
+        mensaje="El control del pedido ha sido finalizado correctamente"
       />
     </MainLayout>
   );
