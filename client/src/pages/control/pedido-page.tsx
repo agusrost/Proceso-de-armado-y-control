@@ -56,7 +56,9 @@ export default function ControlPedidoPage() {
     codigoPedido: null,
     productosControlados: [],
     historialEscaneos: [],
-    segundos: 0
+    segundos: 0,
+    pedidoYaControlado: false,
+    mensajeError: null
   });
   
   // Dialog de finalización
@@ -120,10 +122,22 @@ export default function ControlPedidoPage() {
         if (!res.ok) {
           // Intentamos obtener el error como JSON primero
           let errorMessage = "Error al iniciar control";
+          let errorData;
+          
           try {
-            const errorData = await res.json();
+            errorData = await res.json();
             errorMessage = errorData.message || errorMessage;
+            
+            // Verificar si es un error de pedido ya controlado
+            if (errorData.message && errorData.message.includes("ya fue controlado")) {
+              // Lanzar un error específico para pedidos ya controlados
+              throw new Error(`PEDIDO_YA_CONTROLADO: ${errorData.message}`);
+            }
           } catch (jsonError) {
+            if (jsonError instanceof Error && jsonError.message.startsWith("PEDIDO_YA_CONTROLADO:")) {
+              throw jsonError; // Re-lanzar nuestro error especial
+            }
+            
             // Si falla al parsear JSON, intentamos obtener el texto del error
             try {
               const errorText = await res.text();
@@ -147,10 +161,46 @@ export default function ControlPedidoPage() {
         };
       } catch (error) {
         console.error("Error en iniciarControlMutation:", error);
+        
+        // Verificar si es un error específico de pedido ya controlado
+        if (error instanceof Error && error.message.startsWith("PEDIDO_YA_CONTROLADO:")) {
+          // Extraer el mensaje real del error
+          const realMessage = error.message.replace("PEDIDO_YA_CONTROLADO: ", "");
+          
+          // Retornar un objeto especial para manejar este caso
+          return { 
+            pedidoYaControlado: true, 
+            mensaje: realMessage 
+          };
+        }
+        
         throw error;
       }
     },
     onSuccess: (data) => {
+      // Verificar si es un pedido ya controlado
+      if (data.pedidoYaControlado) {
+        console.log("Pedido ya controlado:", data.mensaje);
+        
+        toast({
+          title: "Pedido ya controlado",
+          description: data.mensaje,
+          variant: "destructive",
+          duration: 8000 // Mostrar por más tiempo para asegurar que el usuario lo vea
+        });
+        
+        // Actualizar el estado para mostrar mensaje de pedido ya controlado
+        setControlState(prevState => ({
+          ...prevState,
+          isRunning: false,
+          pedidoId: pedidoId,
+          pedidoYaControlado: true,
+          mensajeError: data.mensaje
+        }));
+        
+        return; // No continuar con el proceso normal
+      }
+      
       toast({
         title: "Control iniciado",
         description: "El control del pedido ha sido iniciado correctamente",
@@ -181,6 +231,8 @@ export default function ControlPedidoPage() {
         isRunning: true,
         startTime: Date.now(),
         pedidoId: pedidoId,
+        pedidoYaControlado: false,
+        mensajeError: null,
         codigoPedido: data.pedido?.pedidoId || null,
         productosControlados: productosParaControl.map(p => {
           console.log(`Producto con código ${p.codigo} agregado al estado`);

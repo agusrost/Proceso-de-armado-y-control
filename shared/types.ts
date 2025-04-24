@@ -107,6 +107,8 @@ export interface ControlState {
   productosControlados: ProductoControlado[];
   historialEscaneos: Array<ProductoControlado & { timestamp?: Date; escaneado?: boolean }>;
   segundos: number;
+  pedidoYaControlado?: boolean;
+  mensajeError?: string | null;
 }
 
 // Configuración de Google Sheets
