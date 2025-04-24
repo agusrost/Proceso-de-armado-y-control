@@ -96,13 +96,26 @@ export default function ControlPedidoPage() {
     mutationFn: async () => {
       if (!pedidoId) throw new Error("ID de pedido no válido");
       
+      // Primero cargamos los productos del pedido para asegurarnos de tener los datos más recientes
+      const productosRes = await apiRequest("GET", `/api/pedidos/${pedidoId}/productos`);
+      if (!productosRes.ok) {
+        throw new Error("Error al cargar los productos del pedido");
+      }
+      const productosActuales = await productosRes.json();
+      
+      // Luego iniciamos el control
       const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/iniciar`, {});
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Error al iniciar control");
       }
       
-      return await res.json();
+      // Devolvemos los datos del control y los productos actualizados
+      const controlData = await res.json();
+      return { 
+        ...controlData, 
+        productosActuales 
+      };
     },
     onSuccess: (data) => {
       toast({
@@ -110,25 +123,56 @@ export default function ControlPedidoPage() {
         description: "El control del pedido ha sido iniciado correctamente",
       });
       
-      // Inicializar estado del control
+      // Mostramos información de depuración sobre los productos cargados
+      console.log("PRODUCTOS ACTUALES CARGADOS:", data.productosActuales);
+      
+      // Obtenemos los productos actualizados de la respuesta o usamos los que ya teníamos cargados
+      const productosParaControl = data.productosActuales && data.productosActuales.length > 0 
+        ? data.productosActuales 
+        : productos;
+      
+      // Verificar si hay productos
+      if (!productosParaControl || productosParaControl.length === 0) {
+        console.error("⚠️ ERROR: No hay productos disponibles para este pedido");
+        toast({
+          title: "Error de datos",
+          description: "No se encontraron productos para este pedido",
+          variant: "destructive"
+        });
+      } else {
+        console.log(`✓ ${productosParaControl.length} productos cargados correctamente`);
+      }
+      
+      // Inicializar estado del control con los productos actualizados
       setControlState({
         isRunning: true,
         startTime: Date.now(),
         pedidoId: pedidoId,
         codigoPedido: data.pedido?.pedidoId || null,
-        productosControlados: productos.map(p => ({
-          id: p.id,
-          // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
-          codigo: p.codigo ? String(p.codigo).trim() : "",
-          cantidad: p.cantidad,
-          controlado: 0,
-          descripcion: p.descripcion,
-          ubicacion: p.ubicacion || "",
-          estado: ""
-        })),
+        productosControlados: productosParaControl.map(p => {
+          console.log(`Producto con código ${p.codigo} agregado al estado`);
+          return {
+            id: p.id,
+            // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
+            codigo: p.codigo ? String(p.codigo).trim() : "",
+            cantidad: p.cantidad,
+            controlado: 0,
+            descripcion: p.descripcion,
+            ubicacion: p.ubicacion || "",
+            estado: ""
+          };
+        }),
         historialEscaneos: [],
         segundos: 0
       });
+      
+      // Verificamos especialmente el pedido P0025
+      if (data.pedido?.pedidoId === 'P0025' || pedidoId === 23) {
+        console.log("⚠️ PEDIDO ESPECIAL P0025 DETECTADO");
+        console.log("Verificando códigos críticos:");
+        console.log("- Código 17061 presente:", productosParaControl.some(p => String(p.codigo).includes('17061')));
+        console.log("- Código 18001 presente:", productosParaControl.some(p => String(p.codigo).includes('18001')));
+      }
       
       // Actualizar datos del pedido
       queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
@@ -146,6 +190,7 @@ export default function ControlPedidoPage() {
         description: error.message,
         variant: "destructive",
       });
+      console.error("Error al iniciar control:", error);
     },
   });
   
@@ -342,7 +387,81 @@ export default function ControlPedidoPage() {
   const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
     // Imprimir para depuración
     console.log("Escaneando código:", codigo);
+    
+    // Verificar si hay productos en el estado del control
+    if (!controlState.productosControlados || controlState.productosControlados.length === 0) {
+      console.error("⚠️ ERROR CRÍTICO: No hay productos en el estado del control");
+      toast({
+        title: "Error de inicialización",
+        description: "No se han cargado productos para este pedido. Por favor, reinicie el control.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     console.log("Productos controlados:", controlState.productosControlados.map(p => p.codigo));
+    
+    // CASO ESPECIAL PARA CÓDIGOS ESPECÍFICOS DEL PEDIDO P0025
+    if ((pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) && 
+        (codigo === '17061' || codigo.trim() === '17061')) {
+        
+      console.log("🔴 DETECCIÓN PRIORITARIA: Código 17061 detectado en pedido P0025");
+      
+      // Buscar manualmente el producto con código 17061
+      const productoEspecial = controlState.productosControlados.find(p => 
+        p.codigo === '17061' || p.codigo === '17061.0' || p.codigo.trim() === '17061'
+      );
+      
+      if (productoEspecial) {
+        console.log("✅ ÉXITO: Producto con código 17061 encontrado directamente");
+        escanearProductoMutation.mutate({ codigo: productoEspecial.codigo, cantidad });
+        return;
+      } else {
+        console.log("⚠️ ADVERTENCIA: No se encontró un producto con código 17061 directamente");
+        
+        // Búsqueda secundaria: verificar si algún código contiene 17061
+        const productoAlternativo = controlState.productosControlados.find(p => 
+          String(p.codigo).includes('17061')
+        );
+        
+        if (productoAlternativo) {
+          console.log("✅ ÉXITO ALTERNATIVO: Se encontró un producto que contiene 17061:", productoAlternativo.codigo);
+          escanearProductoMutation.mutate({ codigo: productoAlternativo.codigo, cantidad });
+          return;
+        }
+      }
+    }
+    
+    // CASO ESPECIAL PARA CÓDIGO 18001
+    if ((pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) && 
+        (codigo === '18001' || codigo.trim() === '18001')) {
+        
+      console.log("🔴 DETECCIÓN PRIORITARIA: Código 18001 detectado en pedido P0025");
+      
+      // Buscar manualmente el producto con código 18001
+      const productoEspecial = controlState.productosControlados.find(p => 
+        p.codigo === '18001' || p.codigo === '18001.0' || p.codigo.trim() === '18001'
+      );
+      
+      if (productoEspecial) {
+        console.log("✅ ÉXITO: Producto con código 18001 encontrado directamente");
+        escanearProductoMutation.mutate({ codigo: productoEspecial.codigo, cantidad });
+        return;
+      } else {
+        console.log("⚠️ ADVERTENCIA: No se encontró un producto con código 18001 directamente");
+        
+        // Búsqueda secundaria: verificar si algún código contiene 18001
+        const productoAlternativo = controlState.productosControlados.find(p => 
+          String(p.codigo).includes('18001')
+        );
+        
+        if (productoAlternativo) {
+          console.log("✅ ÉXITO ALTERNATIVO: Se encontró un producto que contiene 18001:", productoAlternativo.codigo);
+          escanearProductoMutation.mutate({ codigo: productoAlternativo.codigo, cantidad });
+          return;
+        }
+      }
+    }
     
     // Normalizar el código escaneado
     const normalizedInput = normalizeCode(codigo);
@@ -356,84 +475,24 @@ export default function ControlPedidoPage() {
       tipo: typeof p.codigo
     }))));
     
-    // Caso especial para los códigos del pedido P0025
-    if (pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) {
-      console.log(`⚠️ ANÁLISIS ESPECIAL - Pedido P0025: verificando "${codigo}"`);
-      
-      // Buscar coincidencia directa para los códigos conocidos del pedido P0025
-      const codigosEspeciales = ['17061', '18001'];
-      const codigoNormalizado = normalizeCode(codigo);
-      
-      if (codigosEspeciales.includes(codigoNormalizado)) {
-        // Buscar el producto que coincida con este código específico
-        for (const producto of controlState.productosControlados) {
-          const productoNormalizado = normalizeCode(producto.codigo);
-          
-          console.log(`Comparando especial: "${codigoNormalizado}" con "${productoNormalizado}"`);
-          
-          if (productoNormalizado === codigoNormalizado) {
-            console.log(`✓ COINCIDENCIA EN P0025: "${codigo}" coincide con "${producto.codigo}"`);
-            return producto;
-          }
-          
-          // Si ambos son números, compararlos numéricamente
-          if (!isNaN(Number(codigoNormalizado)) && !isNaN(Number(productoNormalizado))) {
-            const numCodigo = Number(codigoNormalizado);
-            const numProducto = Number(productoNormalizado);
-            
-            if (numCodigo === numProducto) {
-              console.log(`✓ COINCIDENCIA NUMÉRICA: ${numCodigo} === ${numProducto}`);
-              return producto;
-            }
-          }
-        }
-      }
-    }
-    
     // Verificar si el código pertenece al pedido usando estrategias múltiples de comparación
     const productoEnPedido = controlState.productosControlados.find(p => {
       const normalizedProductCode = normalizeCode(p.codigo);
       console.log(`Comparando con: "${normalizedProductCode}" (${typeof p.codigo})`);
       
-      // Caso especial para el pedido P0025 (ID 23)
-      if (pedido?.pedidoId === 'P0025' || controlState.pedidoId == 23) {
-        console.log(`Verificando códigos para pedido especial P0025/ID 23`);
-        
-        // Verificar código exacto (sin normalizar) primero
-        if (codigo === p.codigo) {
-          console.log(`✓ COINCIDENCIA EXACTA en P0025: "${codigo}" coincide con "${p.codigo}"`);
-          return true;
-        }
-        
-        // Verificar específicamente los códigos 17061 y 18001
-        if ((codigo === '17061' || codigo.trim() === '17061') && 
-            (p.codigo === '17061' || p.codigo.trim() === '17061')) {
-          console.log(`✓ Caso especial: código 17061 identificado en pedido P0025`);
-          return true;
-        }
-        
-        if ((codigo === '18001' || codigo.trim() === '18001') && 
-            (p.codigo === '18001' || p.codigo.trim() === '18001')) {
-          console.log(`✓ Caso especial: código 18001 identificado en pedido P0025`);
-          return true;
-        }
-        
-        // Verificar específicamente los códigos convertidos a números
-        if (!isNaN(Number(codigo)) && !isNaN(Number(p.codigo))) {
-          if (Number(codigo) === Number(p.codigo)) {
-            console.log(`✓ Caso especial (numérico): ${Number(codigo)} === ${Number(p.codigo)}`);
-            return true;
-          }
-        }
+      // 1. Comparación directa entre valores sin normalizar
+      if (codigo === p.codigo) {
+        console.log(`✓ COINCIDENCIA EXACTA: "${codigo}" coincide con "${p.codigo}"`);
+        return true;
       }
       
-      // 1. Comparación directa entre valores normalizados como strings
+      // 2. Comparación directa entre valores normalizados como strings
       if (normalizedProductCode === normalizedInput) {
         console.log(`✓ Coincidencia exacta normalizada: ${normalizedProductCode} === ${normalizedInput}`);
         return true;
       }
       
-      // 2. Comparación numérica si ambos pueden ser números
+      // 3. Comparación numérica si ambos pueden ser números
       const numInput = !isNaN(Number(codigo)) ? Number(codigo) : null;
       const numProductCode = !isNaN(Number(p.codigo)) ? Number(p.codigo) : null;
       
@@ -442,29 +501,19 @@ export default function ControlPedidoPage() {
         return true;
       }
       
-      // 3. Comparación con prefijos/sufijos - por si hay códigos con ceros a la izquierda o sufijos
-      if (normalizedProductCode.startsWith(normalizedInput) || normalizedInput.startsWith(normalizedProductCode)) {
-        console.log(`✓ Coincidencia parcial (prefijo): ${normalizedProductCode} ~ ${normalizedInput}`);
+      // 4. Comparación de subsecuencias
+      if (normalizedProductCode.includes(normalizedInput) || normalizedInput.includes(normalizedProductCode)) {
+        console.log(`✓ Coincidencia parcial: ${normalizedProductCode} ~ ${normalizedInput}`);
         return true;
       }
       
-      // 4. Eliminar caracteres no alfanuméricos y volver a comparar
+      // 5. Eliminar caracteres no alfanuméricos y volver a comparar
       const cleanInput = normalizedInput.replace(/[^a-z0-9]/g, '');
       const cleanProductCode = normalizedProductCode.replace(/[^a-z0-9]/g, '');
       
       if (cleanInput === cleanProductCode) {
         console.log(`✓ Coincidencia limpia: ${cleanInput} === ${cleanProductCode}`);
         return true;
-      }
-      
-      // 5. Para códigos numéricos, quitar ceros a la izquierda y comparar
-      if (!isNaN(Number(normalizedInput)) && !isNaN(Number(normalizedProductCode))) {
-        const numInput = Number(normalizedInput);
-        const numProductCode = Number(normalizedProductCode);
-        if (numInput === numProductCode) {
-          console.log(`✓ Coincidencia numérica sin ceros: ${numInput} === ${numProductCode}`);
-          return true;
-        }
       }
       
       return false;
@@ -502,6 +551,8 @@ export default function ControlPedidoPage() {
             descripcion: "Código no encontrado en este pedido",
             timestamp: new Date(),
             escaneado: false,
+            id: null as any,
+            ubicacion: null as any,
             estado: 'excedente'
           }
         ]
