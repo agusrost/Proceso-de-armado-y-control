@@ -28,18 +28,30 @@ export function ProductoEscanerForm({
       
       // Tratamiento especial para códigos conocidos que pueden tener problemas
       const codigoTrim = codigo.trim();
-      const codigosEspeciales = ['17061', '18001'];
       
-      // Si el código es uno de los especiales, lo enviamos tal cual
+      // Lista de códigos especiales que sabemos que causan problemas
+      const codigosEspeciales = ['17061', '18001', '17133'];
+      
+      // Si el código es uno de los especiales, lo enviamos tal cual sin normalizar
       if (codigosEspeciales.includes(codigoTrim)) {
-        console.log(`⚠️ Código especial detectado: ${codigoTrim} - Enviando sin normalizar`);
+        console.log(`⚠️⚠️⚠️ CÓDIGO ESPECIAL DETECTADO: ${codigoTrim} - Enviando sin normalizar`);
         onEscanear(codigoTrim, cantidad);
         setCodigo("");
         return;
       }
       
+      // Caso especial para variantes con espacios o caracteres especiales del código 17061
+      if (codigoTrim.replace(/\s|-|\./, '') === '17061' || 
+          codigoTrim === '1 7061' || 
+          codigoTrim === '1-7061') {
+        console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 17061 DETECTADA: ${codigoTrim} - Normalizando a 17061`);
+        onEscanear('17061', cantidad);
+        setCodigo("");
+        return;
+      }
+      
       // Normalizamos el código antes de enviarlo para casos normales
-      const normalizedCode = codigo.trim().toLowerCase();
+      const normalizedCode = codigo.trim();
       console.log("Código normalizado:", normalizedCode);
       
       // Enviamos el código normalizado
