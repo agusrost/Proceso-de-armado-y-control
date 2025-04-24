@@ -37,9 +37,13 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin-plus' || user?.role === 'admin-gral';
+  const isArmador = user?.role === 'armador';
   const [editingArmador, setEditingArmador] = useState(false);
   const [selectedArmadorId, setSelectedArmadorId] = useState<string>("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [editRecolectado, setEditRecolectado] = useState<number>(0);
+  const [editMotivo, setEditMotivo] = useState<string>("");
   
   // Fetch pedido details
   const { data: pedido, isLoading } = useQuery<PedidoWithDetails>({

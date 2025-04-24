@@ -41,9 +41,13 @@ export default function ArmadorPage() {
       return await res.json();
     },
     onSuccess: (data) => {
+      // Mensaje diferente según si es un pedido nuevo o uno en proceso
+      const isEnProceso = data.estado === 'en-proceso';
       toast({
-        title: "Pedido asignado",
-        description: `Se le ha asignado el pedido ${data.pedidoId} del cliente ${data.clienteId}`,
+        title: isEnProceso ? "Reanudar pedido" : "Pedido asignado",
+        description: isEnProceso 
+          ? `Reanudar el pedido ${data.pedidoId} del cliente ${data.clienteId}` 
+          : `Se le ha asignado el pedido ${data.pedidoId} del cliente ${data.clienteId}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       
@@ -216,7 +220,7 @@ export default function ArmadorPage() {
                     <Play className="h-5 w-5" />
                     <span>
                       {startPedidoMutation.data?.estado === 'en-proceso' 
-                        ? 'Continuar Pedido en Proceso' 
+                        ? 'Reanudar Pedido' 
                         : 'Comenzar'}
                     </span>
                   </Button>
