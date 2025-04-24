@@ -53,7 +53,10 @@ export default function ArmadorPage() {
       
       // Start the timer
       setIsRunning(true);
-      setSeconds(0);
+      // Para pedidos en proceso, mantener el contador actual si existe
+      if (!isEnProceso) {
+        setSeconds(0);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -129,6 +132,70 @@ export default function ArmadorPage() {
       }
     };
   }, [isRunning]);
+  
+  // Efecto para establecer el índice del producto cuando se carga un pedido en proceso
+  useEffect(() => {
+    if (pedido && pedido.productos && pedido.estado === 'en-proceso') {
+      // Encuentra el último producto recolectado (o el primero sin recolectar)
+      let nextIndex = 0;
+      
+      // Si hay productos recolectados, busca el último
+      const lastProcessedIndex = pedido.productos.reduce((lastIdx, producto, currentIdx) => {
+        if (producto.recolectado !== null) {
+          return currentIdx;
+        }
+        return lastIdx;
+      }, -1);
+      
+      // Si encontramos productos procesados, empezar desde el siguiente
+      if (lastProcessedIndex !== -1) {
+        nextIndex = Math.min(lastProcessedIndex + 1, pedido.productos.length - 1);
+      }
+      
+      setActiveProductIndex(nextIndex);
+      
+      // Verificar si hay pausas activas
+      let hayPausaActiva = false;
+      if (pedido.pausas && pedido.pausas.length > 0) {
+        const pausaActiva = pedido.pausas.find(pausa => !pausa.fin);
+        if (pausaActiva) {
+          // Hay una pausa activa, actualizar estado
+          setActivePausaId(pausaActiva.id);
+          setIsRunning(false);
+          hayPausaActiva = true;
+        }
+      }
+      
+      // Si hay un inicio de armado y no hay pausas activas, iniciar el timer con el tiempo acumulado
+      if (pedido.inicio && !hayPausaActiva) {
+        // Calculamos segundos transcurridos
+        const inicio = new Date(pedido.inicio);
+        const ahora = new Date();
+        let diffSeconds = Math.floor((ahora.getTime() - inicio.getTime()) / 1000);
+        
+        // Si hay pausas, restar el tiempo de pausas
+        if (pedido.pausas && pedido.pausas.length > 0) {
+          const tiempoPausas = pedido.pausas.reduce((total, pausa) => {
+            if (pausa.fin && pausa.inicio) {
+              const pausaInicio = new Date(pausa.inicio);
+              const pausaFin = new Date(pausa.fin);
+              return total + Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
+            }
+            return total;
+          }, 0);
+          
+          diffSeconds -= tiempoPausas;
+        }
+        
+        // Asegurarnos de que no sea negativo
+        if (diffSeconds > 0) {
+          setSeconds(diffSeconds);
+          // Iniciar el cronómetro automáticamente
+          setIsRunning(true);
+        }
+      }
+    }
+  }, [pedido]);
 
   const handleStartArmado = () => {
     startPedidoMutation.mutate();

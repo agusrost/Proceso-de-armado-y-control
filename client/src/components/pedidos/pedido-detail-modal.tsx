@@ -108,6 +108,43 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     }
   });
   
+  // Actualizar producto mutation (para editar cantidades)
+  const updateProductoMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingProductId) return null;
+      
+      // Si el motivo está vacío y hay faltantes, añadir un motivo por defecto
+      let motivoFinal = editMotivo;
+      if (editRecolectado < (pedido?.productos?.find(p => p.id === editingProductId)?.cantidad || 0) && !editMotivo) {
+        motivoFinal = "falta-stock";
+      }
+      
+      const res = await apiRequest("PUT", `/api/productos/${editingProductId}`, {
+        recolectado: editRecolectado,
+        motivo: motivoFinal
+      });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Producto actualizado",
+        description: "La cantidad del producto ha sido actualizada correctamente",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      setEditingProductId(null);
+      setEditRecolectado(0);
+      setEditMotivo("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al actualizar producto",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
   // Set the selected armador when pedido is loaded
   useEffect(() => {
     if (pedido) {
@@ -263,12 +300,15 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Descripción</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Recolectado</th>
+                      {(isAdmin || isArmador) && pedido.estado === 'en-proceso' && (
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-neutral-200">
                     {pedido.productos && pedido.productos.length > 0 ? (
                       pedido.productos.map((producto, index) => (
-                        <tr key={index}>
+                        <tr key={index} className={editingProductId === producto.id ? 'bg-blue-50' : ''}>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-neutral-800">
                             {producto.codigo}
                           </td>
@@ -279,39 +319,111 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                             {producto.descripcion}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {producto.recolectado !== null ? (
-                              <div>
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
-                                }`}>
-                                  {producto.recolectado}/{producto.cantidad}
-                                </span>
-                                {producto.motivo && (
-                                  <div className={`mt-1 text-xs ${producto.motivo.includes('Completado por stock') ? 'text-green-600' : 'text-red-600'}`}>
-                                    {producto.motivo.includes('Completado por stock') ? (
-                                      <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded p-1">
-                                        <CheckCircle2 className="h-3 w-3 text-green-600" />
-                                        <span className="font-medium">
-                                          {producto.motivo}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">Faltante:</span> {producto.motivo}
-                                      </div>
-                                    )}
-                                  </div>
+                            {editingProductId === producto.id ? (
+                              <div className="flex flex-col space-y-2 w-full">
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="number"
+                                    className="w-20 px-2 py-1 border rounded"
+                                    value={editRecolectado}
+                                    onChange={(e) => setEditRecolectado(parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    max={producto.cantidad}
+                                  />
+                                  <span className="text-sm text-neutral-500">/ {producto.cantidad}</span>
+                                </div>
+                                {editRecolectado < producto.cantidad && (
+                                  <input
+                                    type="text"
+                                    className="w-full px-2 py-1 border rounded text-sm"
+                                    value={editMotivo}
+                                    onChange={(e) => setEditMotivo(e.target.value)}
+                                    placeholder="Motivo del faltante"
+                                  />
                                 )}
                               </div>
                             ) : (
-                              <span className="text-gray-400">No recolectado</span>
+                              producto.recolectado !== null ? (
+                                <div>
+                                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
+                                  }`}>
+                                    {producto.recolectado}/{producto.cantidad}
+                                  </span>
+                                  {producto.motivo && (
+                                    <div className={`mt-1 text-xs ${producto.motivo.includes('Completado por stock') ? 'text-green-600' : 'text-red-600'}`}>
+                                      {producto.motivo.includes('Completado por stock') ? (
+                                        <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded p-1">
+                                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                          <span className="font-medium">
+                                            {producto.motivo}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1">
+                                          <span className="font-medium">Faltante:</span> {producto.motivo}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">No recolectado</span>
+                              )
                             )}
                           </td>
+                          {(isAdmin || isArmador) && pedido.estado === 'en-proceso' && (
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                              {editingProductId === producto.id ? (
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updateProductoMutation.mutate()}
+                                    disabled={updateProductoMutation.isPending}
+                                  >
+                                    {updateProductoMutation.isPending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Check className="h-4 w-4" />
+                                    )}
+                                    <span className="ml-1">Guardar</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingProductId(null);
+                                      setEditRecolectado(0);
+                                      setEditMotivo("");
+                                    }}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              ) : (
+                                producto.recolectado !== null && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingProductId(producto.id);
+                                      setEditRecolectado(producto.recolectado || 0);
+                                      setEditMotivo(producto.motivo || "");
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4 mr-1" />
+                                    Editar
+                                  </Button>
+                                )
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="px-4 py-3 text-center">No hay productos registrados</td>
+                        <td colSpan={(isAdmin || isArmador) && pedido.estado === 'en-proceso' ? 5 : 4} className="px-4 py-3 text-center">No hay productos registrados</td>
                       </tr>
                     )}
                   </tbody>
