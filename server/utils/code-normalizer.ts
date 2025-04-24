@@ -73,6 +73,22 @@ export function areCodesEquivalent(
   // Caso especial para ciertos pedidos
   const esPedidoEspecial = pedidoId === 23 || pedidoId === '23' || pedidoId === 'P0025';
   
+  console.log(`Comparando códigos: "${strCode1}" con "${strCode2}" ${esPedidoEspecial ? '(Pedido Especial P0025)' : ''}`);
+  
+  // CASO SUPER ESPECIAL PARA EL CÓDIGO 17061 en P0025
+  if (esPedidoEspecial && (strCode1 === '17061' || strCode2 === '17061')) {
+    console.log(`⚠️⚠️⚠️ CASO SÚPER ESPECIAL PARA EL CÓDIGO 17061 ⚠️⚠️⚠️`);
+    if (strCode1 === '17061' && strCode2 === '17061') {
+      console.log(`✓✓✓ COINCIDENCIA EXACTA para código especial 17061 en P0025`);
+      return true;
+    }
+    if ((strCode1 === '17061' && normalizeCode(strCode2) === '17061') || 
+        (strCode2 === '17061' && normalizeCode(strCode1) === '17061')) {
+      console.log(`✓✓✓ COINCIDENCIA NORMALIZADA para código especial 17061 en P0025`);
+      return true;
+    }
+  }
+  
   // 0. Comparación exacta sin normalizar (útil para códigos especiales)
   if (strCode1 === strCode2) {
     console.log(`✓ Coincidencia exacta sin normalizar: "${strCode1}" === "${strCode2}"`);
@@ -89,6 +105,18 @@ export function areCodesEquivalent(
       }
     }
     
+    // Si uno de los códigos es especial, verificar coincidencia exacta
+    if (CODIGOS_ESPECIALES.includes(strCode1) || CODIGOS_ESPECIALES.includes(strCode2)) {
+      if (strCode1 === '17061' && strCode2 === '17061') {
+        console.log(`✓ Coincidencia exacta para código especial 17061 en P0025`);
+        return true;
+      }
+      if (strCode1 === '18001' && strCode2 === '18001') {
+        console.log(`✓ Coincidencia exacta para código especial 18001 en P0025`);
+        return true;
+      }
+    }
+    
     // Comparación numérica para códigos en P0025 si ambos son números
     if (!isNaN(Number(strCode1)) && !isNaN(Number(strCode2))) {
       if (Number(strCode1) === Number(strCode2)) {
@@ -101,6 +129,8 @@ export function areCodesEquivalent(
   // A partir de aquí usamos los códigos normalizados
   const normalizedCode1 = normalizeCode(code1);
   const normalizedCode2 = normalizeCode(code2);
+  
+  console.log(`Códigos normalizados: "${normalizedCode1}" con "${normalizedCode2}"`);
   
   // 1. Comparación normalizada
   if (normalizedCode1 === normalizedCode2) {
@@ -143,5 +173,6 @@ export function areCodesEquivalent(
     }
   }
   
+  console.log(`✗ No se encontró coincidencia entre "${code1}" y "${code2}"`);
   return false;
 }
