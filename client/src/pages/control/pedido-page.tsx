@@ -403,6 +403,41 @@ export default function ControlPedidoPage() {
         console.log(`Continuando control con ${detallesControl.length} productos ya escaneados`);
       }
       
+      // Preparar productos controlados
+      const productosControlados = productosParaControl.map((p: any) => {
+        console.log(`Producto con código ${p.codigo} agregado al estado`);
+        
+        // Buscar si ya está controlado (en caso de continuación)
+        const detalleExistente = detallesControl.find((d: any) => 
+          d.codigo === p.codigo || d.productoId === p.id
+        );
+        
+        const cantidadControlada = detalleExistente ? detalleExistente.cantidadControlada : 0;
+        
+        // Determinar estado basado en la cantidad
+        let estado: ControlEstado = "pendiente";
+        if (cantidadControlada === 0) {
+          estado = "pendiente";
+        } else if (cantidadControlada < p.cantidad) {
+          estado = "faltante";
+        } else if (cantidadControlada === p.cantidad) {
+          estado = "correcto";
+        } else {
+          estado = "excedente";
+        }
+        
+        return {
+          id: p.id,
+          // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
+          codigo: p.codigo ? String(p.codigo).trim() : "",
+          cantidad: p.cantidad,
+          controlado: cantidadControlada,
+          descripcion: p.descripcion,
+          ubicacion: p.ubicacion || "",
+          estado: estado
+        };
+      });
+      
       // Inicializar estado del control con los productos actualizados
       setControlState({
         isRunning: true,
@@ -411,28 +446,46 @@ export default function ControlPedidoPage() {
         pedidoYaControlado: false,
         mensajeError: null,
         codigoPedido: data.pedido?.pedidoId || null,
-        productosControlados: productosParaControl.map((p: any) => {
-          console.log(`Producto con código ${p.codigo} agregado al estado`);
-          
-          // Buscar si ya está controlado (en caso de continuación)
-          const detalleExistente = detallesControl.find((d: any) => 
-            d.codigo === p.codigo || d.productoId === p.id
-          );
-          
-          return {
-            id: p.id,
-            // Asegurarnos de que el código siempre sea un string (para evitar problemas de tipo)
-            codigo: p.codigo ? String(p.codigo).trim() : "",
-            cantidad: p.cantidad,
-            controlado: detalleExistente ? detalleExistente.cantidadControlada : 0,
-            descripcion: p.descripcion,
-            ubicacion: p.ubicacion || "",
-            estado: detalleExistente ? detalleExistente.estado : ""
-          };
-        }),
+        productosControlados: productosControlados,
         historialEscaneos: esContinuacion ? escaneosPrevios : [],
         segundos: 0
       });
+      
+      // Detectar si hay excedentes y mostrar diálogo automáticamente
+      const productosConExcedentes = productosControlados.filter(p => p.controlado > p.cantidad);
+      console.log("Productos con excedentes detectados:", productosConExcedentes);
+      
+      if (productosControlados.length > 0 && productosConExcedentes.length > 0) {
+        console.log("Se detectaron productos con excedentes automáticamente!");
+        
+        // Verificar si solo hay excedentes (no faltan productos)
+        const hayFaltantes = productosControlados.some(p => p.controlado < p.cantidad);
+        
+        if (!hayFaltantes) {
+          console.log("SOLO FALTAN EXCEDENTES - Mostrando diálogo para confirmar retirada");
+          
+          // Preparar lista de productos excedentes
+          const excedentes = productosConExcedentes.map(p => ({
+            codigo: p.codigo,
+            descripcion: p.descripcion || "",
+            cantidadExcedente: p.controlado - p.cantidad
+          }));
+          
+          setProductosExcedentes(excedentes);
+          
+          // Mostrar automáticamente el diálogo para retirar excedentes
+          setTimeout(() => {
+            setRetirarExcedenteOpen(true);
+          }, 500);
+        } else {
+          // Si hay faltantes, solo mostramos un aviso
+          toast({
+            title: "Excedentes detectados",
+            description: "Se han detectado productos con cantidades excedentes. Serán notificados al finalizar el control.",
+            duration: 5000
+          });
+        }
+      }
       
       // Verificamos especialmente el pedido P0025
       if (data.pedido?.pedidoId === 'P0025' || pedidoId === 23) {
