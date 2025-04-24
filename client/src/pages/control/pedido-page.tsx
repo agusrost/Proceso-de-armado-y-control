@@ -817,7 +817,7 @@ export default function ControlPedidoPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p><span className="font-semibold">Cliente:</span> {pedido.cliente}</p>
+                  <p><span className="font-semibold">Cliente:</span> {pedido.clienteId}</p>
                   <p><span className="font-semibold">Fecha:</span> {formatDate(pedido.fecha)}</p>
                   {pedido.prioridad && (
                     <p><span className="font-semibold">Prioridad:</span> {pedido.prioridad}</p>
