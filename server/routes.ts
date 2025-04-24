@@ -1568,6 +1568,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Código escaneado: "${codigo}" (${typeof codigo})`);
       console.log(`Total productos en pedido: ${productos.length}`);
       
+      if (productos.length === 0) {
+        console.error(`⚠️⚠️⚠️ ERROR CRÍTICO: No hay productos asociados al pedido ${pedidoId}`);
+        return res.status(500).json({
+          message: "Error crítico: No hay productos asociados a este pedido",
+          debug: {
+            pedidoId,
+            totalProductos: 0
+          }
+        });
+      }
+      
+      console.log(`Código escaneado: "${codigo}" (${typeof codigo})`);
+      console.log(`Total productos en pedido: ${productos.length}`);
+      
       // CASOS ESPECIALES DIRECTOS - Para código 17061 en pedido P0025
       const esPedidoP0025 = pedidoId === 23 || 
                            pedido?.pedidoId === 'P0025' || 

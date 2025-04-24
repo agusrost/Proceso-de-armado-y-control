@@ -264,11 +264,45 @@ export default function ControlPedidoPage() {
       }, 100);
     },
     onError: (error: Error) => {
+      // Extraer detalles adicionales si están disponibles en la respuesta
+      let responseData: any = {};
+      try {
+        if (error.message && error.message.includes('{')) {
+          const jsonPart = error.message.substring(error.message.indexOf('{'));
+          responseData = JSON.parse(jsonPart);
+        }
+      } catch (e) {
+        console.log("No se pudo extraer datos adicionales del error:", e);
+      }
+      
       toast({
         title: "Error al escanear producto",
         description: error.message,
         variant: "destructive",
       });
+      
+      // Agregar al historial de escaneos si hay un código no encontrado
+      if (error.message.includes("no pertenece a este pedido") && responseData.codigo) {
+        console.log("Agregando código no encontrado al historial:", responseData.codigo);
+        
+        setControlState(prev => ({
+          ...prev,
+          historialEscaneos: [
+            ...prev.historialEscaneos, 
+            {
+              id: null as any,
+              codigo: responseData.codigo || "Código desconocido",
+              cantidad: 0,
+              controlado: 0,
+              descripcion: "Código no encontrado en este pedido",
+              ubicacion: null as any,
+              timestamp: new Date(),
+              escaneado: false,
+              estado: 'excedente'
+            }
+          ]
+        }));
+      }
       
       // Focus de nuevo en el input de escaneo
       setTimeout(() => {

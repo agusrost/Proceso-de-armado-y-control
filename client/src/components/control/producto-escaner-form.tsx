@@ -43,9 +43,21 @@ export function ProductoEscanerForm({
       // Caso especial para variantes con espacios o caracteres especiales del código 17061
       if (codigoTrim.replace(/\s|-|\./, '') === '17061' || 
           codigoTrim === '1 7061' || 
-          codigoTrim === '1-7061') {
+          codigoTrim === '1-7061' ||
+          codigoTrim.includes('17061')) {
         console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 17061 DETECTADA: ${codigoTrim} - Normalizando a 17061`);
         onEscanear('17061', cantidad);
+        setCodigo("");
+        return;
+      }
+      
+      // Caso especial para variantes con espacios o caracteres especiales del código 18001
+      if (codigoTrim.replace(/\s|-|\./, '') === '18001' || 
+          codigoTrim === '1 8001' || 
+          codigoTrim === '1-8001' ||
+          codigoTrim.includes('18001')) {
+        console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 18001 DETECTADA: ${codigoTrim} - Normalizando a 18001`);
+        onEscanear('18001', cantidad);
         setCodigo("");
         return;
       }
