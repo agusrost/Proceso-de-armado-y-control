@@ -546,7 +546,11 @@ export default function ArmadoPage() {
             </button>
           ) : (
             <button
-              onClick={() => setMostrarModalPausa(true)}
+              type="button"
+              onClick={() => {
+                console.log("Mostrando modal de pausa");
+                setMostrarModalPausa(true);
+              }}
               className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
             >
               <Pause size={16} className="mr-2" />
@@ -613,8 +617,8 @@ export default function ArmadoPage() {
                     {/* Botón para editar cantidades */}
                     <Button 
                       size="sm" 
-                      variant="outline"
-                      className="mt-2 border-white text-white hover:bg-blue-800"
+                      variant="default"
+                      className="mt-2 bg-white text-blue-950 hover:bg-gray-100"
                       onClick={() => {
                         setEditingProductId(producto.id);
                         setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
@@ -668,8 +672,8 @@ export default function ArmadoPage() {
                       <div className="flex justify-end">
                         <Button 
                           size="sm" 
-                          variant="outline"
-                          className="h-8 text-white border-white hover:bg-blue-700"
+                          variant="default"
+                          className="h-8 bg-white text-blue-950 hover:bg-gray-100"
                           onClick={() => {
                             if (editMotivo.trim()) {
                               actualizarProductoMutation.mutate({
