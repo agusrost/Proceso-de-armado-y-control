@@ -706,9 +706,14 @@ export default function ArmadoPage() {
       <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Nuevo Pedido Asignado</AlertDialogTitle>
+            <AlertDialogTitle>
+              {currentPedido?.estado === 'en-proceso' ? 'Continuar Pedido' : 'Nuevo Pedido Asignado'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Se te ha asignado el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}.
+              {currentPedido?.estado === 'en-proceso' 
+                ? `Continúa con el pedido ${currentPedido.pedidoId} del cliente ${currentPedido.clienteId}.`
+                : `Se te ha asignado el pedido ${currentPedido.pedidoId} del cliente ${currentPedido.clienteId}.`
+              }
               <br />
               Total de ítems: {currentPedido.items}
               <br />
@@ -716,7 +721,9 @@ export default function ArmadoPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction>Comenzar Armado</AlertDialogAction>
+            <AlertDialogAction>
+              {currentPedido?.estado === 'en-proceso' ? 'Continuar Armado' : 'Comenzar Armado'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
