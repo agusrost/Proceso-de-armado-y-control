@@ -36,8 +36,11 @@ interface PedidoDetailModalProps {
 export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoDetailModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  // Verificar roles para permisos de edición
   const isAdmin = user?.role === 'admin-plus' || user?.role === 'admin-gral';
   const isArmador = user?.role === 'armador';
+  
+  // Estados para edición
   const [editingArmador, setEditingArmador] = useState(false);
   const [selectedArmadorId, setSelectedArmadorId] = useState<string>("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -48,45 +51,45 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   // Fetch pedido details
   const { data: pedido, isLoading } = useQuery<PedidoWithDetails>({
     queryKey: [`/api/pedidos/${pedidoId}`],
-    enabled: isOpen && !!pedidoId,
+    enabled: isOpen && !!pedidoId
   });
   
-  // Fetch armadores for the dropdown
-  const { data: armadores = [] } = useQuery({
+  // Fetch armadores (for admin)
+  const { data: armadores } = useQuery({
     queryKey: ["/api/users/armadores"],
-    enabled: isOpen && isAdmin,
+    enabled: isAdmin && isOpen
   });
   
-  // Update pedido mutation
+  // Update pedido (for armador assignment)
   const updatePedidoMutation = useMutation({
     mutationFn: async () => {
+      const armadorId = selectedArmadorId === "aleatorio" ? null : parseInt(selectedArmadorId);
       const res = await apiRequest("PATCH", `/api/pedidos/${pedidoId}`, {
-        armadorId: selectedArmadorId === "aleatorio" ? null : parseInt(selectedArmadorId),
+        armadorId
       });
       return await res.json();
     },
     onSuccess: () => {
       toast({
         title: "Pedido actualizado",
-        description: "El armador ha sido actualizado correctamente",
+        description: "El armador ha sido asignado correctamente",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
       setEditingArmador(false);
     },
     onError: (error: Error) => {
       toast({
-        title: "Error al actualizar",
+        title: "Error al actualizar pedido",
         description: error.message,
         variant: "destructive",
       });
     }
   });
   
-  // Delete pedido mutation
+  // Delete pedido mutation (admin only)
   const deletePedidoMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("DELETE", `/api/pedidos/${pedidoId}`);
+      const res = await apiRequest("DELETE", `/api/pedidos/${pedidoId}`, {});
       return res;
     },
     onSuccess: () => {
@@ -108,14 +111,15 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     }
   });
   
-  // Actualizar producto mutation (para editar cantidades)
+  // *** SOLUCIÓN CRÍTICA: Editar cantidades de productos ***
   const updateProductoMutation = useMutation({
     mutationFn: async () => {
       if (!editingProductId) return null;
       
-      // Debug info
-      console.log("Actualizando producto:", editingProductId);
-      console.log("Nuevos valores: recolectado =", editRecolectado, "motivo =", editMotivo);
+      console.log("ACTUALIZANDO PRODUCTO...");
+      console.log("ID producto:", editingProductId);
+      console.log("Recolectado:", editRecolectado);
+      console.log("Motivo:", editMotivo);
       
       // Si el motivo está vacío y hay faltantes, añadir un motivo por defecto
       let motivoFinal = editMotivo;
@@ -123,16 +127,17 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
         motivoFinal = "falta-stock";
       }
       
-      // Llamada a la API para actualizar el producto
+      // Solicitud a la API
       try {
         const res = await apiRequest("PUT", `/api/productos/${editingProductId}`, {
           recolectado: editRecolectado,
           motivo: motivoFinal
         });
-        console.log("Respuesta de la API:", res.status);
+        
+        console.log("Respuesta API:", res.status);
         return await res.json();
       } catch (error) {
-        console.error("Error al actualizar producto:", error);
+        console.error("Error en solicitud:", error);
         throw error;
       }
     },
@@ -229,8 +234,8 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="aleatorio">Aleatorio</SelectItem>
-                        {armadores.map((armador) => (
-                          <SelectItem key={armador.id} value={armador.id.toString()}>
+                        {Array.isArray(armadores) && armadores.map((armador) => (
+                          <SelectItem key={armador.id} value={String(armador.id)}>
                             {armador.firstName || armador.username}
                           </SelectItem>
                         ))}
@@ -311,6 +316,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Descripción</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Recolectado</th>
+                      {/* Siempre mostrar columna de acciones para admin/armador */}
                       {(isAdmin || isArmador) && (
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acciones</th>
                       )}
@@ -331,7 +337,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                             {editingProductId === producto.id ? (
-                              // FORMULARIO DE EDICIÓN - Siempre visible para cualquier estado
+                              // MODO EDICIÓN
                               <div className="flex flex-col space-y-2 w-full">
                                 <div className="flex items-center space-x-2">
                                   <input
@@ -355,6 +361,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                 )}
                               </div>
                             ) : (
+                              // MODO VISUALIZACIÓN
                               producto.recolectado !== null ? (
                                 <div>
                                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -384,15 +391,18 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                               )
                             )}
                           </td>
+                          {/* Columna de acciones - visible para admin/armador sin importar el estado */}
                           {(isAdmin || isArmador) && (
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {editingProductId === producto.id ? (
+                                // BOTONES DE EDICIÓN
                                 <div className="flex space-x-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => updateProductoMutation.mutate()}
                                     disabled={updateProductoMutation.isPending}
+                                    className="border-green-500 hover:bg-green-50 hover:text-green-700"
                                   >
                                     {updateProductoMutation.isPending ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -409,19 +419,23 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                       setEditRecolectado(0);
                                       setEditMotivo("");
                                     }}
+                                    className="border-gray-300"
                                   >
                                     Cancelar
                                   </Button>
                                 </div>
                               ) : (
+                                // BOTÓN PARA INICIAR EDICIÓN (siempre visible)
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
+                                    console.log("Editando producto:", producto.id);
                                     setEditingProductId(producto.id);
-                                    setEditRecolectado(producto.recolectado || 0);
+                                    setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
                                     setEditMotivo(producto.motivo || "");
                                   }}
+                                  className="border-blue-500 hover:bg-blue-50 hover:text-blue-700"
                                 >
                                   <Edit className="h-4 w-4 mr-1" />
                                   Editar

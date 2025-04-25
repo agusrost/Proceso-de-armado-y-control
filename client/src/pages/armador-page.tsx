@@ -1,86 +1,74 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { MainLayout } from "@/components/layout/main-layout";
+import { useToast } from "@/hooks/use-toast";
+import MainLayout from "@/components/layouts/main-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { PedidoWithDetails } from "@shared/types";
-import { formatTime } from "@/lib/utils";
-import { Play, Pause, Eye, Check, Package } from "lucide-react";
-import ProductoRow from "@/components/armador/producto-row";
-import PausaModal from "@/components/armador/pausa-modal";
+import { Package, Play, Pause, Eye, Check } from "lucide-react";
+import ProductoRow from "@/components/pedidos/producto-row";
+import PausaModal from "@/components/pedidos/pausa-modal";
 import PedidoDetailModal from "@/components/pedidos/pedido-detail-modal";
+
+function formatTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
 
 export default function ArmadorPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [activePausaId, setActivePausaId] = useState<number | null>(null);
   const [isPausaModalOpen, setIsPausaModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [activeProductIndex, setActiveProductIndex] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Fetch the current pedido in process for this armador
-  const { 
-    data: pedido, 
-    isLoading, 
-    refetch: refetchPedido 
-  } = useQuery<PedidoWithDetails>({
+  
+  // Fetch current pedido assigned to armador
+  const { data: pedido, isLoading } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
     enabled: !!user,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
-
-  // Start a new pedido for the armador
+  
+  // Start pedido mutation
   const startPedidoMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("GET", "/api/pedido-para-armador", undefined);
+      if (!pedido) return null;
+      
+      const res = await apiRequest("POST", `/api/pedidos/${pedido.id}/iniciar`, {});
       return await res.json();
     },
-    onSuccess: (data) => {
-      // Mensaje diferente según si es un pedido nuevo o uno en proceso
-      const isEnProceso = data.estado === 'en-proceso';
-      toast({
-        title: isEnProceso ? "Reanudar pedido" : "Pedido asignado",
-        description: isEnProceso 
-          ? `Reanudar el pedido ${data.pedidoId} del cliente ${data.clienteId}` 
-          : `Se le ha asignado el pedido ${data.pedidoId} del cliente ${data.clienteId}`,
-      });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      
-      // Start the timer
       setIsRunning(true);
-      // Para pedidos en proceso, mantener el contador actual si existe
-      if (!isEnProceso) {
-        setSeconds(0);
-      }
     },
     onError: (error: Error) => {
       toast({
-        title: "Error al obtener pedido",
+        title: "Error al iniciar armado",
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // End pause
+  
+  // End pausa mutation
   const endPausaMutation = useMutation({
     mutationFn: async (pausaId: number) => {
       const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
       return await res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Pausa finalizada",
-        description: "Se ha reanudado el armado del pedido",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       setActivePausaId(null);
       setIsRunning(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     },
     onError: (error: Error) => {
       toast({
@@ -88,42 +76,45 @@ export default function ArmadorPage() {
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // Finalize pedido
+  
+  // Finalize pedido mutation
   const finalizePedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
-      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar`, {});
+      const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
+        estado: "finalizado"
+      });
       return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Pedido finalizado",
+        title: "Armado finalizado",
         description: "El pedido ha sido finalizado correctamente",
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       setIsRunning(false);
       setSeconds(0);
-      setActiveProductIndex(0);
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error al finalizar pedido",
+        title: "Error al finalizar armado",
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // Efecto para manejar el timer
+  
+  // Timer effect for tracking time
   useEffect(() => {
     if (isRunning) {
       timerRef.current = setInterval(() => {
-        setSeconds(prevSeconds => prevSeconds + 1);
+        setSeconds((prevSeconds) => prevSeconds + 1);
       }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     }
     
     return () => {
@@ -133,36 +124,35 @@ export default function ArmadorPage() {
     };
   }, [isRunning]);
   
-  // Efecto para establecer el índice del producto cuando se carga un pedido en proceso
+  // *** SOLUCIÓN CRÍTICA: Selección de primer producto sin procesar ***
   useEffect(() => {
     if (pedido && pedido.productos && pedido.estado === 'en-proceso') {
-      console.log("Pedido productos:", pedido.productos);
+      // Depuración: Mostrar todos los productos
+      console.log("===== DEPURACIÓN DE SELECCIÓN DE PRODUCTO =====");
+      console.log("Total productos:", pedido.productos.length);
       
-      // *** SOLUCIÓN DEFINITIVA ***
-      // 1. Mostrar el estado de todos los productos para depuración
+      // Mostrar estado de cada producto
       pedido.productos.forEach((p, idx) => {
-        console.log(`Producto [${idx}]: código=${p.codigo}, recolectado=${p.recolectado}, cantidad=${p.cantidad}`);
+        console.log(`[${idx}] Código: ${p.codigo}, recolectado: ${p.recolectado === null ? 'NULL' : p.recolectado}`);
       });
       
-      // 2. Buscar el primer producto sin ninguna unidad recolectada (null)
-      let nextIndex = 0;
+      // PASO 1: Buscar el primer producto que no ha sido procesado en absoluto (recolectado === null)
+      const primerIndiceNoProcesado = pedido.productos.findIndex(p => p.recolectado === null);
+      console.log("Índice del primer producto NO PROCESADO:", primerIndiceNoProcesado);
       
-      // Intentar encontrar el primer producto que NO ha sido procesado en absoluto
-      const unprocessedIndex = pedido.productos.findIndex(p => p.recolectado === null);
-      
-      if (unprocessedIndex !== -1) {
-        // Si hay un producto sin procesar, usamos ese
-        nextIndex = unprocessedIndex;
-        console.log(`Encontrado producto SIN PROCESAR en índice ${nextIndex}, seleccionando.`);
+      // PASO 2: Establecer el índice basado en la búsqueda
+      let indiceSeleccionado = 0;
+      if (primerIndiceNoProcesado !== -1) {
+        // Si encontramos un producto sin procesar, seleccionarlo
+        indiceSeleccionado = primerIndiceNoProcesado;
+        console.log(`Seleccionando producto NO PROCESADO en índice ${indiceSeleccionado}`);
       } else {
-        // Si todos los productos tienen algún valor (procesados parcialmente),
-        // mantenemos el índice 0 para continuar desde el principio
-        console.log("No se encontraron productos sin procesar, usando índice 0.");
+        console.log("No hay productos sin procesar, seleccionando el primero");
       }
       
-      // Establecer el índice activo
-      console.log(`setActiveProductIndex(${nextIndex})`);
-      setActiveProductIndex(nextIndex);
+      // PASO 3: Actualizar el estado
+      console.log(`Estableciendo activeProductIndex = ${indiceSeleccionado}`);
+      setActiveProductIndex(indiceSeleccionado);
       
       // Verificar si hay pausas activas
       let hayPausaActiva = false;
@@ -237,14 +227,14 @@ export default function ArmadorPage() {
       // Check if the pedido is ready to be finalized
       if (pedido.productos) {
         const allProductsUpdated = pedido.productos.every(p => 
-          p.recolectado !== undefined && (p.recolectado === p.cantidad || p.motivo)
+          p.recolectado !== undefined && p.recolectado !== null && (p.recolectado === p.cantidad || p.motivo)
         );
         
         if (!allProductsUpdated) {
           toast({
             title: "Productos incompletos",
             description: "Debe completar todos los productos o indicar un motivo para los faltantes",
-            variant: "warning",
+            variant: "destructive",
           });
           return;
         }
@@ -297,7 +287,7 @@ export default function ArmadorPage() {
                     <Play className="h-5 w-5" />
                     <span>
                       {startPedidoMutation.data?.estado === 'en-proceso' 
-                        ? 'Reanudar Pedido' 
+                        ? 'Continuar Armado' 
                         : 'Comenzar'}
                     </span>
                   </Button>
@@ -327,7 +317,8 @@ export default function ArmadorPage() {
                       </Button>
                     ) : (
                       <Button 
-                        variant="warning" 
+                        variant="default"
+                        className="bg-yellow-500 hover:bg-yellow-600"
                         onClick={handlePauseArmado}
                       >
                         <Pause className="h-4 w-4 mr-2" />
@@ -374,7 +365,7 @@ export default function ArmadorPage() {
                 
                 <div className="flex justify-end">
                   <Button 
-                    variant="success" 
+                    variant="default"
                     className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={handleFinalizarArmado}
                     disabled={finalizePedidoMutation.isPending || !!activePausaId}
