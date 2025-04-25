@@ -2043,13 +2043,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Obtener el detalle creado o actualizado
           let detalle = null;
-          if (ultimoHistorico) {
-            if (detalleExistente) {
-              detalle = await storage.getControlDetalleById(detalleExistente.id);
-            } else {
-              // Buscar si se acaba de crear un detalle
-              const detallesActualizados = await storage.getControlDetalleByControlId(ultimoHistorico.id);
-              detalle = detallesActualizados.find(d => d.codigo === '17061');
+          
+          // Obtener el histórico de control más reciente
+          const historicosPedidoCaso17061 = await storage.getControlHistoricoByPedidoId(pedidoId);
+          
+          if (historicosPedidoCaso17061.length > 0) {
+            // Encontrar el histórico más reciente
+            const ultimoHistorico = historicosPedidoCaso17061.reduce((ultimo, actual) => {
+              if (!ultimo) return actual;
+              return new Date(actual.inicio) > new Date(ultimo.inicio) ? actual : ultimo;
+            });
+            
+            if (ultimoHistorico) {
+              // Verificar si ya hay un detalle para este producto
+              const detalles = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+              
+              // Buscar el detalle del producto especial
+              const detalleExistente = detalles.find(d => d.codigo === '17061');
+              
+              if (detalleExistente) {
+                detalle = await storage.getControlDetalleById(detalleExistente.id);
+              } else {
+                // Buscar si se acaba de crear un detalle
+                const detallesActualizados = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+                detalle = detallesActualizados.find(d => d.codigo === '17061');
+              }
             }
           }
           
@@ -2121,7 +2139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const ultimoHistorico = historicosPedido.reduce((ultimo, actual) => {
           if (!ultimo) return actual;
           return new Date(actual.inicio) > new Date(ultimo.inicio) ? actual : ultimo;
-        }, null as ControlHistorico | null);
+        });
         
         if (ultimoHistorico) {
           // Verificar si ya hay un detalle para este producto
@@ -2171,15 +2189,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const todosProductos = await storage.getProductosByPedidoId(pedidoId);
       const todosControlados = todosProductos.every(p => (p.controlado || 0) >= p.cantidad);
       
-      // Crear o actualizar el detalle en el modelo
+      // Obtener el histórico de control más reciente para buscar detalles
+      const historicosPedidoFinal = await storage.getControlHistoricoByPedidoId(pedidoId);
       let detalle = null;
-      if (ultimoHistorico) {
-        if (detalleExistente) {
-          detalle = await storage.getControlDetalleById(detalleExistente.id);
-        } else {
-          // Buscar si se acaba de crear un detalle
-          const detallesActualizados = await storage.getControlDetalleByControlId(ultimoHistorico.id);
-          detalle = detallesActualizados.find(d => areCodesEquivalent(d.codigo, codigo, pedidoId));
+      
+      if (historicosPedidoFinal.length > 0) {
+        // Encontrar el histórico más reciente
+        const ultimoHistorico = historicosPedidoFinal.reduce((ultimo, actual) => {
+          if (!ultimo) return actual;
+          return new Date(actual.inicio) > new Date(ultimo.inicio) ? actual : ultimo;
+        });
+        
+        if (ultimoHistorico) {
+          // Verificar si ya hay un detalle para este producto
+          const detalles = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+          
+          // Usar la función centralizada para comparar códigos 
+          const detalleExistente = detalles.find(d => areCodesEquivalent(d.codigo, codigo, pedidoId));
+          
+          if (detalleExistente) {
+            detalle = await storage.getControlDetalleById(detalleExistente.id);
+          } else {
+            // Buscar si se acaba de crear un detalle
+            const detallesActualizados = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+            detalle = detallesActualizados.find(d => areCodesEquivalent(d.codigo, codigo, pedidoId));
+          }
         }
       }
       
