@@ -273,7 +273,7 @@ export default function ArmadoPage() {
   const finalizarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
       const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
-        estado: "finalizado"
+        estado: "completado"
       });
       return await res.json();
     },

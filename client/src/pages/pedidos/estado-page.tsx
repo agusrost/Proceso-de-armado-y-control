@@ -224,7 +224,32 @@ export default function PedidosEstadoPage() {
                           {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.numeroPausas || pedido.pausas?.length || 0}
+                          {pedido.pausas && pedido.pausas.length > 0 ? (
+                            <div className="relative group">
+                              <span className="underline cursor-pointer">
+                                {pedido.pausas.length} {pedido.pausas.length === 1 ? 'pausa' : 'pausas'}
+                              </span>
+                              <div className="absolute hidden group-hover:block bg-white border border-gray-200 p-2 rounded shadow-lg z-10 w-56">
+                                <div className="text-xs font-semibold mb-1 text-gray-700">Detalles de pausas:</div>
+                                {pedido.pausas.map((pausa, index) => (
+                                  <div key={index} className="text-xs mb-1 pb-1 border-b border-gray-100">
+                                    <div><span className="font-medium">Motivo:</span> {pausa.motivo}</div>
+                                    {pausa.inicio && (
+                                      <div><span className="font-medium">Inicio:</span> {new Date(pausa.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'})}</div>
+                                    )}
+                                    {pausa.fin && (
+                                      <div><span className="font-medium">Fin:</span> {new Date(pausa.fin).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'})}</div>
+                                    )}
+                                    {pausa.duracion && (
+                                      <div><span className="font-medium">Duración:</span> {formatTimeHM(pausa.duracion)}</div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            "0"
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : "-"}
