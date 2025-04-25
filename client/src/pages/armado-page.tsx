@@ -476,11 +476,13 @@ export default function ArmadoPage() {
             </button>
           </div>
           
-          {/* Selector de motivo si recolectados es 0 */}
-          {recolectados === 0 && (
+          {/* Selector de motivo si recolectados es 0 o menor a la cantidad requerida */}
+          {(recolectados === 0 || recolectados < producto.cantidad) && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Seleccione motivo para producto no recolectado:
+                {recolectados === 0 
+                  ? "Seleccione motivo para producto no recolectado:" 
+                  : "Seleccione motivo para faltante parcial:"}
               </label>
               <select
                 className="w-full p-2 border border-gray-300 rounded-md"
@@ -493,6 +495,20 @@ export default function ArmadoPage() {
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
+              
+              {motivo === "Otro motivo" && (
+                <Input
+                  type="text"
+                  placeholder="Especifique el motivo"
+                  className="mt-2 p-2 border border-gray-300 rounded-md"
+                  value={
+                    motivosPreestablecidos.includes(motivo) && motivo !== "Otro motivo" 
+                      ? "" 
+                      : motivo
+                  }
+                  onChange={(e) => setMotivo(e.target.value)}
+                />
+              )}
             </div>
           )}
           
@@ -501,11 +517,13 @@ export default function ArmadoPage() {
             onClick={() => {
               if (!producto) return;
               
-              // Validación para productos no recolectados
-              if (recolectados === 0 && !motivo) {
+              // Validación para productos no recolectados o con faltantes parciales
+              if ((recolectados === 0 || recolectados < producto.cantidad) && !motivo) {
                 toast({
                   title: "Motivo requerido",
-                  description: "Debe seleccionar un motivo para productos no recolectados",
+                  description: recolectados === 0 
+                    ? "Debe seleccionar un motivo para productos no recolectados" 
+                    : "Debe seleccionar un motivo para el faltante parcial",
                   variant: "destructive",
                 });
                 return;
@@ -514,7 +532,7 @@ export default function ArmadoPage() {
               actualizarProductoMutation.mutate({
                 id: producto.id,
                 recolectado: recolectados,
-                motivo: recolectados < producto.cantidad ? motivo : undefined
+                motivo: recolectados < producto.cantidad ? motivo : ""
               });
             }}
             disabled={actualizarProductoMutation.isPending}
