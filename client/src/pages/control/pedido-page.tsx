@@ -174,16 +174,21 @@ export default function ControlPedidoPage() {
               estado: estado
             };
           }),
-          historialEscaneos: data.detalles.map((d: any) => ({
-            id: d.id,
-            codigo: d.codigo,
-            cantidad: d.cantidad,
-            timestamp: new Date(d.timestamp || data.control.fecha),
-            escaneado: true,
-            descripcion: d.descripcion || "",
-            ubicacion: d.ubicacion || "",
-            estado: d.resultado || "correcto"
-          })) || [],
+          historialEscaneos: data.detalles.map((d: any) => {
+            // Buscar el producto asociado para obtener descripción completa
+            const producto = data.productos.find((p: any) => p.id === d.productoId);
+            return {
+              id: d.id,
+              codigo: d.codigo,
+              cantidad: d.cantidadEsperada || 0,
+              controlado: d.cantidadControlada || 0,
+              timestamp: new Date(d.timestamp || data.control.fecha),
+              escaneado: true,
+              descripcion: producto?.descripcion || d.descripcion || "Sin descripción",
+              ubicacion: producto?.ubicacion || d.ubicacion || "",
+              estado: d.estado || "correcto"
+            };
+          }) || [],
           segundos: Math.floor((Date.now() - new Date(data.control.fecha).getTime()) / 1000)
         });
         
@@ -626,6 +631,15 @@ export default function ControlPedidoPage() {
           ubicacion: data.producto?.ubicacion || productoEncontrado?.ubicacion || "",
           estado: data.controlEstado || "pendiente"
         };
+        
+        // Debug para verificar el registro
+        console.log("REGISTRANDO NUEVO ESCANEO:", {
+          codigo: nuevoEscaneo.codigo,
+          descripcion: nuevoEscaneo.descripcion,
+          cantidad: nuevoEscaneo.cantidad,
+          controlado: nuevoEscaneo.controlado,
+          estado: nuevoEscaneo.estado
+        });
         
         // Verificar si hay productos excedentes con verificación de null
         if (data.controlEstado === 'excedente') {
@@ -1242,8 +1256,18 @@ export default function ControlPedidoPage() {
                 <CardTitle>Productos Registrados</CardTitle>
               </CardHeader>
               <CardContent>
+                {/* Enviamos todos los productos de este pedido para mostrar los que no han sido escaneados también */}
                 <CodigosRegistradosList 
-                  registros={controlState.historialEscaneos}
+                  registros={[
+                    ...controlState.historialEscaneos,
+                    ...controlState.productosControlados.filter(p => 
+                      !controlState.historialEscaneos.some(h => h.codigo === p.codigo)
+                    ).map(p => ({
+                      ...p,
+                      timestamp: new Date(),
+                      escaneado: false
+                    }))
+                  ]}
                   showEmpty={true}
                 />
               </CardContent>

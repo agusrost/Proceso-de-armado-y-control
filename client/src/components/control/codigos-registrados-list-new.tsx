@@ -12,8 +12,7 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
   const registrosValidos = registros.filter((p) => 
     p && typeof p === 'object' && 
     p.codigo && typeof p.codigo === 'string' && 
-    p.codigo.trim() !== "" && 
-    (p.escaneado || p.controlado > 0)
+    p.codigo.trim() !== ""
   );
   
   console.log(`Procesando ${registrosValidos.length} registros válidos para agrupar`);
@@ -118,23 +117,29 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
       {productosOrdenados.map((producto, index) => (
         <div 
           key={`${producto.codigo}-${index}`} 
-          className="flex items-center justify-between border p-3 rounded-md"
+          className={`flex items-center justify-between border p-3 rounded-md ${!producto.escaneado ? 'opacity-70' : ''}`}
         >
           <div className="flex items-center">
-            <Barcode className="h-5 w-5 text-neutral-500 mr-3" />
+            <Barcode className={`h-5 w-5 mr-3 ${!producto.escaneado ? 'text-neutral-400' : 'text-neutral-500'}`} />
             <div>
-              <div className="font-medium">
+              <div className={`font-medium ${!producto.escaneado ? 'text-neutral-500' : ''}`}>
                 {producto.codigo ? (
                   <>
                     {producto.codigo} 
                     {producto.descripcion && ` - ${producto.descripcion}`}
+                    {!producto.escaneado && <span className="text-sm text-neutral-400 ml-2">(Pendiente)</span>}
                   </>
                 ) : (
                   <span className="text-neutral-500">Sin código</span>
                 )}
               </div>
               <div className="text-sm text-neutral-500">
-                {producto.timestamp ? formatTimestamp(producto.timestamp) : "Sin fecha"}
+                {producto.escaneado && producto.timestamp 
+                  ? formatTimestamp(producto.timestamp) 
+                  : producto.escaneado === false
+                    ? "Pendiente de escanear"
+                    : "Sin fecha"
+                }
               </div>
             </div>
           </div>
@@ -148,6 +153,8 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
               <X className="h-5 w-5 text-red-500" />
             ) : producto.estado === 'excedente' ? (
               <div className="text-amber-500 text-sm font-medium">+{(producto.controlado || 0) - (producto.cantidad || 0)}</div>
+            ) : producto.escaneado === false ? (
+              <Clock className="h-5 w-5 text-neutral-400" />
             ) : null}
           </div>
         </div>
