@@ -899,12 +899,24 @@ export default function ArmadoPage() {
         
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-blue-900 text-white border-t border-blue-800">
           <div className="max-w-md mx-auto">
-            <Button 
-              onClick={() => setUsingSimpleInterface(true)}
-              className="w-full bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium"
-            >
-              Volver a la recolección
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={() => setUsingSimpleInterface(true)}
+                className="w-full bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium"
+              >
+                Volver a la recolección
+              </Button>
+              
+              {/* Mostrar botón de finalizar solo si todos los productos están procesados */}
+              {todosProductosProcesados && (
+                <Button 
+                  onClick={() => setMostrarAlertaFinal(true)}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-md text-lg font-medium"
+                >
+                  Finalizar armado
+                </Button>
+              )}
+            </div>
             
             <div className="mt-4 text-sm text-gray-300 text-center">
               Usuario: {user?.username}
@@ -917,6 +929,34 @@ export default function ArmadoPage() {
             </div>
           </div>
         </div>
+        
+        {/* Modal de confirmación para finalizar pedido */}
+        <AlertDialog open={mostrarAlertaFinal} onOpenChange={setMostrarAlertaFinal}>
+          <AlertDialogContent className="bg-white text-gray-900">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl">Finalizar armado del pedido</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-600">
+                {productos.every(p => p.recolectado === p.cantidad) 
+                  ? "Todos los productos fueron recolectados correctamente." 
+                  : "Algunos productos no fueron recolectados completamente, pero sus motivos están justificados."}
+                <br/><br/>
+                ¿Confirmas que deseas finalizar el armado del pedido?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-blue-950 text-blue-950">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => finalizarPedidoMutation.mutate(currentPedido.id)}
+                disabled={finalizarPedidoMutation.isPending}
+                className="bg-blue-950 text-white hover:bg-blue-900"
+              >
+                {finalizarPedidoMutation.isPending ? "Procesando..." : "Finalizar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
