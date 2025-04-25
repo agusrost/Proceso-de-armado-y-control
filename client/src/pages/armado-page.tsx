@@ -545,17 +545,89 @@ export default function ArmadoPage() {
               Reanudar armado
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                console.log("Mostrando modal de pausa");
-                setMostrarModalPausa(true);
-              }}
-              className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
-            >
-              <Pause size={16} className="mr-2" />
-              Pausar armado
-            </button>
+            <>
+              {mostrarModalPausa ? (
+                <div className="bg-blue-900 border border-blue-800 p-4 rounded-md mb-4 w-[300px]">
+                  <h3 className="text-white text-lg mb-3">Motivo de pausa</h3>
+                  <select 
+                    className="w-full p-3 mb-2 border border-blue-800 rounded-md bg-blue-950 text-white"
+                    value={motivoPausa}
+                    onChange={(e) => setMotivoPausa(e.target.value)}
+                  >
+                    <option value="">Seleccione un motivo</option>
+                    {motivosPausa.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  
+                  {motivoPausa === "Otro: especificar" && (
+                    <Input
+                      placeholder="Detalles del motivo"
+                      value={motivoPausa !== "Otro: especificar" ? motivoPausa : ""}
+                      onChange={(e) => setMotivoPausa(e.target.value)}
+                      className="w-full mb-3 bg-blue-950 border-blue-800 text-white placeholder:text-blue-300"
+                    />
+                  )}
+                  
+                  <div className="flex justify-between mt-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setMostrarModalPausa(false)}
+                      className="border-white text-white hover:bg-blue-800"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        // Validación
+                        if (!motivoPausa) {
+                          toast({
+                            title: "Motivo requerido",
+                            description: "Debes seleccionar un motivo para la pausa",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        if (motivoPausa === "Otro: especificar" && motivoPausa.trim() === "Otro: especificar") {
+                          toast({
+                            title: "Detalle requerido",
+                            description: "Debes especificar el motivo de la pausa",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        const now = new Date();
+                        
+                        crearPausaMutation.mutate({
+                          pedidoId: currentPedido.id,
+                          motivo: motivoPausa,
+                          inicio: now
+                        });
+                      }}
+                      disabled={crearPausaMutation.isPending}
+                      className="bg-white text-blue-950 hover:bg-gray-100"
+                    >
+                      {crearPausaMutation.isPending ? 'Procesando...' : 'Pausar'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log("Mostrando interfaz de pausa");
+                    setMostrarModalPausa(true);
+                    setMotivoPausa("");
+                  }}
+                  className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
+                >
+                  <Pause size={16} className="mr-2" />
+                  Pausar armado
+                </button>
+              )}
+            </>
           )}
           
           <div className="mt-4 text-sm text-gray-300 text-center">
