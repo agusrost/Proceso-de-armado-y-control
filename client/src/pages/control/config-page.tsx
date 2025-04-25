@@ -96,20 +96,39 @@ export default function ControlConfigPage() {
   // Mutation para probar la conexión con Google Sheets
   const testGoogleSheetsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/control/test-google-sheets", { 
-        url: googleSheetsUrl 
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Error al probar conexión");
+      // Verificar si la URL está vacía
+      if (!googleSheetsUrl || googleSheetsUrl.trim() === '') {
+        throw new Error("Por favor ingrese una URL de Google Sheets");
       }
       
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", "/api/control/test-google-sheets", { 
+          url: googleSheetsUrl 
+        });
+        
+        // Procesar la respuesta como JSON
+        const data = await res.json();
+        
+        // Si la respuesta no fue exitosa, lanzar un error
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || "Error al probar conexión");
+        }
+        
+        return data;
+      } catch (err: any) {
+        // Capturar errores de parsing JSON
+        if (err.name === 'SyntaxError') {
+          throw new Error("Error al procesar la respuesta del servidor");
+        }
+        throw err;
+      }
     },
     onSuccess: (data) => {
       setTestStatus("success");
-      setTestResult(`Conexión exitosa. ${data.rowCount} filas encontradas.`);
+      const mensaje = data.rowCount 
+        ? `Conexión exitosa. ${data.rowCount} filas encontradas.` 
+        : "Conexión exitosa con Google Sheets.";
+      setTestResult(mensaje);
     },
     onError: (error: Error) => {
       setTestStatus("error");

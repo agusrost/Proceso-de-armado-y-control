@@ -1445,33 +1445,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { url } = req.body;
       
       if (!url) {
-        return res.status(400).json({ message: "La URL es requerida" });
+        return res.status(400).json({ 
+          success: false, 
+          message: "La URL es requerida" 
+        });
+      }
+      
+      // Verificamos si la URL tiene el formato esperado para Google Sheets
+      if (!url.includes("docs.google.com/spreadsheets")) {
+        return res.status(400).json({
+          success: false,
+          message: "La URL no parece ser de Google Sheets"
+        });
       }
       
       try {
+        // Convertimos la URL al formato que permite exportación de datos
+        // Esto permite verificar si es una URL válida y accesible
+        const exportUrl = url.replace(/\/edit.*$/, '/export?format=csv&id=');
+        
         // Importamos axios para hacer la solicitud
         const axios = require('axios');
         
-        // Verificamos si la URL es accesible
-        const response = await axios.get(url, { timeout: 5000 });
+        // Intentamos obtener los datos en formato CSV
+        const response = await axios.get(exportUrl, { 
+          timeout: 8000,
+          responseType: 'text'  // Solicitamos texto en lugar de JSON
+        });
         
-        // Comprobamos si la respuesta contiene datos de una hoja de cálculo
-        if (response.status !== 200) {
-          return res.status(400).json({ 
-            success: false, 
-            message: "No se pudo acceder a la URL proporcionada"
-          });
-        }
+        // Si llegamos aquí, la conexión fue exitosa
+        // Contamos el número aproximado de filas contando saltos de línea
+        const rowCount = (response.data.match(/\n/g) || []).length;
         
-        return res.status(200).json({ 
+        return res.json({ 
           success: true, 
-          message: "Conexión exitosa con Google Sheets"
+          message: "Conexión exitosa con Google Sheets",
+          rowCount: rowCount
         });
       } catch (error: any) {
         console.error("Error al probar conexión con Google Sheets:", error.message);
         return res.status(400).json({ 
           success: false, 
-          message: "Error al conectar: " + (error.message || "No se pudo verificar la URL")
+          message: "Error al conectar con Google Sheets: " + (error.message || "No se pudo verificar la URL")
         });
       }
     } catch (error) {
