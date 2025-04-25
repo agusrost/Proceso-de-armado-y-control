@@ -8,48 +8,96 @@ type CodigosRegistradosListProps = {
 };
 
 export function CodigosRegistradosList({ registros, showEmpty = false }: CodigosRegistradosListProps) {
-  // Filtrar solo los productos que han sido escaneados
-  const productosEscaneados = registros.filter((p: any) => p.escaneado || p.controlado > 0);
+  // Validación mejorada: filtrar registros nulos o inválidos
+  const registrosValidos = registros.filter((p) => 
+    p && typeof p === 'object' && 
+    p.codigo && typeof p.codigo === 'string' && 
+    p.codigo.trim() !== "" && 
+    (p.escaneado || p.controlado > 0)
+  );
   
-  // Agrupar productos por código para evitar duplicados
-  const productosAgrupados = productosEscaneados.reduce((acc: Record<string, any>, producto: any) => {
-    // Si ya existe el código, actualizar los datos
-    if (acc[producto.codigo]) {
-      // Actualizar la cantidad controlada sumándola
-      acc[producto.codigo].controlado += producto.controlado;
-      
-      // Actualizar el timestamp si el actual es más reciente
-      if (producto.timestamp && (!acc[producto.codigo].timestamp || 
-          producto.timestamp.getTime() > acc[producto.codigo].timestamp.getTime())) {
-        acc[producto.codigo].timestamp = producto.timestamp;
-      }
-      
-      // Determinar el estado basado en la cantidad actualizada
-      if (acc[producto.codigo].controlado > acc[producto.codigo].cantidad) {
-        acc[producto.codigo].estado = 'excedente';
-      } else if (acc[producto.codigo].controlado < acc[producto.codigo].cantidad) {
-        acc[producto.codigo].estado = 'faltante';
-      } else {
-        acc[producto.codigo].estado = 'correcto';
-      }
-    } else {
-      // Si no existe, agregarlo al acumulador
-      acc[producto.codigo] = { ...producto };
+  console.log(`Procesando ${registrosValidos.length} registros válidos para agrupar`);
+  
+  // Usar Map para agrupar los productos por código
+  const productosMap = new Map();
+  
+  // Primero procesar todos los registros para asegurar que tenemos todos los datos correctos
+  registrosValidos.forEach((producto) => {
+    const codigo = producto.codigo?.trim();
+    
+    // Validación adicional
+    if (!codigo) {
+      console.warn("Producto sin código detectado:", producto);
+      return;
     }
-    return acc;
-  }, {});
-  
-  // Convertir el objeto de productos agrupados a un array
-  const productosConsolidados = Object.values(productosAgrupados);
-  
-  // Ordenar por timestamp más reciente primero
-  const productosOrdenados = [...productosConsolidados].sort((a: any, b: any) => {
-    if (!a.timestamp) return 1;
-    if (!b.timestamp) return -1;
-    return b.timestamp.getTime() - a.timestamp.getTime();
+    
+    // Si ya existe el código en el mapa, actualizar datos 
+    if (productosMap.has(codigo)) {
+      const existente = productosMap.get(codigo);
+      
+      // Acumular cantidades (considerando que puede ser undefined)
+      const nuevaControlada = (existente.controlado || 0) + (producto.cantidad || 0);
+      
+      // Actualizar el registro existente con los datos más recientes
+      productosMap.set(codigo, {
+        ...existente,
+        controlado: nuevaControlada,
+        cantidad: producto.cantidad > existente.cantidad ? producto.cantidad : existente.cantidad,
+        // Seleccionar el timestamp más reciente
+        timestamp: producto.timestamp && existente.timestamp 
+          ? (producto.timestamp > existente.timestamp ? producto.timestamp : existente.timestamp)
+          : (producto.timestamp || existente.timestamp),
+      });
+      
+      console.log(`Actualizado producto ${codigo}: cantidad controlada=${nuevaControlada}`);
+    } else {
+      // Asegurar datos consistentes antes de agregar
+      const nuevoProducto = {
+        ...producto,
+        codigo: codigo,
+        descripcion: producto.descripcion || "Sin descripción",
+        cantidad: producto.cantidad || 0,
+        controlado: producto.controlado || producto.cantidad || 0,
+        timestamp: producto.timestamp || new Date(),
+      };
+      
+      productosMap.set(codigo, nuevoProducto);
+      console.log(`Nuevo producto agregado: ${codigo} - ${nuevoProducto.descripcion}`);
+    }
   });
-
-  if (productosOrdenados.length === 0) {
+  
+  // Calcular el estado basado en las cantidades después de agrupar
+  productosMap.forEach((producto, codigo) => {
+    // Determinar el estado basado en cantidades
+    let estado;
+    if (producto.cantidad === 0) {
+      estado = 'correcto'; // Si no hay cantidad esperada, marcar como correcto
+    } else if (producto.controlado > producto.cantidad) {
+      estado = 'excedente';
+    } else if (producto.controlado < producto.cantidad) {
+      estado = 'faltante';
+    } else {
+      estado = 'correcto';
+    }
+    
+    productosMap.set(codigo, {
+      ...producto,
+      estado
+    });
+  });
+  
+  // Convertir a array y ordenar por timestamp (más reciente primero)
+  const productosOrdenados = Array.from(productosMap.values())
+    .sort((a, b) => {
+      if (!a.timestamp) return 1;
+      if (!b.timestamp) return -1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  
+  console.log(`Productos agrupados finales: ${productosOrdenados.length}`);
+  
+  // Mostrar mensaje si no hay productos
+  if (productosOrdenados.length === 0 && showEmpty) {
     return (
       <div className="text-center py-6 text-neutral-500">
         No se han registrado códigos todavía
@@ -59,7 +107,7 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
 
   return (
     <div className="space-y-2">
-      {productosOrdenados.map((producto: any, index: number) => (
+      {productosOrdenados.map((producto, index) => (
         <div 
           key={`${producto.codigo}-${index}`} 
           className="flex items-center justify-between border p-3 rounded-md"
@@ -68,7 +116,14 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
             <Barcode className="h-5 w-5 text-neutral-500 mr-3" />
             <div>
               <div className="font-medium">
-                {producto.codigo} - {producto.descripcion}
+                {producto.codigo ? (
+                  <>
+                    {producto.codigo} 
+                    {producto.descripcion && ` - ${producto.descripcion}`}
+                  </>
+                ) : (
+                  <span className="text-neutral-500">Sin código</span>
+                )}
               </div>
               <div className="text-sm text-neutral-500">
                 {producto.timestamp ? formatTimestamp(producto.timestamp) : "Sin fecha"}
@@ -77,14 +132,14 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
           </div>
           <div className="flex items-center">
             <div className="px-2 py-1 text-sm rounded-full border mr-2">
-              {producto.controlado} / {producto.cantidad}
+              {producto.controlado || 0} / {producto.cantidad || 0}
             </div>
             {producto.estado === 'correcto' ? (
               <Check className="h-5 w-5 text-green-500" />
             ) : producto.estado === 'faltante' ? (
               <X className="h-5 w-5 text-red-500" />
             ) : producto.estado === 'excedente' ? (
-              <div className="text-amber-500 text-sm font-medium">+{producto.controlado - producto.cantidad}</div>
+              <div className="text-amber-500 text-sm font-medium">+{(producto.controlado || 0) - (producto.cantidad || 0)}</div>
             ) : null}
           </div>
         </div>
