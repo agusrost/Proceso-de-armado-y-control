@@ -54,7 +54,11 @@ function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: {
 
 export default function ArmadoPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, logoutMutation } = useAuth();
+  
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
   const [currentPedido, setCurrentPedido] = useState<Pedido | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
@@ -444,7 +448,7 @@ export default function ArmadoPage() {
     if (!producto) return <div>Cargando productos...</div>;
     
     return (
-      <div className="min-h-screen flex flex-col items-center bg-blue-900 text-white">
+      <div className="min-h-screen flex flex-col items-center bg-blue-950 text-white">
         <div className="pt-8 pb-4 w-full text-center">
           <h1 className="text-4xl font-bold">KONECTA</h1>
         </div>
@@ -492,7 +496,7 @@ export default function ArmadoPage() {
           )}
           
           <button 
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-md text-lg font-medium mb-4"
+            className="w-full bg-blue-950 hover:bg-blue-900 text-white py-3 rounded-md text-lg font-medium mb-4"
             onClick={() => {
               if (!producto) return;
               
@@ -514,14 +518,14 @@ export default function ArmadoPage() {
             }}
             disabled={actualizarProductoMutation.isPending}
           >
-            CONTINUAR
+            CONTINUAR ARMADO
           </button>
         </div>
         
         <div className="mt-6 flex flex-col gap-3 pb-6">
           <button 
             onClick={() => setUsingSimpleInterface(false)}
-            className="bg-blue-800 hover:bg-blue-700 text-white py-3 px-6 rounded-md text-lg"
+            className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium w-[300px]"
           >
             Ver todo el pedido
           </button>
@@ -534,7 +538,7 @@ export default function ArmadoPage() {
                 }
               }}
               disabled={finalizarPausaMutation.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-md text-lg flex items-center justify-center"
+              className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
             >
               <Play size={16} className="mr-2" />
               Reanudar armado
@@ -542,21 +546,22 @@ export default function ArmadoPage() {
           ) : (
             <button
               onClick={() => setMostrarModalPausa(true)}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-6 rounded-md text-lg flex items-center justify-center"
+              className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
             >
               <Pause size={16} className="mr-2" />
               Pausar armado
             </button>
           )}
           
-          <button
-            onClick={() => setMostrarAlertaFinal(true)}
-            disabled={pausaActiva}
-            className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-md text-lg flex items-center justify-center"
-          >
-            <Flag size={16} className="mr-2" />
-            Finalizar armado
-          </button>
+          <div className="mt-4 text-sm text-gray-300 text-center">
+            Usuario: {user?.username}
+            <button 
+              onClick={handleLogout} 
+              className="block mx-auto mt-2 text-sm text-gray-300 hover:text-white"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -565,31 +570,32 @@ export default function ArmadoPage() {
   // Si hay pedido activo pero estamos mostrando el resumen de productos
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
     return (
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        <div className="bg-blue-900 text-white p-4">
-          <h1 className="text-xl font-bold text-center">Resumen de Productos</h1>
+      <div className="min-h-screen flex flex-col bg-blue-950 text-white">
+        <div className="p-6 text-center">
+          <h1 className="text-4xl font-bold mb-6">KONECTA</h1>
+          <h2 className="text-xl font-medium mb-4">Resumen de Productos</h2>
         </div>
         
-        <div className="flex-1 overflow-auto p-2">
+        <div className="flex-1 overflow-auto p-4 mx-auto max-w-3xl w-full">
           {productos.map((producto) => (
-            <div key={producto.id} className="mb-2 border border-gray-200 bg-white rounded-md overflow-hidden">
-              <div className="p-3">
+            <div key={producto.id} className="mb-4 border border-blue-800 bg-blue-900 rounded-md overflow-hidden">
+              <div className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-mono text-sm font-semibold">{producto.codigo}</p>
-                    <p className="text-sm">{producto.descripcion || 'Sin descripción'}</p>
-                    <p className="text-xs text-gray-500">Cantidad: {producto.cantidad}</p>
+                    <p className="font-mono text-base font-semibold">{producto.codigo}</p>
+                    <p className="text-sm text-gray-200">{producto.descripcion || 'Sin descripción'}</p>
+                    <p className="text-xs text-gray-300 mt-1">Cantidad: {producto.cantidad}</p>
                   </div>
                   
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">Ubicación: {producto.ubicacion || 'N/A'}</p>
+                    <p className="text-xs text-gray-300">Ubicación: {producto.ubicacion || 'N/A'}</p>
                     {producto.recolectado !== null ? (
                       <p className={`text-sm font-medium ${
                         producto.recolectado === producto.cantidad 
-                          ? 'text-green-600' 
+                          ? 'text-green-400' 
                           : producto.recolectado === 0 
-                            ? 'text-red-600' 
-                            : 'text-orange-600'
+                            ? 'text-red-400' 
+                            : 'text-yellow-400'
                       }`}>
                         Recolectado: {producto.recolectado}/{producto.cantidad}
                       </p>
@@ -598,7 +604,7 @@ export default function ArmadoPage() {
                     )}
                     
                     {producto.motivo && (
-                      <p className="text-xs text-red-500 italic">
+                      <p className="text-xs text-red-300 italic">
                         Motivo: {producto.motivo}
                       </p>
                     )}
@@ -607,7 +613,7 @@ export default function ArmadoPage() {
                     <Button 
                       size="sm" 
                       variant="outline"
-                      className="mt-2"
+                      className="mt-2 border-white text-white hover:bg-blue-800"
                       onClick={() => {
                         setEditingProductId(producto.id);
                         setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
@@ -623,10 +629,10 @@ export default function ArmadoPage() {
               {
                 // Mostrar selector de motivo solo para productos con 0 recolectados y sin motivo
                 producto.recolectado === 0 && !producto.motivo && (
-                  <div className="bg-red-50 py-2 px-3 border-t border-red-100">
+                  <div className="bg-blue-800 py-3 px-4 border-t border-blue-700">
                     <div className="space-y-2">
                       <select
-                        className="w-full text-xs p-1.5 border border-gray-300 rounded-md"
+                        className="w-full text-xs p-2 border border-blue-700 rounded-md bg-blue-900 text-white"
                         value={producto.id === editingProductId ? editMotivo : ""}
                         onChange={(e) => {
                           if (producto.id === editingProductId) {
@@ -648,7 +654,7 @@ export default function ArmadoPage() {
                         <Input
                           type="text"
                           placeholder="Especifique el motivo"
-                          className="text-xs h-7 w-full mt-1"
+                          className="text-xs h-8 w-full mt-1 bg-blue-900 border-blue-700 text-white placeholder:text-blue-300"
                           value={
                             motivosPreestablecidos.includes(editMotivo) && editMotivo !== "Otro motivo" 
                               ? "" 
@@ -661,8 +667,8 @@ export default function ArmadoPage() {
                       <div className="flex justify-end">
                         <Button 
                           size="sm" 
-                          variant="ghost" 
-                          className="h-7"
+                          variant="outline"
+                          className="h-8 text-white border-white hover:bg-blue-700"
                           onClick={() => {
                             if (editMotivo.trim()) {
                               actualizarProductoMutation.mutate({
@@ -689,9 +695,9 @@ export default function ArmadoPage() {
               
               {/* Panel de edición de cantidad */}
               {editingProductId === producto.id && (
-                <div className="bg-blue-50 py-2 px-3 border-t border-blue-100">
+                <div className="bg-blue-800 py-3 px-4 border-t border-blue-700">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-white">
                       Modificar cantidad:
                     </label>
                     <div className="flex items-center gap-2">
@@ -701,14 +707,14 @@ export default function ArmadoPage() {
                         onChange={(e) => setEditRecolectado(parseInt(e.target.value) || 0)}
                         min={0}
                         max={producto.cantidad}
-                        className="w-20 h-7 text-xs"
+                        className="w-20 h-8 text-sm bg-blue-900 border-blue-700 text-white"
                       />
-                      <span className="text-xs text-gray-500">/ {producto.cantidad}</span>
+                      <span className="text-sm text-blue-200">/ {producto.cantidad}</span>
                     </div>
                     
                     {editRecolectado === 0 && (
                       <select
-                        className="w-full text-xs p-1.5 border border-gray-300 rounded-md"
+                        className="w-full text-sm p-2 border border-blue-700 rounded-md bg-blue-900 text-white mt-2"
                         value={editMotivo}
                         onChange={(e) => setEditMotivo(e.target.value)}
                         required
@@ -724,7 +730,7 @@ export default function ArmadoPage() {
                       <Input
                         type="text"
                         placeholder="Especifique el motivo"
-                        className="text-xs h-7 w-full"
+                        className="text-sm h-8 w-full mt-2 bg-blue-900 border-blue-700 text-white placeholder:text-blue-300"
                         value={
                           motivosPreestablecidos.includes(editMotivo) && editMotivo !== "Otro motivo" 
                             ? "" 
@@ -740,15 +746,15 @@ export default function ArmadoPage() {
                         value={editMotivo}
                         onChange={(e) => setEditMotivo(e.target.value)}
                         placeholder="Motivo del faltante parcial"
-                        className="w-full text-xs h-7"
+                        className="w-full text-sm h-8 mt-2 bg-blue-900 border-blue-700 text-white placeholder:text-blue-300"
                       />
                     )}
                     
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 mt-3">
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="h-7 text-xs"
+                        className="h-8 text-white border-white hover:bg-blue-700"
                         onClick={() => {
                           setEditingProductId(null);
                           setEditRecolectado(0);
@@ -760,7 +766,7 @@ export default function ArmadoPage() {
                       <Button 
                         size="sm" 
                         variant="default"
-                        className="h-7 text-xs"
+                        className="h-8 bg-white text-blue-900 hover:bg-gray-100"
                         onClick={() => {
                           // Validación
                           if (editRecolectado === 0 && !editMotivo) {
@@ -789,17 +795,23 @@ export default function ArmadoPage() {
           ))}
         </div>
         
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-blue-900 text-white border-t">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-blue-900 text-white border-t border-blue-800">
           <div className="max-w-md mx-auto">
             <Button 
               onClick={() => setUsingSimpleInterface(true)}
-              className="w-full bg-blue-500 hover:bg-blue-600"
+              className="w-full bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium"
             >
               Volver a la recolección
             </Button>
             
-            <div className="mt-3 text-center text-xs text-blue-100">
-              Está procesando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
+            <div className="mt-4 text-sm text-gray-300 text-center">
+              Usuario: {user?.username}
+              <button 
+                onClick={handleLogout} 
+                className="block mx-auto mt-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
         </div>

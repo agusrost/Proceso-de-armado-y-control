@@ -21,18 +21,14 @@ export function Header() {
   };
 
   return (
-    <header className="bg-primary text-white shadow-md z-10">
+    <header className="bg-blue-950 text-white z-10">
       <div className="px-4 py-3 flex justify-between items-center">
         <div 
           className="flex items-center cursor-pointer" 
           onClick={() => setLocation("/")}
         >
-          <div className="bg-white p-2 rounded-md flex items-center mr-2">
-            <img src={konectaLogo} alt="Konecta Repuestos" className="h-9" />
-            <span className="text-primary font-bold ml-1">Konecta Repuestos</span>
-          </div>
-          <h1 className="text-xl font-semibold hidden sm:block">
-            Sistema de Gestión
+          <h1 className="text-4xl font-bold">
+            KONECTA
           </h1>
         </div>
         
@@ -40,9 +36,8 @@ export function Header() {
           <div className="relative">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-primary/90">
-                  <span>{user.firstName || user.username}</span>
-                  <span className="text-sm opacity-80">({getRoleLabel(user.role as any)})</span>
+                <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-blue-900">
+                  <span>Usuario: {user.firstName || user.username}</span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
