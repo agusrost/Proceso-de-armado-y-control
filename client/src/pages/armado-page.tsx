@@ -242,15 +242,22 @@ export default function ArmadoPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      setCurrentPedido(null);
-      setProductos([]);
-      setMostrarAlertaFinal(false);
-      setCurrentProductoIndex(0);
       
+      // Mostrar mensaje de éxito antes de resetear el estado
       toast({
-        title: "Pedido finalizado",
-        description: "Has finalizado el armado del pedido correctamente",
+        title: "Pedido finalizado con éxito",
+        description: "El pedido ha sido completado y está listo para la siguiente etapa",
+        variant: "default",
       });
+      
+      // Configurar un delay para que el usuario pueda ver el mensaje antes de resetear
+      setTimeout(() => {
+        setUsingSimpleInterface(true);
+        setCurrentPedido(null);
+        setProductos([]);
+        setMostrarAlertaFinal(false);
+        setCurrentProductoIndex(0);
+      }, 500);
     },
     onError: (error: Error) => {
       toast({
@@ -662,6 +669,8 @@ export default function ArmadoPage() {
   
   // Si hay pedido activo pero estamos mostrando el resumen de productos
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
+    // Verificar si todos los productos tienen un estado de recolección definido
+    const todosProductosProcesados = productos.every(p => p.recolectado !== null);
     return (
       <div className="min-h-screen flex flex-col bg-blue-950 text-white">
         <div className="p-6 text-center">
