@@ -96,7 +96,9 @@ export default function ArmadorPage() {
       <div className="text-center px-4 py-12">
         <h1 className="text-5xl font-bold mb-14">KONECTA</h1>
         
-        {!isLoading && (
+        {isLoading ? (
+          <p className="text-xl mb-10">Cargando...</p>
+        ) : pedido ? (
           <Button 
             onClick={handleStartArmado}
             className="bg-white hover:bg-gray-200 text-slate-900 font-semibold text-xl px-12 py-6 h-auto rounded-lg mb-16"
@@ -104,6 +106,11 @@ export default function ArmadorPage() {
           >
             {buttonText}
           </Button>
+        ) : (
+          <div className="bg-blue-900/50 p-6 rounded-lg mb-16 max-w-md">
+            <p className="text-xl font-medium mb-2">No hay pedidos pendientes</p>
+            <p className="text-white/80">No tienes pedidos para armar en este momento.</p>
+          </div>
         )}
         
         <div className="mt-12">
