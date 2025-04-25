@@ -569,11 +569,11 @@ export default function ArmadoPage() {
                     />
                   )}
                   
-                  <div className="flex justify-between mt-3">
+                  <div className="flex justify-between gap-2 mt-3">
                     <Button 
-                      variant="outline" 
+                      variant="default"
                       onClick={() => setMostrarModalPausa(false)}
-                      className="border-white text-white hover:bg-blue-800"
+                      className="bg-white text-blue-950 hover:bg-gray-100"
                     >
                       Cancelar
                     </Button>
@@ -598,12 +598,10 @@ export default function ArmadoPage() {
                           return;
                         }
                         
-                        const now = new Date();
-                        
                         crearPausaMutation.mutate({
                           pedidoId: currentPedido.id,
-                          motivo: motivoPausa,
-                          inicio: now
+                          motivo: motivoPausa
+                          // No enviamos el campo inicio para que el backend lo maneje
                         });
                       }}
                       disabled={crearPausaMutation.isPending}
