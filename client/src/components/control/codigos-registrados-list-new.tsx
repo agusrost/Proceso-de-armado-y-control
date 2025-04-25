@@ -1,4 +1,4 @@
-import { Barcode, Check, X } from "lucide-react";
+import { Barcode, Check, X, Clock } from "lucide-react";
 import { ProductoControlado } from "@shared/types";
 import { formatTimestamp } from "@/lib/utils";
 
