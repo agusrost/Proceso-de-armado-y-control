@@ -61,12 +61,20 @@ export default function ArmadoPage() {
   const [recolectados, setRecolectados] = useState<number>(0);
   const [motivo, setMotivo] = useState<string>("");
   
-  // Opciones de motivos predefinidos
+  // Opciones de motivos predefinidos para faltantes
   const motivosPreestablecidos = [
     "Faltante de stock",
     "No se encontró el artículo",
     "Producto defectuoso",
     "Otro motivo"
+  ];
+  
+  // Opciones de motivos de pausa
+  const motivosPausa = [
+    "Motivos sanitarios",
+    "Almuerzo",
+    "Fin de turno",
+    "Otro: especificar"
   ];
   const [mostrarAlertaInicio, setMostrarAlertaInicio] = useState(false);
   const [mostrarAlertaFinal, setMostrarAlertaFinal] = useState(false);
@@ -524,8 +532,8 @@ export default function ArmadoPage() {
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50">
-        <div className="bg-white border-b shadow-sm p-4">
-          <h1 className="text-xl font-bold">Resumen de Productos</h1>
+        <div className="bg-blue-900 text-white p-4">
+          <h1 className="text-xl font-bold text-center">Resumen de Productos</h1>
         </div>
         
         <div className="flex-1 overflow-auto p-2">
@@ -560,10 +568,26 @@ export default function ArmadoPage() {
                         Motivo: {producto.motivo}
                       </p>
                     )}
+
+                    {/* Botón para editar cantidades */}
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => {
+                        setEditingProductId(producto.id);
+                        setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
+                        setEditMotivo(producto.motivo || "");
+                      }}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Modificar
+                    </Button>
                   </div>
                 </div>
               </div>
               {
+                // Mostrar selector de motivo solo para productos con 0 recolectados y sin motivo
                 producto.recolectado === 0 && !producto.motivo && (
                   <div className="bg-red-50 py-2 px-3 border-t border-red-100">
                     <div className="space-y-2">
@@ -628,11 +652,110 @@ export default function ArmadoPage() {
                   </div>
                 )
               }
+              
+              {/* Panel de edición de cantidad */}
+              {editingProductId === producto.id && (
+                <div className="bg-blue-50 py-2 px-3 border-t border-blue-100">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Modificar cantidad:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={editRecolectado}
+                        onChange={(e) => setEditRecolectado(parseInt(e.target.value) || 0)}
+                        min={0}
+                        max={producto.cantidad}
+                        className="w-20 h-7 text-xs"
+                      />
+                      <span className="text-xs text-gray-500">/ {producto.cantidad}</span>
+                    </div>
+                    
+                    {editRecolectado === 0 && (
+                      <select
+                        className="w-full text-xs p-1.5 border border-gray-300 rounded-md"
+                        value={editMotivo}
+                        onChange={(e) => setEditMotivo(e.target.value)}
+                        required
+                      >
+                        <option value="">Seleccione un motivo</option>
+                        {motivosPreestablecidos.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    )}
+                    
+                    {editRecolectado === 0 && editMotivo === "Otro motivo" && (
+                      <Input
+                        type="text"
+                        placeholder="Especifique el motivo"
+                        className="text-xs h-7 w-full"
+                        value={
+                          motivosPreestablecidos.includes(editMotivo) && editMotivo !== "Otro motivo" 
+                            ? "" 
+                            : editMotivo
+                        }
+                        onChange={(e) => setEditMotivo(e.target.value)}
+                      />
+                    )}
+                    
+                    {editRecolectado > 0 && editRecolectado < producto.cantidad && (
+                      <Input
+                        type="text"
+                        value={editMotivo}
+                        onChange={(e) => setEditMotivo(e.target.value)}
+                        placeholder="Motivo del faltante parcial"
+                        className="w-full text-xs h-7"
+                      />
+                    )}
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setEditingProductId(null);
+                          setEditRecolectado(0);
+                          setEditMotivo("");
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          // Validación
+                          if (editRecolectado === 0 && !editMotivo) {
+                            toast({
+                              title: "Motivo requerido",
+                              description: "Debe seleccionar un motivo para productos no recolectados",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          actualizarProductoMutation.mutate({
+                            id: producto.id,
+                            recolectado: editRecolectado,
+                            motivo: editRecolectado < producto.cantidad ? editMotivo : undefined
+                          });
+                        }}
+                      >
+                        Guardar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
         
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-blue-900 text-white border-t">
           <div className="max-w-md mx-auto">
             <Button 
               onClick={() => setUsingSimpleInterface(true)}
@@ -641,7 +764,7 @@ export default function ArmadoPage() {
               Volver a la recolección
             </Button>
             
-            <div className="mt-3 text-center text-xs text-gray-500">
+            <div className="mt-3 text-center text-xs text-blue-100">
               Está procesando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
             </div>
           </div>
@@ -993,30 +1116,61 @@ export default function ArmadoPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Pausar armado</AlertDialogTitle>
               <AlertDialogDescription>
-                Indica el motivo por el cual estás pausando el armado del pedido.
+                Selecciona el motivo por el cual estás pausando el armado del pedido.
               </AlertDialogDescription>
             </AlertDialogHeader>
             
-            <div className="py-4">
-              <Input
-                placeholder="Motivo de la pausa"
-                value={motivoPausa}
-                onChange={(e) => setMotivoPausa(e.target.value)}
-              />
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Motivo:</label>
+                <select
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  value={motivoPausa}
+                  onChange={(e) => setMotivoPausa(e.target.value)}
+                >
+                  <option value="">Seleccione un motivo</option>
+                  {motivosPausa.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {motivoPausa === "Otro: especificar" && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Especifique:</label>
+                  <Input
+                    placeholder="Detalles del motivo"
+                    value={motivoPausa !== "Otro: especificar" ? motivoPausa : ""}
+                    onChange={(e) => setMotivoPausa(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
             
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
+                  // Validación
                   if (!motivoPausa) {
                     toast({
                       title: "Motivo requerido",
-                      description: "Debes indicar un motivo para la pausa",
+                      description: "Debes seleccionar un motivo para la pausa",
                       variant: "destructive",
                     });
                     return;
                   }
+                  
+                  // Si es "Otro: especificar" pero no hay detalle
+                  if (motivoPausa === "Otro: especificar") {
+                    toast({
+                      title: "Detalle requerido",
+                      description: "Debes especificar el motivo de la pausa",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
                   crearPausaMutation.mutate({
                     pedidoId: currentPedido.id,
                     motivo: motivoPausa,
