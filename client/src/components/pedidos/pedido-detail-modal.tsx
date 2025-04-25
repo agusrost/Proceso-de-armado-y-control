@@ -113,17 +113,28 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     mutationFn: async () => {
       if (!editingProductId) return null;
       
+      // Debug info
+      console.log("Actualizando producto:", editingProductId);
+      console.log("Nuevos valores: recolectado =", editRecolectado, "motivo =", editMotivo);
+      
       // Si el motivo está vacío y hay faltantes, añadir un motivo por defecto
       let motivoFinal = editMotivo;
       if (editRecolectado < (pedido?.productos?.find(p => p.id === editingProductId)?.cantidad || 0) && !editMotivo) {
         motivoFinal = "falta-stock";
       }
       
-      const res = await apiRequest("PUT", `/api/productos/${editingProductId}`, {
-        recolectado: editRecolectado,
-        motivo: motivoFinal
-      });
-      return await res.json();
+      // Llamada a la API para actualizar el producto
+      try {
+        const res = await apiRequest("PUT", `/api/productos/${editingProductId}`, {
+          recolectado: editRecolectado,
+          motivo: motivoFinal
+        });
+        console.log("Respuesta de la API:", res.status);
+        return await res.json();
+      } catch (error) {
+        console.error("Error al actualizar producto:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       toast({

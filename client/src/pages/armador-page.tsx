@@ -136,27 +136,32 @@ export default function ArmadorPage() {
   // Efecto para establecer el índice del producto cuando se carga un pedido en proceso
   useEffect(() => {
     if (pedido && pedido.productos && pedido.estado === 'en-proceso') {
-      console.log("Buscando primer producto sin procesar...");
-      // IMPORTANTE - CORRECCION: Buscar el primer producto sin procesar (recolectado === null)
+      console.log("Pedido productos:", pedido.productos);
+      
+      // *** SOLUCIÓN DEFINITIVA ***
+      // 1. Mostrar el estado de todos los productos para depuración
+      pedido.productos.forEach((p, idx) => {
+        console.log(`Producto [${idx}]: código=${p.codigo}, recolectado=${p.recolectado}, cantidad=${p.cantidad}`);
+      });
+      
+      // 2. Buscar el primer producto sin ninguna unidad recolectada (null)
       let nextIndex = 0;
       
-      // Encontrar el primer producto que no ha sido recolectado todavía
-      const firstUnprocessedIndex = pedido.productos.findIndex(producto => 
-        producto.recolectado === null
-      );
-      console.log("Índice del primer producto sin procesar:", firstUnprocessedIndex);
+      // Intentar encontrar el primer producto que NO ha sido procesado en absoluto
+      const unprocessedIndex = pedido.productos.findIndex(p => p.recolectado === null);
       
-      // Si encontramos un producto sin procesar, empezar desde ahí
-      if (firstUnprocessedIndex !== -1) {
-        nextIndex = firstUnprocessedIndex;
-        console.log("Se encontró un producto sin procesar, seleccionando índice:", nextIndex);
+      if (unprocessedIndex !== -1) {
+        // Si hay un producto sin procesar, usamos ese
+        nextIndex = unprocessedIndex;
+        console.log(`Encontrado producto SIN PROCESAR en índice ${nextIndex}, seleccionando.`);
       } else {
-        // Si no hay productos sin procesar, mantener el índice 0
-        // (o podríamos decidir ir al último para revisión)
-        nextIndex = 0;
-        console.log("No se encontraron productos sin procesar, seleccionando índice:", nextIndex);
+        // Si todos los productos tienen algún valor (procesados parcialmente),
+        // mantenemos el índice 0 para continuar desde el principio
+        console.log("No se encontraron productos sin procesar, usando índice 0.");
       }
       
+      // Establecer el índice activo
+      console.log(`setActiveProductIndex(${nextIndex})`);
       setActiveProductIndex(nextIndex);
       
       // Verificar si hay pausas activas
