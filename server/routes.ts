@@ -1460,13 +1460,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        console.log("Probando conexión con Google Sheets URL:", url);
-        
-        // En lugar de intentar acceder al documento, vamos a verificar si podemos obtener los metadatos
-        // Este enfoque es más simple y menos propenso a errores
+        console.log("Verificando URL de Google Sheets:", url);
         
         // Extraemos el ID del documento
-        let sheetId;
+        let sheetId = "";
         
         // Intentamos varias formas de extraer el ID
         const matchD = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -1488,24 +1485,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log("ID del documento de Google Sheets detectado:", sheetId);
         
-        // Como no podemos acceder directamente al documento debido a posibles restricciones,
-        // vamos a considerar que la verificación es exitosa si pudimos extraer el ID correctamente
+        // En lugar de intentar conectar directamente con Google Sheets, usamos un enfoque diferente
+        // Suponemos que la URL es válida si podemos extraer un ID que parece ser de Google Sheets
+        // y la URL sigue el formato correcto
+        
+        // Verificar que el ID tenga el formato correcto (alfanumérico con guiones y guiones bajos)
+        if (!/^[a-zA-Z0-9_-]{10,}$/.test(sheetId)) {
+          return res.status(400).json({
+            success: false,
+            message: "El ID del documento no tiene el formato esperado"
+          });
+        }
+        
+        // Verificamos que la URL incluya 'edit' o 'view' para confirmar que es una URL válida
+        if (!url.includes("/edit") && !url.includes("/view") && !url.includes("/pubhtml")) {
+          return res.status(400).json({
+            success: false,
+            message: "La URL no parece ser una URL válida de visualización o edición de Google Sheets"
+          });
+        }
+        
+        // Proporcionamos instrucciones específicas para asegurar que el documento sea accesible
         return res.json({ 
           success: true, 
-          message: "ID del documento de Google Sheets verificado correctamente",
-          sheetId: sheetId
+          message: "URL de Google Sheets verificada correctamente",
+          sheetId: sheetId,
+          instrucciones: "Para que la aplicación pueda acceder a este documento, asegúrese de que está configurado como 'Cualquier persona con el enlace' en modo 'Lector'."
         });
         
       } catch (error: any) {
-        console.error("Error al probar conexión con Google Sheets:", error.message);
+        console.error("Error al verificar URL de Google Sheets:", error.message);
         return res.status(400).json({ 
           success: false, 
-          message: "Error al verificar la URL de Google Sheets: " + error.message
+          message: "Error al procesar la URL de Google Sheets. Por favor, asegúrese de que el formato es correcto."
         });
       }
     } catch (error) {
-      console.error("Error al procesar solicitud de prueba de Google Sheets:", error);
-      next(error);
+      console.error("Error en el servidor:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error interno del servidor al procesar la solicitud"
+      });
     }
   });
 

@@ -125,7 +125,7 @@ export default function ControlConfigPage() {
     },
     onSuccess: (data) => {
       setTestStatus("success");
-      setTestResult(`ID del documento verificado: ${data.sheetId}`);
+      setTestResult(`URL válida. ID del documento: ${data.sheetId}. ${data.instrucciones || ""}`);
     },
     onError: (error: Error) => {
       setTestStatus("error");
