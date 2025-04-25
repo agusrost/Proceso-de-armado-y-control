@@ -617,13 +617,13 @@ export default function ControlPedidoPage() {
         // Crear nuevo escaneo para el historial con verificación de datos
         const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
           id: data.detalle?.id || 0,
-          codigo: data.detalle?.codigo || "",
-          cantidad: data.detalle?.cantidad || 0,
+          codigo: data.producto?.codigo || "",
+          cantidad: data.producto?.cantidad || 0,
           controlado: data.cantidadControlada || 0,
-          descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
+          descripcion: data.producto?.descripcion || productoEncontrado?.descripcion || "",
           timestamp: new Date(),
           escaneado: true,
-          ubicacion: productoEncontrado?.ubicacion || data.producto?.ubicacion || "",
+          ubicacion: data.producto?.ubicacion || productoEncontrado?.ubicacion || "",
           estado: data.controlEstado || "pendiente"
         };
         
