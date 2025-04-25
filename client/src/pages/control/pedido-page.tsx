@@ -524,9 +524,17 @@ export default function ControlPedidoPage() {
       
       try {
         console.log(`Enviando escaneo: código=${codigo}, cantidad=${cantidad}, pedidoId=${pedidoId}`);
-        const res = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/escanear`, {
-          codigo,
-          cantidad
+        
+        // Usar fetch directamente para tener más control sobre el manejo de errores
+        const res = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            codigo,
+            cantidad
+          })
         });
         
         // Manejo mejorado de errores
@@ -535,20 +543,38 @@ export default function ControlPedidoPage() {
           let errorMessage = "Error al escanear producto";
           let errorData: any = {};
           
-          try {
-            errorData = await res.json();
-            errorMessage = errorData.message || errorMessage;
-          } catch (jsonError) {
-            // Si falla al parsear JSON, intentamos obtener el texto del error
+          // Verificar si la respuesta es JSON
+          const contentType = res.headers.get("content-type");
+          
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              errorData = await res.json();
+              console.log("Datos de error:", errorData);
+              errorMessage = errorData.message || errorMessage;
+            } catch (jsonError) {
+              console.error("Error al procesar JSON de error:", jsonError);
+            }
+          } else {
+            // No es JSON, obtener como texto
             try {
               const errorText = await res.text();
-              console.error("Respuesta de error (texto):", errorText);
+              console.log("Respuesta de error (texto):", errorText);
               if (errorText && errorText.length > 0) {
-                errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}...`;
+                if (errorText.includes("<")) {
+                  // Probable HTML, no incluirlo en el mensaje
+                  errorMessage = `${errorMessage}: El servidor respondió con HTML en lugar de JSON`;
+                } else {
+                  errorMessage = `${errorMessage}: ${errorText.substring(0, 100)}${errorText.length > 100 ? '...' : ''}`;
+                }
               }
             } catch (textError) {
               console.error("No se pudo obtener el texto del error:", textError);
             }
+          }
+          
+          // En caso de 404, asumimos que el código no existe en este pedido
+          if (res.status === 404) {
+            errorData.tipo = 'CODIGO_NO_ENCONTRADO';
           }
           
           // Añadir información adicional para depuración
@@ -558,7 +584,14 @@ export default function ControlPedidoPage() {
           throw errorWithData;
         }
         
-        return await res.json();
+        // Procesar la respuesta exitosa
+        try {
+          const data = await res.json();
+          return data;
+        } catch (jsonError) {
+          console.error("Error al procesar respuesta JSON exitosa:", jsonError);
+          throw new Error("Error al procesar la respuesta del servidor");
+        }
       } catch (error) {
         console.error("Error en escanearProductoMutation:", error);
         throw error;
@@ -581,26 +614,26 @@ export default function ControlPedidoPage() {
         // Obtener datos del producto
         const productoEncontrado = prev.productosControlados.find(p => p.codigo === data.producto.codigo);
         
-        // Crear nuevo escaneo para el historial
+        // Crear nuevo escaneo para el historial con verificación de datos
         const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
-          id: data.detalle.id,
-          codigo: data.detalle.codigo,
-          cantidad: data.detalle.cantidad,
-          controlado: data.cantidadControlada,
-          descripcion: productoEncontrado?.descripcion || data.producto.descripcion || "",
+          id: data.detalle?.id || 0,
+          codigo: data.detalle?.codigo || "",
+          cantidad: data.detalle?.cantidad || 0,
+          controlado: data.cantidadControlada || 0,
+          descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
           timestamp: new Date(),
           escaneado: true,
-          ubicacion: productoEncontrado?.ubicacion || data.producto.ubicacion || "",
-          estado: data.controlEstado
+          ubicacion: productoEncontrado?.ubicacion || data.producto?.ubicacion || "",
+          estado: data.controlEstado || "pendiente"
         };
         
-        // Verificar si hay productos excedentes
+        // Verificar si hay productos excedentes con verificación de null
         if (data.controlEstado === 'excedente') {
           setProductoExcedente({
-            codigo: data.producto.codigo,
-            descripcion: productoEncontrado?.descripcion || data.producto.descripcion || "",
-            cantidadEsperada: data.producto.cantidad,
-            cantidadActual: data.cantidadControlada
+            codigo: data.producto?.codigo || "",
+            descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
+            cantidadEsperada: data.producto?.cantidad || 0,
+            cantidadActual: data.cantidadControlada || 0
           });
           setExcedenteAlertOpen(true);
         }
@@ -629,10 +662,10 @@ export default function ControlPedidoPage() {
         }
       }
       
-      // Mostrar mensaje de éxito
+      // Mostrar mensaje de éxito con verificación de null
       toast({
         title: "Producto registrado",
-        description: `Código ${data.producto.codigo} registrado correctamente`,
+        description: `Código ${data.producto?.codigo || "[sin código]"} registrado correctamente`,
       });
     },
     onError: (error: Error) => {
