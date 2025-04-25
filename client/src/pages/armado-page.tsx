@@ -9,6 +9,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: { 
   producto: Producto, 
@@ -1157,20 +1158,20 @@ export default function ArmadoPage() {
         </div>
         
         {/* Modal para Pausas */}
-        <AlertDialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Pausar armado</AlertDialogTitle>
-              <AlertDialogDescription>
+        <Dialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
+          <DialogContent className="bg-blue-950 text-white border-blue-800">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Pausar armado</DialogTitle>
+              <DialogDescription className="text-gray-300">
                 Selecciona el motivo por el cual estás pausando el armado del pedido.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
+              </DialogDescription>
+            </DialogHeader>
             
             <div className="py-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Motivo:</label>
+                <label className="block text-sm font-medium mb-2 text-white">Motivo:</label>
                 <select
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-3 border border-blue-800 rounded-md bg-blue-900 text-white"
                   value={motivoPausa}
                   onChange={(e) => setMotivoPausa(e.target.value)}
                 >
@@ -1183,19 +1184,26 @@ export default function ArmadoPage() {
               
               {motivoPausa === "Otro: especificar" && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">Especifique:</label>
+                  <label className="block text-sm font-medium mb-2 text-white">Especifique:</label>
                   <Input
                     placeholder="Detalles del motivo"
                     value={motivoPausa !== "Otro: especificar" ? motivoPausa : ""}
                     onChange={(e) => setMotivoPausa(e.target.value)}
+                    className="bg-blue-900 border-blue-800 text-white placeholder:text-blue-300"
                   />
                 </div>
               )}
             </div>
             
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
+            <div className="flex justify-end gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setMostrarModalPausa(false)}
+                className="border-white text-white hover:bg-blue-800"
+              >
+                Cancelar
+              </Button>
+              <Button
                 onClick={() => {
                   // Validación
                   if (!motivoPausa) {
@@ -1225,12 +1233,14 @@ export default function ArmadoPage() {
                     inicio: now
                   });
                 }}
+                disabled={crearPausaMutation.isPending}
+                className="bg-white text-blue-950 hover:bg-gray-100"
               >
-                Pausar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                {crearPausaMutation.isPending ? 'Procesando...' : 'Pausar'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         
         {/* Modal para Finalizar Armado */}
         <AlertDialog open={mostrarAlertaFinal} onOpenChange={setMostrarAlertaFinal}>
