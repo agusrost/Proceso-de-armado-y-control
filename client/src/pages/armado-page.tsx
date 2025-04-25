@@ -481,7 +481,111 @@ export default function ArmadoPage() {
     );
   }
   
-  // Si hay pedido activo pero estamos mostrando el estado
+  // Si hay pedido activo pero estamos mostrando el resumen de productos
+  if (!usingSimpleInterface && currentPedido && productos.length > 0) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <div className="bg-white border-b shadow-sm p-4">
+          <h1 className="text-xl font-bold">Resumen de Productos</h1>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-2">
+          {productos.map((producto) => (
+            <div key={producto.id} className="mb-2 border border-gray-200 bg-white rounded-md overflow-hidden">
+              <div className="p-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-mono text-sm font-semibold">{producto.codigo}</p>
+                    <p className="text-sm">{producto.descripcion || 'Sin descripción'}</p>
+                    <p className="text-xs text-gray-500">Cantidad: {producto.cantidad}</p>
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Ubicación: {producto.ubicacion || 'N/A'}</p>
+                    {producto.recolectado !== null ? (
+                      <p className={`text-sm font-medium ${
+                        producto.recolectado === producto.cantidad 
+                          ? 'text-green-600' 
+                          : producto.recolectado === 0 
+                            ? 'text-red-600' 
+                            : 'text-orange-600'
+                      }`}>
+                        Recolectado: {producto.recolectado}/{producto.cantidad}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400">Pendiente</p>
+                    )}
+                    
+                    {producto.motivo && (
+                      <p className="text-xs text-red-500 italic">
+                        Motivo: {producto.motivo}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {
+                producto.recolectado === 0 && !producto.motivo && (
+                  <div className="bg-red-50 py-1 px-3 border-t border-red-100">
+                    <div className="flex items-center">
+                      <Input
+                        type="text"
+                        placeholder="Indicar motivo del faltante"
+                        className="text-xs h-7 flex-1"
+                        value={producto.id === editingProductId ? editMotivo : ""}
+                        onChange={(e) => {
+                          if (producto.id === editingProductId) {
+                            setEditMotivo(e.target.value);
+                          } else {
+                            setEditingProductId(producto.id);
+                            setEditMotivo(e.target.value);
+                            setEditRecolectado(0);
+                          }
+                        }}
+                      />
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="ml-2 h-7"
+                        onClick={() => {
+                          if (editMotivo.trim()) {
+                            actualizarProductoMutation.mutate({
+                              id: producto.id,
+                              recolectado: 0,
+                              motivo: editMotivo
+                            });
+                          }
+                        }}
+                      >
+                        Guardar
+                      </Button>
+                    </div>
+                  </div>
+                )
+              }
+            </div>
+          ))}
+        </div>
+        
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
+          <div className="max-w-md mx-auto">
+            <Button 
+              onClick={() => setUsingSimpleInterface(true)}
+              className="w-full bg-blue-500 hover:bg-blue-600"
+            >
+              Volver a la recolección
+            </Button>
+            
+            <div className="mt-3 text-center text-xs text-gray-500">
+              Está procesando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Si hay pedido activo pero estamos mostrando el estado completo (Modo legacy)
   if (mostrarEstadoPedido) {
     return (
       <MainLayout>
@@ -494,7 +598,7 @@ export default function ArmadoPage() {
           
           <div className="mb-6">
             <h2 className="text-xl font-semibold mb-2">Productos</h2>
-            {productos.map((producto, index) => (
+            {productos.map((producto) => (
               <div key={producto.id} className="mb-4 border rounded-md p-4 relative">
                 <div className="flex justify-between items-center">
                   <div>
@@ -605,7 +709,7 @@ export default function ArmadoPage() {
           </Button>
           
           <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
-            Está controlando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
+            Está controlando el pedido {currentPedido?.pedidoId} del cliente {currentPedido?.clienteId}
           </div>
         </div>
       </MainLayout>
