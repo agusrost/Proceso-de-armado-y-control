@@ -33,8 +33,8 @@ export default function ArmadorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      // Cambiamos el enfoque de navegación para forzar que sea efectivo
-      window.location.href = '/armado-simple';
+      // Redirigir a la página de armado original
+      window.location.href = '/armado';
     },
     onError: (error: Error) => {
       setShowError(true);
