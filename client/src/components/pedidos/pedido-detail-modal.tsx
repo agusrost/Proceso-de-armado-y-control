@@ -300,7 +300,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Descripción</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Recolectado</th>
-                      {(isAdmin || isArmador) && pedido.estado === 'en-proceso' && (
+                      {(isAdmin || isArmador) && (
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acciones</th>
                       )}
                     </tr>
@@ -372,7 +372,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                               )
                             )}
                           </td>
-                          {(isAdmin || isArmador) && pedido.estado === 'en-proceso' && (
+                          {(isAdmin || isArmador) && (
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {editingProductId === producto.id ? (
                                 <div className="flex space-x-2">
@@ -402,20 +402,18 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   </Button>
                                 </div>
                               ) : (
-                                producto.recolectado !== null && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setEditingProductId(producto.id);
-                                      setEditRecolectado(producto.recolectado || 0);
-                                      setEditMotivo(producto.motivo || "");
-                                    }}
-                                  >
-                                    <Edit className="h-4 w-4 mr-1" />
-                                    Editar
-                                  </Button>
-                                )
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingProductId(producto.id);
+                                    setEditRecolectado(producto.recolectado || 0);
+                                    setEditMotivo(producto.motivo || "");
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Editar
+                                </Button>
                               )}
                             </td>
                           )}
@@ -423,7 +421,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={(isAdmin || isArmador) && pedido.estado === 'en-proceso' ? 5 : 4} className="px-4 py-3 text-center">No hay productos registrados</td>
+                        <td colSpan={(isAdmin || isArmador) ? 5 : 4} className="px-4 py-3 text-center">No hay productos registrados</td>
                       </tr>
                     )}
                   </tbody>
