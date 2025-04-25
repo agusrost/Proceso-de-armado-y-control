@@ -320,6 +320,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                             {editingProductId === producto.id ? (
+                              // FORMULARIO DE EDICIÓN - Siempre visible para cualquier estado
                               <div className="flex flex-col space-y-2 w-full">
                                 <div className="flex items-center space-x-2">
                                   <input

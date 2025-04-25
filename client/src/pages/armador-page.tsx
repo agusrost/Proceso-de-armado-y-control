@@ -136,20 +136,25 @@ export default function ArmadorPage() {
   // Efecto para establecer el índice del producto cuando se carga un pedido en proceso
   useEffect(() => {
     if (pedido && pedido.productos && pedido.estado === 'en-proceso') {
-      // Buscar el primer producto sin procesar (recolectado === null)
+      console.log("Buscando primer producto sin procesar...");
+      // IMPORTANTE - CORRECCION: Buscar el primer producto sin procesar (recolectado === null)
       let nextIndex = 0;
       
+      // Encontrar el primer producto que no ha sido recolectado todavía
       const firstUnprocessedIndex = pedido.productos.findIndex(producto => 
         producto.recolectado === null
       );
+      console.log("Índice del primer producto sin procesar:", firstUnprocessedIndex);
       
       // Si encontramos un producto sin procesar, empezar desde ahí
       if (firstUnprocessedIndex !== -1) {
         nextIndex = firstUnprocessedIndex;
+        console.log("Se encontró un producto sin procesar, seleccionando índice:", nextIndex);
       } else {
         // Si no hay productos sin procesar, mantener el índice 0
         // (o podríamos decidir ir al último para revisión)
         nextIndex = 0;
+        console.log("No se encontraron productos sin procesar, seleccionando índice:", nextIndex);
       }
       
       setActiveProductIndex(nextIndex);
