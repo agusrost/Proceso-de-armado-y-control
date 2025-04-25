@@ -33,7 +33,7 @@ export default function ArmadorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      setLocation("/armado");
+      setLocation("/armado-simple");
     },
     onError: (error: Error) => {
       setShowError(true);
