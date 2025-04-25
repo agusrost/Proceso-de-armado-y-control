@@ -35,13 +35,19 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
     if (productosMap.has(codigo)) {
       const existente = productosMap.get(codigo);
       
-      // Acumular cantidades (considerando que puede ser undefined)
-      const nuevaControlada = (existente.controlado || 0) + (producto.cantidad || 0);
+      // La cantidad controlada del último escaneo (o 1 si no está definida)
+      const cantidadEscaneada = producto.cantidad || 1;
+      
+      // NO acumulamos la cantidad, usamos la controlada real del producto
+      // Esta es la cantidad registrada hasta el momento según el backend
+      const cantidadActual = producto.controlado || 0;
       
       // Actualizar el registro existente con los datos más recientes
       productosMap.set(codigo, {
         ...existente,
-        controlado: nuevaControlada,
+        // Usar la cantidad controlada que proporciona directamente el servidor
+        controlado: cantidadActual,
+        // Mantener la cantidad esperada (la del pedido original)
         cantidad: producto.cantidad > existente.cantidad ? producto.cantidad : existente.cantidad,
         // Seleccionar el timestamp más reciente
         timestamp: producto.timestamp && existente.timestamp 
@@ -49,20 +55,22 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
           : (producto.timestamp || existente.timestamp),
       });
       
-      console.log(`Actualizado producto ${codigo}: cantidad controlada=${nuevaControlada}`);
+      console.log(`Actualizado producto ${codigo}: cantidad controlada=${cantidadActual}, escaneo=${cantidadEscaneada}`);
     } else {
       // Asegurar datos consistentes antes de agregar
       const nuevoProducto = {
         ...producto,
         codigo: codigo,
         descripcion: producto.descripcion || "Sin descripción",
+        // Cantidad esperada (del pedido original)
         cantidad: producto.cantidad || 0,
-        controlado: producto.controlado || producto.cantidad || 0,
+        // Cantidad registrada hasta el momento (según el backend)
+        controlado: producto.controlado || 0,
         timestamp: producto.timestamp || new Date(),
       };
       
       productosMap.set(codigo, nuevoProducto);
-      console.log(`Nuevo producto agregado: ${codigo} - ${nuevoProducto.descripcion}`);
+      console.log(`Nuevo producto agregado: ${codigo} - ${nuevoProducto.descripcion}, controlado=${nuevoProducto.controlado}`);
     }
   });
   

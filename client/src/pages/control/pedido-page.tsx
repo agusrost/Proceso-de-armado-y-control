@@ -59,7 +59,6 @@ export default function ControlPedidoPage() {
   const [retirarExcedenteOpen, setRetirarExcedenteOpen] = useState(false);
   const [finalizadoOpen, setFinalizadoOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
-  const [resumenVisible, setResumenVisible] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
     codigo: "",
     descripcion: ""
@@ -1240,57 +1239,13 @@ export default function ControlPedidoPage() {
             {/* Productos escaneados */}
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Productos Registrados</CardTitle>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setResumenVisible(!resumenVisible)}
-                    className="text-xs"
-                  >
-                    {resumenVisible ? 'Ocultar Resumen' : 'Mostrar Resumen'}
-                  </Button>
-                </div>
+                <CardTitle>Productos Registrados</CardTitle>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="historial" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="historial">Historial de Escaneos</TabsTrigger>
-                    <TabsTrigger value="resumen">Resumen {resumenVisible ? 'Detallado' : ''}</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="historial" className="pt-4">
-                    <CodigosRegistradosList 
-                      registros={controlState.historialEscaneos}
-                      showEmpty={true}
-                    />
-                  </TabsContent>
-                  
-                  <TabsContent value="resumen" className="pt-4">
-                    {resumenVisible ? (
-                      <div className="space-y-4">
-                        {controlState.productosControlados.length > 0 ? (
-                          controlState.productosControlados.map(producto => (
-                            <ControlProductoItem 
-                              key={producto.id} 
-                              producto={producto} 
-                            />
-                          ))
-                        ) : (
-                          <p className="text-center text-muted-foreground py-8">
-                            No hay productos para controlar en este pedido
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="py-8 text-center">
-                        <p className="text-muted-foreground">
-                          Resumen oculto para simplificar la interfaz. Haga clic en "Mostrar Resumen" para ver todos los productos.
-                        </p>
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
+                <CodigosRegistradosList 
+                  registros={controlState.historialEscaneos}
+                  showEmpty={true}
+                />
               </CardContent>
             </Card>
           </div>
