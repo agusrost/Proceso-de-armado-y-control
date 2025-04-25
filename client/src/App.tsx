@@ -11,7 +11,7 @@ import PedidosCargaPage from "@/pages/pedidos/carga-page";
 import PedidosEstadoPage from "@/pages/pedidos/estado-page";
 import StockPage from "@/pages/stock-page";
 import ConfigPage from "@/pages/config-page";
-import ArmadoPage from "@/pages/armado-page";
+import ArmadoPage from "@/pages/armado-page-nuevo";
 import ControlPage from "@/pages/control-page";
 import ControlIndexPage from "@/pages/control/index-page";
 import ControlConfigPage from "@/pages/control/config-page";
