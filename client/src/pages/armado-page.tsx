@@ -445,8 +445,43 @@ export default function ArmadoPage() {
     
     return (
       <div className="min-h-screen flex flex-col items-center bg-slate-900 text-white">
-        <div className="pt-12 pb-8 w-full text-center">
-          <h1 className="text-5xl font-bold">KONECTA</h1>
+        <div className="pt-8 pb-4 w-full text-center">
+          <h1 className="text-4xl font-bold">KONECTA</h1>
+
+          {/* Botones de acciones */}
+          <div className="flex justify-center gap-3 mt-4">
+            {pausaActiva ? (
+              <Button
+                onClick={() => {
+                  if (pausaActualId) {
+                    finalizarPausaMutation.mutate(pausaActualId);
+                  }
+                }}
+                disabled={finalizarPausaMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Play size={16} className="mr-2" />
+                Reanudar
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setMostrarModalPausa(true)}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                <Pause size={16} className="mr-2" />
+                Pausar
+              </Button>
+            )}
+            
+            <Button
+              onClick={() => setMostrarAlertaFinal(true)}
+              disabled={pausaActiva}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Flag size={16} className="mr-2" />
+              Finalizar
+            </Button>
+          </div>
         </div>
         
         <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
@@ -1171,10 +1206,12 @@ export default function ArmadoPage() {
                     return;
                   }
                   
+                  const now = new Date();
+                  
                   crearPausaMutation.mutate({
                     pedidoId: currentPedido.id,
                     motivo: motivoPausa,
-                    inicio: new Date()
+                    inicio: now
                   });
                 }}
               >
