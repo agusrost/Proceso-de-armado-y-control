@@ -246,9 +246,9 @@ export default function ArmadoPage() {
           const data = await res.json();
           setProductos(data);
           
-          // Buscar el primer producto sin procesar
+          // *** ALGORITMO CORREGIDO ***
           // Log para depuración
-          console.log("Productos:", data.map(p => ({ 
+          console.log("Productos:", data.map((p: any) => ({ 
             codigo: p.codigo, 
             recolectado: p.recolectado, 
             cantidad: p.cantidad 
@@ -256,7 +256,7 @@ export default function ArmadoPage() {
           
           // ALGORITMO CORREGIDO: Buscar el primer producto con recolectado === null
           // Esto garantiza que seleccionemos un producto sin procesar en absoluto
-          const primerProductoSinProcesar = data.findIndex(p => p.recolectado === null);
+          const primerProductoSinProcesar = data.findIndex((p: any) => p.recolectado === null);
           console.log("Índice del primer producto sin procesar:", primerProductoSinProcesar);
           
           if (primerProductoSinProcesar !== -1) {
@@ -266,7 +266,7 @@ export default function ArmadoPage() {
           } else {
             // Si todos los productos ya tienen algún valor de recolectado, 
             // elegir el primero que no esté completo
-            const primerIncompleto = data.findIndex(p => p.recolectado !== null && p.recolectado < p.cantidad);
+            const primerIncompleto = data.findIndex((p: any) => p.recolectado !== null && p.recolectado < p.cantidad);
             
             if (primerIncompleto !== -1) {
               console.log(`Seleccionando producto incompleto: ${data[primerIncompleto].codigo}`);
@@ -280,7 +280,7 @@ export default function ArmadoPage() {
           
           // Verificar si hay una pausa activa
           if (currentPedido.pausas && currentPedido.pausas.length > 0) {
-            const pausaActiva = currentPedido.pausas.find(p => !p.fin);
+            const pausaActiva = currentPedido.pausas.find((p: any) => !p.fin);
             if (pausaActiva) {
               setPausaActiva(true);
               setPausaActualId(pausaActiva.id);
@@ -429,8 +429,8 @@ export default function ArmadoPage() {
         <div className="container py-6">
           <h1 className="text-2xl font-bold mb-4">Estado del Pedido</h1>
           <div className="bg-gray-100 p-4 rounded-md mb-4">
-            <p>Cliente: <span className="font-semibold">{currentPedido.clienteId}</span></p>
-            <p>Pedido: <span className="font-semibold">{currentPedido.pedidoId}</span></p>
+            <p>Cliente: {currentPedido.clienteId}</p>
+            <p>Pedido: {currentPedido.pedidoId}</p>
           </div>
           
           <div className="mb-6">
@@ -613,9 +613,11 @@ export default function ArmadoPage() {
                   En proceso
                 </span>
               </p>
-              <p className="text-sm text-gray-600">
-                Producto: {currentProductoIndex + 1} de {productos.length}
-              </p>
+              {productos.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  Producto: {currentProductoIndex + 1} de {productos.length}
+                </p>
+              )}
             </div>
           </div>
         </div>
