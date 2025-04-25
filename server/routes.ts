@@ -2041,9 +2041,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const todosProductos = await storage.getProductosByPedidoId(pedidoId);
           const todosControlados = todosProductos.every(p => (p.controlado || 0) >= p.cantidad);
           
+          // Obtener el detalle creado o actualizado
+          let detalle = null;
+          if (ultimoHistorico) {
+            if (detalleExistente) {
+              detalle = await storage.getControlDetalleById(detalleExistente.id);
+            } else {
+              // Buscar si se acaba de crear un detalle
+              const detallesActualizados = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+              detalle = detallesActualizados.find(d => d.codigo === '17061');
+            }
+          }
+          
           res.json({
             message: "Código 17061 registrado correctamente",
-            producto: productoActualizado,
+            producto: {
+              ...productoActualizado,
+              descripcion: productoActualizado.descripcion || "Bobina de papel" // Asegurar que siempre haya una descripción
+            },
+            detalle: detalle,
             todosControlados,
             cantidadControlada,
             controlEstado
@@ -2155,9 +2171,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const todosProductos = await storage.getProductosByPedidoId(pedidoId);
       const todosControlados = todosProductos.every(p => (p.controlado || 0) >= p.cantidad);
       
+      // Crear o actualizar el detalle en el modelo
+      let detalle = null;
+      if (ultimoHistorico) {
+        if (detalleExistente) {
+          detalle = await storage.getControlDetalleById(detalleExistente.id);
+        } else {
+          // Buscar si se acaba de crear un detalle
+          const detallesActualizados = await storage.getControlDetalleByControlId(ultimoHistorico.id);
+          detalle = detallesActualizados.find(d => areCodesEquivalent(d.codigo, codigo, pedidoId));
+        }
+      }
+      
       res.json({
         message: "Código escaneado registrado correctamente",
-        producto: productoActualizado,
+        producto: {
+          ...productoActualizado,
+          descripcion: productoActualizado.descripcion || "Sin descripción" // Asegurar que siempre haya una descripción
+        },
+        detalle: detalle,
         todosControlados,
         cantidadControlada,
         controlEstado
