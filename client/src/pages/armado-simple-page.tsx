@@ -192,9 +192,9 @@ export default function ArmadoSimplePage() {
         <Button 
           variant="outline" 
           className="border-white text-white hover:bg-slate-800 w-full py-6 text-lg"
-          onClick={() => window.location.href = "/armado"}
+          onClick={() => window.location.href = "/armador"}
         >
-          Ver todo el pedido
+          Volver a inicio
         </Button>
       </div>
     </div>
