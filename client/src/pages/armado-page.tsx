@@ -163,12 +163,27 @@ export default function ArmadoPage() {
         setEditRecolectado(0);
         setEditMotivo("");
       } else {
-        // Si estamos en la interfaz normal, avanzar al siguiente producto
+        // Si estamos en la interfaz normal, avanzar al siguiente producto o mostrar diálogo de finalización
         if (currentProductoIndex < productos.length - 1) {
+          // Aún hay más productos, avanzar al siguiente
           setCurrentProductoIndex(currentProductoIndex + 1);
+          setRecolectados(0);
+          setMotivo("");
+        } else {
+          // Era el último producto, verificar si todos han sido procesados
+          const todosProductosProcesados = productos.every((p, idx) => 
+            (idx < currentProductoIndex) || (p.id === data.id) ? p.recolectado !== null : true
+          );
+          
+          if (todosProductosProcesados) {
+            // Si todos los productos están procesados, mostrar el diálogo de finalización
+            setMostrarAlertaFinal(true);
+          }
+          
+          // Resetear los valores para mantener la interfaz limpia
+          setRecolectados(0);
+          setMotivo("");
         }
-        setRecolectados(0);
-        setMotivo("");
       }
     },
     onError: (error: Error) => {
@@ -536,15 +551,25 @@ export default function ArmadoPage() {
                 return;
               }
               
+              // Verificar si este es el último producto
+              const esUltimoProducto = currentProductoIndex >= productos.length - 1;
+              
               actualizarProductoMutation.mutate({
                 id: producto.id,
                 recolectado: recolectados,
                 motivo: recolectados < producto.cantidad ? motivo : ""
+              }, {
+                onSuccess: () => {
+                  // Si es el último producto, mostrar el diálogo de finalización
+                  if (esUltimoProducto) {
+                    setMostrarAlertaFinal(true);
+                  }
+                }
               });
             }}
             disabled={actualizarProductoMutation.isPending}
           >
-            CONTINUAR ARMADO
+            {currentProductoIndex >= productos.length - 1 ? 'FINALIZAR ARMADO' : 'CONTINUAR ARMADO'}
           </button>
         </div>
         
