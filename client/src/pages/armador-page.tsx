@@ -1,18 +1,21 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ArmadorPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   // Fetch current pedido assigned to armador
-  const { data: pedido, isLoading } = useQuery({
+  const { data: pedido, isLoading, error } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
     enabled: !!user,
     refetchInterval: false,
@@ -33,11 +36,8 @@ export default function ArmadorPage() {
       setLocation("/armado");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error al iniciar armado",
-        description: error.message,
-        variant: "destructive",
-      });
+      setShowError(true);
+      setErrorMessage(error.message || "El pedido ya no está pendiente");
     }
   });
   
@@ -49,47 +49,57 @@ export default function ArmadorPage() {
     logoutMutation.mutate();
   };
 
-  // Nueva interfaz minimalista según imagen exacta
+  // Verificar si hay un pedido en proceso
+  const [buttonText, setButtonText] = useState("COMENZAR");
+  
+  useEffect(() => {
+    if (pedido) {
+      // @ts-ignore - Ignoramos el error de tipo
+      if (pedido.estado === 'en-proceso') {
+        setButtonText("CONTINUAR ARMADO");
+      } else {
+        setButtonText("COMENZAR");
+      }
+    }
+  }, [pedido]);
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900 text-white">
-      {/* Header */}
-      <header className="bg-slate-900 border-b border-gray-800">
-        <div className="container mx-auto flex justify-between items-center py-3 px-4">
-          <div className="flex items-center">
-            <div className="text-xl font-bold mr-2">Konecta Repuestos</div>
-            <div className="text-sm text-gray-400">Sistema de Gestión</div>
-          </div>
-          <div className="flex items-center">
-            <span className="text-sm mr-2">{user?.username}</span>
-            <span className="text-xs text-gray-400">(Armador)</span>
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
+      {/* Mensaje de error */}
+      {showError && (
+        <div className="absolute top-10 left-0 right-0 mx-auto max-w-md">
+          <Alert variant="destructive" className="bg-red-500 text-white border-0">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {errorMessage || "El pedido ya no está pendiente"}
+            </AlertDescription>
+          </Alert>
         </div>
-      </header>
+      )}
       
-      {/* Contenido central */}
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold mb-12">KONECTA</h1>
+      <div className="text-center px-4 py-12">
+        <h1 className="text-5xl font-bold mb-14">KONECTA</h1>
+        
+        {!isLoading && (
+          <Button 
+            onClick={handleStartArmado}
+            className="bg-white hover:bg-gray-200 text-slate-900 font-semibold text-xl px-12 py-6 h-auto rounded-lg mb-16"
+            disabled={startPedidoMutation.isPending}
+          >
+            {buttonText}
+          </Button>
+        )}
+        
+        <div className="mt-12">
+          <p className="text-lg mb-2">Usuario: <span className="font-semibold">{user?.username}</span></p>
           
-          {!isLoading && (
-            <Button 
-              onClick={handleStartArmado}
-              className="bg-white hover:bg-gray-200 text-slate-900 font-semibold text-xl px-8 py-6 h-auto rounded-lg mb-12"
-              disabled={startPedidoMutation.isPending}
-            >
-              COMENZAR
-            </Button>
-          )}
-          
-          <div className="mt-8">
-            <Button 
-              variant="ghost" 
-              className="text-white/80 hover:text-white"
-              onClick={handleLogout}
-            >
-              Cerrar sesión
-            </Button>
-          </div>
+          <Button 
+            variant="ghost" 
+            className="text-white/80 hover:text-white mt-2"
+            onClick={handleLogout}
+          >
+            Cerrar sesión
+          </Button>
         </div>
       </div>
     </div>
