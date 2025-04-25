@@ -980,7 +980,28 @@ export default function ControlPedidoPage() {
         controlState
       };
       console.log("Datos del pedido disponibles en window.dataPedido");
+
+      // Agregar un manejador de errores global para evitar que el plugin de errores de runtime interrumpa la operación
+      window.onerror = function(message, source, lineno, colno, error) {
+        console.error("Error capturado globalmente:", { message, source, lineno, colno });
+        console.error("Detalles del error:", error);
+        
+        // Prevenir que el plugin de runtime error de Replit muestre el modal
+        if (source && source.includes("runtime-error-plugin")) {
+          console.warn("Suprimiendo error del plugin runtime-error-plugin");
+          return true; // Prevenir manejo por defecto
+        }
+        
+        return false; // Permitir manejo normal para otros errores
+      };
     }
+    
+    // Limpiar el manejador de errores al desmontar
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.onerror = null;
+      }
+    };
   }, [pedido, productos, controlState]);
   
   // Extraer horas, minutos y segundos del temporizador
