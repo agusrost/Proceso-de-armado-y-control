@@ -66,29 +66,23 @@ export default function ArmadoSimplePage() {
   // Determinar el producto actual basado en el algoritmo de selección
   useEffect(() => {
     if (productos && productos.length > 0) {
-      // Buscar el producto 17012
-      const index17012 = productos.findIndex((p: any) => p.codigo === "17012");
+      // Buscar el primer producto con 0 unidades recolectadas
+      const primerCero = productos.findIndex((p: any) => p.recolectado === null || p.recolectado === 0);
       
-      if (index17012 !== -1) {
-        setCurrentProductoIndex(index17012);
+      if (primerCero !== -1) {
+        // Encontramos un producto con 0 unidades recolectadas
+        setCurrentProductoIndex(primerCero);
       } else {
-        // Buscar el primer producto sin procesar
-        const primerNoRecolectado = productos.findIndex((p: any) => p.recolectado === null);
+        // Si no hay productos con 0 unidades, buscar el primero incompleto
+        const primerIncompleto = productos.findIndex(
+          (p: any) => p.recolectado !== null && p.recolectado < p.cantidad
+        );
         
-        if (primerNoRecolectado !== -1) {
-          setCurrentProductoIndex(primerNoRecolectado);
+        if (primerIncompleto !== -1) {
+          setCurrentProductoIndex(primerIncompleto);
         } else {
-          // Si todos están procesados parcialmente, buscar el primero incompleto
-          const primerIncompleto = productos.findIndex(
-            (p: any) => p.recolectado !== null && p.recolectado < p.cantidad
-          );
-          
-          if (primerIncompleto !== -1) {
-            setCurrentProductoIndex(primerIncompleto);
-          } else {
-            // Si todo está completo, usar el primero
-            setCurrentProductoIndex(0);
-          }
+          // Si todo está completo, usar el primero
+          setCurrentProductoIndex(0);
         }
       }
     }
