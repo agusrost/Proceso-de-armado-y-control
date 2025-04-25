@@ -144,7 +144,7 @@ export default function ArmadoPage() {
       });
       return await res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${currentPedido?.id}`] });
       
@@ -163,8 +163,23 @@ export default function ArmadoPage() {
         setEditingProductId(null);
         setEditRecolectado(0);
         setEditMotivo("");
+        
+        // Obtener los productos actualizados para verificar si todos están procesados
+        try {
+          const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
+          const productosActualizados = await res.json();
+          const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
+          
+          // Si todos los productos están procesados, finalizar el pedido automáticamente
+          if (todosProductosProcesados) {
+            console.log("Todos los productos están procesados. Finalizando pedido automáticamente...");
+            finalizarPedidoMutation.mutate(currentPedido!.id);
+          }
+        } catch (error) {
+          console.error("Error al verificar productos procesados:", error);
+        }
       } else {
-        // Si estamos en la interfaz normal, avanzar al siguiente producto o mostrar diálogo de finalización
+        // Si estamos en la interfaz normal, avanzar al siguiente producto o finalizar
         if (currentProductoIndex < productos.length - 1) {
           // Aún hay más productos, avanzar al siguiente
           setCurrentProductoIndex(currentProductoIndex + 1);
@@ -172,13 +187,18 @@ export default function ArmadoPage() {
           setMotivo("");
         } else {
           // Era el último producto, verificar si todos han sido procesados
-          const todosProductosProcesados = productos.every((p, idx) => 
-            (idx < currentProductoIndex) || (p.id === data.id) ? p.recolectado !== null : true
-          );
-          
-          if (todosProductosProcesados) {
-            // Si todos los productos están procesados, mostrar el diálogo de finalización
-            setMostrarAlertaFinal(true);
+          try {
+            const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
+            const productosActualizados = await res.json();
+            const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
+            
+            // Si todos los productos están procesados, finalizar el pedido automáticamente
+            if (todosProductosProcesados) {
+              console.log("Último producto procesado y todos los productos tienen estado. Finalizando pedido automáticamente...");
+              finalizarPedidoMutation.mutate(currentPedido!.id);
+            }
+          } catch (error) {
+            console.error("Error al verificar productos procesados:", error);
           }
           
           // Resetear los valores para mantener la interfaz limpia
@@ -562,15 +582,29 @@ export default function ArmadoPage() {
                 recolectado: recolectados,
                 motivo: recolectados < producto.cantidad ? motivo : ""
               }, {
-                onSuccess: () => {
-                  // Si es el último producto, mostrar el diálogo de finalización automáticamente
+                onSuccess: async () => {
+                  // Si es el último producto, verificar si todos están procesados y finalizar automáticamente
                   if (esUltimoProducto) {
-                    console.log("ÚLTIMO PRODUCTO PROCESADO - Mostrando diálogo de finalización automáticamente");
-                    setMostrarAlertaFinal(true);
-                    // También podríamos llamar automáticamente a finalizar
-                    /*
-                    finalizarPedidoMutation.mutate(currentPedido.id);
-                    */
+                    console.log("ÚLTIMO PRODUCTO PROCESADO - Verificando finalización automática...");
+                    try {
+                      const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
+                      const productosActualizados = await res.json();
+                      const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
+                      
+                      if (todosProductosProcesados) {
+                        console.log("Todos los productos están procesados. Finalizando automáticamente.");
+                        finalizarPedidoMutation.mutate(currentPedido.id);
+                      } else {
+                        console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
+                        toast({
+                          title: "Algunos productos sin procesar",
+                          description: "El pedido no puede finalizarse porque aún hay productos sin procesar",
+                          variant: "destructive",
+                        });
+                      }
+                    } catch (error) {
+                      console.error("Error al verificar productos procesados:", error);
+                    }
                   }
                 }
               });
@@ -949,7 +983,7 @@ export default function ArmadoPage() {
               {/* Mostrar botón de finalizar solo si todos los productos están procesados */}
               {todosProductosProcesados && (
                 <Button 
-                  onClick={() => setMostrarAlertaFinal(true)}
+                  onClick={() => finalizarPedidoMutation.mutate(currentPedido.id)}
                   className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-md text-lg font-medium"
                 >
                   Finalizar armado
@@ -1183,12 +1217,30 @@ export default function ArmadoPage() {
             )}
             
             <Button
-              onClick={() => setMostrarAlertaFinal(true)}
-              disabled={pausaActiva}
+              onClick={async () => {
+                try {
+                  const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
+                  const productosActualizados = await res.json();
+                  const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
+                  
+                  if (todosProductosProcesados) {
+                    finalizarPedidoMutation.mutate(currentPedido.id);
+                  } else {
+                    toast({
+                      title: "Productos sin procesar",
+                      description: "El pedido no puede finalizarse porque aún hay productos sin procesar",
+                      variant: "destructive",
+                    });
+                  }
+                } catch (error) {
+                  console.error("Error al verificar productos procesados:", error);
+                }
+              }}
+              disabled={pausaActiva || finalizarPedidoMutation.isPending}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <Flag size={16} className="mr-2" />
-              Finalizar
+              {finalizarPedidoMutation.isPending ? "Finalizando..." : "Finalizar"}
             </Button>
           </div>
         </div>
