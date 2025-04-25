@@ -35,6 +35,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ControlProductoItem } from "@/components/control/control-producto-item";
 import { ProductoEscanerForm } from "@/components/control/producto-escaner-form";
+import { ProductoEscanerSeguro } from "@/components/control/producto-escaner-seguro";
 import { ControlFinalizarDialog } from "@/components/control/control-finalizar-dialog";
 import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontrado-alert";
 import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list-new";
@@ -1157,9 +1158,80 @@ export default function ControlPedidoPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ProductoEscanerForm 
-                  onEscanear={handleEscanearProducto} 
-                  isLoading={escanearProductoMutation.isPending} 
+                {/* Nuevo componente más seguro para evitar errores del plugin */}
+                <ProductoEscanerSeguro
+                  pedidoId={pedidoId}
+                  onEscaneoExitoso={(data) => {
+                    // Actualizar estado local
+                    setControlState(prev => {
+                      const updatedProductos = prev.productosControlados.map(p => {
+                        if (p.codigo === data.producto.codigo) {
+                          return {
+                            ...p,
+                            controlado: data.cantidadControlada,
+                            estado: data.controlEstado
+                          };
+                        }
+                        return p;
+                      });
+                      
+                      // Obtener datos del producto
+                      const productoEncontrado = prev.productosControlados.find(p => p.codigo === data.producto.codigo);
+                      
+                      // Crear nuevo escaneo para el historial con verificación de datos
+                      const nuevoEscaneo = {
+                        id: data.detalle?.id || 0,
+                        codigo: data.detalle?.codigo || "",
+                        cantidad: data.detalle?.cantidad || 0,
+                        controlado: data.cantidadControlada || 0,
+                        descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
+                        timestamp: new Date(),
+                        escaneado: true,
+                        ubicacion: productoEncontrado?.ubicacion || data.producto?.ubicacion || "",
+                        estado: data.controlEstado || "pendiente"
+                      };
+                      
+                      // Verificar si hay productos excedentes
+                      if (data.controlEstado === 'excedente') {
+                        setProductoExcedente({
+                          codigo: data.producto?.codigo || "",
+                          descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
+                          cantidadEsperada: data.producto?.cantidad || 0,
+                          cantidadActual: data.cantidadControlada || 0
+                        });
+                        setExcedenteAlertOpen(true);
+                      }
+                      
+                      return {
+                        ...prev,
+                        productosControlados: updatedProductos,
+                        historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
+                      };
+                    });
+                  }}
+                  onEscaneoError={(error) => {
+                    console.error("Error en escaneo:", error);
+                    
+                    // Verificar si es un error de código no encontrado
+                    const errorData = (error as any).data || {};
+                    const codigo = (error as any).codigo || "";
+                    
+                    if (errorData.tipo === 'CODIGO_NO_ENCONTRADO') {
+                      setCodigoNoEncontrado({
+                        codigo: codigo,
+                        descripcion: errorData.message || "Código no encontrado"
+                      });
+                      setAlertOpen(true);
+                    } else {
+                      // Es otro tipo de error, mostrar toast
+                      toast({
+                        title: "Error al escanear",
+                        description: error instanceof Error ? error.message : "Error desconocido",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  isDisabled={!controlState.isRunning || finalizarOpen}
                   inputRef={escanerInputRef}
                 />
               </CardContent>
