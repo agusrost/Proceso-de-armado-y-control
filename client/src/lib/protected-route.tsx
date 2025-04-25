@@ -52,7 +52,12 @@ export function ProtectedRoute({
   }
 
   // For armador users, redirect to the armador page if they're not already there
-  if (user.role === 'armador' && !path.includes('/armador')) {
+  // Exception: allow armador to access '/armado' and '/armado-simple' pages
+  if (
+    user.role === 'armador' && 
+    !path.includes('/armador') && 
+    !path.includes('/armado')
+  ) {
     return (
       <Route path={path}>
         <Redirect to="/armador" />
