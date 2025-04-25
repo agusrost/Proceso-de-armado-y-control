@@ -88,6 +88,7 @@ export default function ArmadoPage() {
   // Estado para manejo de pausas
   const [mostrarModalPausa, setMostrarModalPausa] = useState(false);
   const [motivoPausa, setMotivoPausa] = useState("");
+  const [motivoPausaDetalle, setMotivoPausaDetalle] = useState("");
   const [pausaActiva, setPausaActiva] = useState(false);
   const [pausaActualId, setPausaActualId] = useState<number | null>(null);
   
@@ -207,6 +208,7 @@ export default function ArmadoPage() {
       setPausaActualId(data.id);
       setMostrarModalPausa(false);
       setMotivoPausa("");
+      setMotivoPausaDetalle("");
       
       toast({
         title: "Pausa iniciada",
@@ -553,6 +555,7 @@ export default function ArmadoPage() {
               
               // Verificar si este es el último producto
               const esUltimoProducto = currentProductoIndex >= productos.length - 1;
+              console.log("¿Es último producto?", esUltimoProducto ? "SÍ" : "NO");
               
               actualizarProductoMutation.mutate({
                 id: producto.id,
@@ -560,9 +563,14 @@ export default function ArmadoPage() {
                 motivo: recolectados < producto.cantidad ? motivo : ""
               }, {
                 onSuccess: () => {
-                  // Si es el último producto, mostrar el diálogo de finalización
+                  // Si es el último producto, mostrar el diálogo de finalización automáticamente
                   if (esUltimoProducto) {
+                    console.log("ÚLTIMO PRODUCTO PROCESADO - Mostrando diálogo de finalización automáticamente");
                     setMostrarAlertaFinal(true);
+                    // También podríamos llamar automáticamente a finalizar
+                    /*
+                    finalizarPedidoMutation.mutate(currentPedido.id);
+                    */
                   }
                 }
               });
@@ -613,8 +621,8 @@ export default function ArmadoPage() {
                   {motivoPausa === "Otro: especificar" && (
                     <Input
                       placeholder="Detalles del motivo"
-                      value={motivoPausa !== "Otro: especificar" ? motivoPausa : ""}
-                      onChange={(e) => setMotivoPausa(e.target.value)}
+                      value={motivoPausaDetalle}
+                      onChange={(e) => setMotivoPausaDetalle(e.target.value)}
                       className="w-full mb-3 bg-blue-950 border-blue-800 text-white placeholder:text-blue-300"
                     />
                   )}
@@ -639,7 +647,7 @@ export default function ArmadoPage() {
                           return;
                         }
                         
-                        if (motivoPausa === "Otro: especificar" && motivoPausa.trim() === "Otro: especificar") {
+                        if (motivoPausa === "Otro: especificar" && motivoPausaDetalle.trim() === "") {
                           toast({
                             title: "Detalle requerido",
                             description: "Debes especificar el motivo de la pausa",
@@ -648,9 +656,14 @@ export default function ArmadoPage() {
                           return;
                         }
                         
+                        // Usar el detalle si el motivo es "Otro: especificar"
+                        const motivoFinal = motivoPausa === "Otro: especificar" 
+                          ? motivoPausaDetalle 
+                          : motivoPausa;
+                          
                         crearPausaMutation.mutate({
                           pedidoId: currentPedido.id,
-                          motivo: motivoPausa
+                          motivo: motivoFinal
                           // No enviamos el campo inicio para que el backend lo maneje
                         });
                       }}
@@ -668,6 +681,7 @@ export default function ArmadoPage() {
                     console.log("Mostrando interfaz de pausa");
                     setMostrarModalPausa(true);
                     setMotivoPausa("");
+                    setMotivoPausaDetalle("");
                   }}
                   className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
                 >
