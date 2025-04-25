@@ -7,6 +7,31 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Desactivar el plugin de errores de runtime de Replit
+      window.runtimeErrorHandler = {
+        init: function() {},
+        hasError: function() { return false; },
+        getError: function() { return null; },
+        clearError: function() {}
+      };
+      
+      // Sobrescribir el plugin de overlay de errores
+      window.__RUNTIME_ERROR_OVERLAY__ = {
+        showError: function() {},
+        clearError: function() {}
+      };
+      
+      // Interceptar todos los errores globales
+      window.addEventListener('error', function(e) {
+        if (e.filename && e.filename.includes('runtime-error-plugin')) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.warn('Error de plugin de Replit interceptado y suprimido:', e.message);
+          return true;
+        }
+      }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>

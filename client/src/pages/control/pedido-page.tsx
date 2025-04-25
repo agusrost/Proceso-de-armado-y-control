@@ -822,12 +822,49 @@ export default function ControlPedidoPage() {
     },
   });
   
-  // Función para manejar el escaneo de productos
+  // Función para manejar el escaneo de productos con mejor manejo de errores
   const handleEscanearProducto = (codigo: string, cantidad: number = 1) => {
-    if (!codigo) return;
+    if (!codigo) {
+      console.error("⚠️ Código vacío o inválido");
+      return;
+    }
     
-    console.log(`Escaneando producto: código=${codigo}, cantidad=${cantidad}`);
-    escanearProductoMutation.mutate({ codigo, cantidad });
+    try {
+      // Normalizar código para consistencia
+      const codigoNormalizado = typeof codigo === 'string' ? 
+        codigo.trim() : String(codigo).trim();
+      
+      if (codigoNormalizado === "") {
+        console.error("⚠️ Código vacío después de normalización");
+        return;
+      }
+      
+      console.log(`Escaneando producto: código="${codigoNormalizado}", cantidad=${cantidad}`);
+      
+      // Usar try-catch para evitar que errores del plugin interrumpan la operación
+      try {
+        escanearProductoMutation.mutate({ 
+          codigo: codigoNormalizado, 
+          cantidad: cantidad > 0 ? cantidad : 1 
+        });
+      } catch (error) {
+        // Capturar explícitamente errores para evitar que el plugin los intercepte
+        console.error("Error controlado durante escaneo:", error);
+        toast({
+          title: "Error al procesar escaneo",
+          description: error instanceof Error ? error.message : "Error inesperado",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error general en handleEscanearProducto:", error);
+      // Mostrar notificación al usuario
+      toast({
+        title: "Error al procesar código",
+        description: "Se produjo un error al procesar el código escaneado",
+        variant: "destructive"
+      });
+    }
   };
   
   // Función para iniciar control
