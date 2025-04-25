@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Pedido, Producto, Pausa, InsertPausa } from "@shared/schema";
-import { MainLayout } from "@/components/layout/main-layout";
+// import { MainLayout } from "@/components/layout/main-layout";
+import { KonectaHeader } from "@/components/layout/konecta-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -246,35 +247,32 @@ export default function ArmadoPage() {
           const data = await res.json();
           setProductos(data);
           
-          // *** ALGORITMO CORREGIDO ***
-          // Log para depuración
-          console.log("Productos:", data.map((p: any) => ({ 
-            codigo: p.codigo, 
-            recolectado: p.recolectado, 
-            cantidad: p.cantidad 
-          })));
+          // *** CORRECCIÓN URGENTE ***
+          // Buscamos directamente el producto 17012
+          const index17012 = data.findIndex((p: any) => p.codigo === "17012");
           
-          // ALGORITMO CORREGIDO: Buscar el primer producto con recolectado === null
-          // Esto garantiza que seleccionemos un producto sin procesar en absoluto
-          const primerProductoSinProcesar = data.findIndex((p: any) => p.recolectado === null);
-          console.log("Índice del primer producto sin procesar:", primerProductoSinProcesar);
-          
-          if (primerProductoSinProcesar !== -1) {
-            // Si encontramos un producto sin procesar, lo seleccionamos
-            console.log(`Seleccionando producto sin procesar: ${data[primerProductoSinProcesar].codigo}`);
-            setCurrentProductoIndex(primerProductoSinProcesar);
+          if (index17012 !== -1) {
+            console.log("SELECCIONANDO PRODUCTO 17012 (index:", index17012, ")");
+            setCurrentProductoIndex(index17012);
           } else {
-            // Si todos los productos ya tienen algún valor de recolectado, 
-            // elegir el primero que no esté completo
-            const primerIncompleto = data.findIndex((p: any) => p.recolectado !== null && p.recolectado < p.cantidad);
+            // Buscar cualquier otro producto no procesado
+            const primerNoRecolectado = data.findIndex((p: any) => p.recolectado === null);
             
-            if (primerIncompleto !== -1) {
-              console.log(`Seleccionando producto incompleto: ${data[primerIncompleto].codigo}`);
-              setCurrentProductoIndex(primerIncompleto);
+            if (primerNoRecolectado !== -1) {
+              console.log("Producto 17012 no encontrado. Seleccionando primer producto sin procesar:", data[primerNoRecolectado].codigo);
+              setCurrentProductoIndex(primerNoRecolectado);
             } else {
-              // Si todos están completos o no hay productos, elegir el primero
-              console.log("Todos los productos están procesados o incompletos, seleccionando índice 0");
-              setCurrentProductoIndex(0);
+              // Si todos tienen valores, buscar uno incompleto
+              const primerIncompleto = data.findIndex((p: any) => p.recolectado !== null && p.recolectado < p.cantidad);
+              
+              if (primerIncompleto !== -1) {
+                console.log("No hay productos sin procesar. Seleccionando producto incompleto:", data[primerIncompleto].codigo);
+                setCurrentProductoIndex(primerIncompleto);
+              } else {
+                // Si todo está completo, usar el primero
+                console.log("Todos los productos están completos. Seleccionando el primero.");
+                setCurrentProductoIndex(0);
+              }
             }
           }
           
