@@ -1460,22 +1460,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
-        // Convertimos la URL al formato que permite exportación de datos
-        // Esto permite verificar si es una URL válida y accesible
-        const exportUrl = url.replace(/\/edit.*$/, '/export?format=csv&id=');
+        // Extraemos el ID del documento de Google Sheets de la URL
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (!match || !match[1]) {
+          return res.status(400).json({
+            success: false,
+            message: "No se pudo extraer el ID del documento de Google Sheets de la URL"
+          });
+        }
+        
+        const sheetId = match[1];
+        // Usamos el formato de acceso público para CSV
+        const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
         
         // Importamos axios para hacer la solicitud
         const axios = require('axios');
         
         // Intentamos obtener los datos en formato CSV
+        console.log("Intentando acceder a:", exportUrl);
         const response = await axios.get(exportUrl, { 
-          timeout: 8000,
-          responseType: 'text'  // Solicitamos texto en lugar de JSON
+          timeout: 10000,
+          responseType: 'text',  // Solicitamos texto en lugar de JSON
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
         });
         
         // Si llegamos aquí, la conexión fue exitosa
         // Contamos el número aproximado de filas contando saltos de línea
         const rowCount = (response.data.match(/\n/g) || []).length;
+        
+        // Verificar si la respuesta parece ser un CSV válido (debe tener comas y filas)
+        if (rowCount < 1 || !response.data.includes(',')) {
+          console.warn("La respuesta no parece ser un CSV válido:", response.data.substring(0, 100));
+          return res.status(400).json({ 
+            success: false, 
+            message: "El documento no parece tener el formato esperado o no es accesible públicamente" 
+          });
+        }
         
         return res.json({ 
           success: true, 
@@ -1484,10 +1506,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error: any) {
         console.error("Error al probar conexión con Google Sheets:", error.message);
-        return res.status(400).json({ 
-          success: false, 
-          message: "Error al conectar con Google Sheets: " + (error.message || "No se pudo verificar la URL")
-        });
+        // Mensajes de error más descriptivos según el tipo de error
+        if (error.code === 'ENOTFOUND') {
+          return res.status(400).json({ 
+            success: false, 
+            message: "No se pudo conectar al servidor. Verifique su conexión a internet."
+          });
+        } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+          return res.status(400).json({ 
+            success: false, 
+            message: "La conexión tardó demasiado tiempo. Intente más tarde."
+          });
+        } else if (error.response) {
+          // Si tenemos una respuesta HTTP pero con error
+          return res.status(400).json({ 
+            success: false, 
+            message: `Error de Google Sheets (${error.response.status}): Verifique que el documento sea público y accesible.`
+          });
+        } else {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Error al conectar con Google Sheets. Asegúrese de que el documento sea público y accesible desde la web."
+          });
+        }
       }
     } catch (error) {
       console.error("Error al procesar solicitud de prueba de Google Sheets:", error);
