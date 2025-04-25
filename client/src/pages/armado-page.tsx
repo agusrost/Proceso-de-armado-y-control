@@ -444,44 +444,9 @@ export default function ArmadoPage() {
     if (!producto) return <div>Cargando productos...</div>;
     
     return (
-      <div className="min-h-screen flex flex-col items-center bg-slate-900 text-white">
+      <div className="min-h-screen flex flex-col items-center bg-blue-900 text-white">
         <div className="pt-8 pb-4 w-full text-center">
           <h1 className="text-4xl font-bold">KONECTA</h1>
-
-          {/* Botones de acciones */}
-          <div className="flex justify-center gap-3 mt-4">
-            {pausaActiva ? (
-              <Button
-                onClick={() => {
-                  if (pausaActualId) {
-                    finalizarPausaMutation.mutate(pausaActualId);
-                  }
-                }}
-                disabled={finalizarPausaMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Play size={16} className="mr-2" />
-                Reanudar
-              </Button>
-            ) : (
-              <Button
-                onClick={() => setMostrarModalPausa(true)}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white"
-              >
-                <Pause size={16} className="mr-2" />
-                Pausar
-              </Button>
-            )}
-            
-            <Button
-              onClick={() => setMostrarAlertaFinal(true)}
-              disabled={pausaActiva}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Flag size={16} className="mr-2" />
-              Finalizar
-            </Button>
-          </div>
         </div>
         
         <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
@@ -553,12 +518,46 @@ export default function ArmadoPage() {
           </button>
         </div>
         
-        <button 
-          onClick={() => setUsingSimpleInterface(false)}
-          className="mt-6 bg-slate-800 hover:bg-slate-700 text-white py-3 px-6 rounded-md text-lg"
-        >
-          Ver todo el pedido
-        </button>
+        <div className="mt-6 flex flex-col gap-3 pb-6">
+          <button 
+            onClick={() => setUsingSimpleInterface(false)}
+            className="bg-blue-800 hover:bg-blue-700 text-white py-3 px-6 rounded-md text-lg"
+          >
+            Ver todo el pedido
+          </button>
+          
+          {pausaActiva ? (
+            <button
+              onClick={() => {
+                if (pausaActualId) {
+                  finalizarPausaMutation.mutate(pausaActualId);
+                }
+              }}
+              disabled={finalizarPausaMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-md text-lg flex items-center justify-center"
+            >
+              <Play size={16} className="mr-2" />
+              Reanudar armado
+            </button>
+          ) : (
+            <button
+              onClick={() => setMostrarModalPausa(true)}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-6 rounded-md text-lg flex items-center justify-center"
+            >
+              <Pause size={16} className="mr-2" />
+              Pausar armado
+            </button>
+          )}
+          
+          <button
+            onClick={() => setMostrarAlertaFinal(true)}
+            disabled={pausaActiva}
+            className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-md text-lg flex items-center justify-center"
+          >
+            <Flag size={16} className="mr-2" />
+            Finalizar armado
+          </button>
+        </div>
       </div>
     );
   }
