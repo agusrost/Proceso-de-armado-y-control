@@ -1,40 +1,56 @@
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Pedido, Producto } from "@shared/schema";
-import { PedidoEstado } from "@shared/types";
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Pedido, Producto, Pausa, InsertPausa } from "@shared/schema";
+import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Minus, CheckCircle2 } from "lucide-react";
-import ProductoArmadoItem from "@/components/armado/producto-armado-item";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: { 
+  producto: Producto, 
+  isActive: boolean, 
+  isCompleted: boolean,
+  isPending: boolean
+}) {
+  return (
+    <div className={`border p-4 rounded mb-2 ${
+      isActive 
+        ? 'border-blue-600 bg-blue-50' 
+        : isCompleted 
+          ? 'border-green-600 bg-green-50' 
+          : isPending 
+            ? 'border-gray-300 bg-gray-50' 
+            : 'border-gray-300'
+    }`}>
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="font-mono text-sm">{producto.codigo}</p>
+          <p className="font-medium">{producto.descripcion || 'Sin descripción'}</p>
+          <p className="text-gray-600">Cantidad: {producto.cantidad}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-gray-600">Ubicación: {producto.ubicacion || 'N/A'}</p>
+          {producto.recolectado !== null ? (
+            <>
+              <p className={`font-medium ${producto.recolectado === producto.cantidad ? 'text-green-600' : 'text-orange-600'}`}>
+                Recolectado: {producto.recolectado}/{producto.cantidad}
+              </p>
+              {producto.motivo && (
+                <p className="text-xs text-red-600 italic">Motivo: {producto.motivo}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-400">No procesado</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ArmadoPage() {
   const { toast } = useToast();
@@ -53,756 +69,740 @@ export default function ArmadoPage() {
   const [motivoPausa, setMotivoPausa] = useState("");
   const [pausaActiva, setPausaActiva] = useState(false);
   const [pausaActualId, setPausaActualId] = useState<number | null>(null);
-
-  // Obtener el próximo pedido pendiente
-  const { data: proximoPedido, isLoading: isLoadingPedido, error: pedidoError, refetch: refetchPedido } = useQuery<Pedido | null>({
+  
+  // Producto en modo edición (para Estado del Pedido)
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [editRecolectado, setEditRecolectado] = useState<number>(0);
+  const [editMotivo, setEditMotivo] = useState<string>("");
+  
+  // Fetch pedido en proceso
+  const { data: pedidoArmador, isLoading: isLoadingPedido } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
-    queryFn: async () => {
-      try {
-        const res = await fetch(`/api/pedido-para-armador`);
-        if (!res.ok) {
-          if (res.status === 404) {
-            // No hay pedidos pendientes, no es un error
-            return null;
-          }
-          const errorData = await res.json();
-          throw new Error(errorData.message || "Error al obtener el próximo pedido");
-        }
-        return res.json();
-      } catch (error) {
-        console.error("Error fetching pedido:", error);
-        throw error;
-      }
-    },
-    enabled: !currentPedido,
-    retry: false,
+    enabled: !!user && user.role === 'armador',
   });
-
-  // Obtener productos de un pedido específico
-  const fetchProductos = async (pedidoId: number) => {
-    const res = await fetch(`/api/productos/pedido/${pedidoId}`);
-    if (!res.ok) {
-      throw new Error("Error al obtener los productos del pedido");
-    }
-    return res.json();
-  };
-
-  // Asignar pedido a armador
-  const asignarPedidoMutation = useMutation({
-    mutationFn: async ({ pedidoId, armadorId }: { pedidoId: number; armadorId: number }) => {
-      const res = await apiRequest(
-        "PATCH",
-        `/api/pedidos/${pedidoId}`,
-        { armadorId, estado: "en-proceso" as PedidoEstado }
-      );
-      return res.json();
+  
+  // Iniciar pedido mutation
+  const iniciarPedidoMutation = useMutation({
+    mutationFn: async (pedidoId: number) => {
+      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/iniciar`, {});
+      return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos/siguiente"] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      
+      // Actualizar el state local con los datos del pedido iniciado
+      setCurrentPedido(data);
+      
+      toast({
+        title: "Pedido iniciado",
+        description: "Has iniciado el armado del pedido correctamente",
+      });
+      
+      // Cerrar el diálogo de confirmación
+      setMostrarAlertaInicio(false);
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Error al iniciar pedido",
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // Actualizar producto con cantidad recolectada
+  
+  // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
-    mutationFn: async ({ 
-      productoId, 
-      recolectado, 
-      motivo = "" 
-    }: { 
-      productoId: number; 
-      recolectado: number; 
-      motivo?: string;
-    }) => {
-      console.log(`Actualizando producto ID ${productoId} con recolectado: ${recolectado}, motivo: ${motivo}`);
+    mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
+      const res = await apiRequest("PUT", `/api/productos/${params.id}`, {
+        recolectado: params.recolectado,
+        motivo: params.motivo
+      });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${currentPedido?.id}`] });
       
-      // Usar fetch directamente para mayor control sobre la respuesta
-      const res = await fetch(`/api/productos/${productoId}`, {
-        method: 'PUT', // Asegurarse que sea PUT y no PATCH
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          recolectado,
-          motivo
-        })
+      // Actualizar el producto en la lista local
+      setProductos(prevProductos => {
+        return prevProductos.map(p => p.id === data.id ? { ...p, ...data } : p);
       });
       
-      // Obtener el texto primero para debug
-      const responseText = await res.text();
-      console.log("Respuesta actualizar producto:", responseText.substring(0, 200));
+      toast({
+        title: "Producto actualizado",
+        description: "Las cantidades han sido actualizadas correctamente",
+      });
       
-      if (!res.ok) {
-        let errorMessage = "Error al actualizar producto";
-        
-        // Intentar parsear como JSON si parece JSON
-        if (responseText.trim().startsWith('{')) {
-          try {
-            const errorData = JSON.parse(responseText);
-            if (errorData && errorData.message) {
-              errorMessage = errorData.message;
-            }
-          } catch (parseError) {
-            console.error("Error al analizar respuesta como JSON:", parseError);
-            if (responseText) {
-              errorMessage = "Error del servidor: " + responseText.substring(0, 100);
-            }
-          }
-        } else {
-          // Si no es JSON, mostrar parte del texto
-          errorMessage = "Error inesperado. Por favor, inténtalo de nuevo.";
-        }
-        
-        throw new Error(errorMessage);
-      }
-      
-      // Parsear la respuesta como JSON
-      try {
-        return JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Error al parsear respuesta como JSON:", parseError);
-        throw new Error("Error al procesar la respuesta del servidor");
-      }
-    },
-    onSuccess: (updatedProducto) => {
-      setProductos(productos.map(p => 
-        p.id === updatedProducto.id ? updatedProducto : p
-      ));
-      
-      if (currentProductoIndex < productos.length - 1) {
-        setCurrentProductoIndex(currentProductoIndex + 1);
-        // Usar la cantidad del siguiente producto como valor inicial
-        const nextProductIndex = currentProductoIndex + 1;
-        setRecolectados(productos[nextProductIndex].cantidad);
-        setMotivo("");
+      if (editingProductId) {
+        // Si estamos en modo edición, resetear el estado
+        setEditingProductId(null);
+        setEditRecolectado(0);
+        setEditMotivo("");
       } else {
-        // Es el último producto, verificar si todos los productos tienen recolectado
-        const todosRecolectados = productos.every(p => 
-          p.id === updatedProducto.id 
-            ? updatedProducto.recolectado !== null && updatedProducto.recolectado > 0 
-            : p.recolectado !== null && p.recolectado > 0
-        );
-        
-        // Mostrar alerta de finalización
-        setMostrarAlertaFinal(true);
-        
-        // Verificar si hay faltantes para determinar el estado
-        const hayFaltantes = productos.some(p => {
-          // Para el producto actual, usar el valor actualizado
-          if (p.id === updatedProducto.id) {
-            return updatedProducto.recolectado !== null && updatedProducto.recolectado < updatedProducto.cantidad;
-          }
-          // Para los demás productos, usar sus valores originales
-          return p.recolectado !== null && p.recolectado < p.cantidad;
-        });
-        
-        // Si hay faltantes, marcar como "pre-finalizado", de lo contrario "completado"
-        finalizarPedidoMutation.mutate({ 
-          pedidoId: currentPedido!.id, 
-          estado: hayFaltantes ? "pre-finalizado" : "completado"
-        });
+        // Si estamos en la interfaz normal, avanzar al siguiente producto
+        if (currentProductoIndex < productos.length - 1) {
+          setCurrentProductoIndex(currentProductoIndex + 1);
+        }
+        setRecolectados(0);
+        setMotivo("");
       }
     },
     onError: (error: Error) => {
-      console.error("Error en actualizarProductoMutation:", error);
       toast({
         title: "Error al actualizar producto",
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // Pausar pedido
-  const pausarPedidoMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentPedido || !motivoPausa) return null;
-      
-      console.log(`Pausando pedido ${currentPedido.id} con motivo: "${motivoPausa}"`);
-      
-      const pausaData = {
-        pedidoId: currentPedido.id,
-        motivo: motivoPausa,
-      };
-      
-      // Usar fetch directamente para tener mayor control sobre la respuesta
-      const res = await fetch("/api/pausas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(pausaData)
-      });
-      
-      // Obtener texto primero para diagnosticar problemas
-      const responseText = await res.text();
-      console.log("Respuesta pausar pedido:", responseText.substring(0, 200));
-      
-      if (!res.ok) {
-        let errorMsg = "Error al pausar pedido";
-        try {
-          if (responseText && responseText.trim().startsWith('{')) {
-            const errorData = JSON.parse(responseText);
-            if (errorData && errorData.message) {
-              errorMsg = errorData.message;
-            }
-          }
-        } catch (e) {
-          console.error("Error al parsear respuesta:", e);
-        }
-        throw new Error(errorMsg);
-      }
-      
-      try {
-        return JSON.parse(responseText);
-      } catch (e) {
-        console.error("Error al parsear respuesta como JSON:", e);
-        throw new Error("Error al procesar la respuesta del servidor");
-      }
+  
+  // Crear pausa mutation
+  const crearPausaMutation = useMutation({
+    mutationFn: async (data: InsertPausa) => {
+      const res = await apiRequest("POST", "/api/pausas", data);
+      return await res.json();
     },
-    onSuccess: (pausa) => {
-      console.log("Pausa creada exitosamente:", pausa);
+    onSuccess: (data: Pausa) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       setPausaActiva(true);
-      setPausaActualId(pausa.id);
+      setPausaActualId(data.id);
       setMostrarModalPausa(false);
-      setMotivoPausa(""); // Limpiar el motivo después de pausar
+      setMotivoPausa("");
       
       toast({
-        title: "Pedido pausado",
-        description: "El pedido ha sido pausado correctamente",
+        title: "Pausa iniciada",
+        description: "Has pausado el armado del pedido correctamente",
       });
     },
     onError: (error: Error) => {
-      console.error("Error en pausarPedidoMutation:", error);
       toast({
-        title: "Error al pausar",
+        title: "Error al crear pausa",
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // Reanudar pedido
-  const reanudarPedidoMutation = useMutation({
-    mutationFn: async () => {
-      if (!pausaActualId) return null;
-      
-      const res = await apiRequest("PUT", `/api/pausas/${pausaActualId}/fin`, {});
-      return res.json();
+  
+  // Finalizar pausa mutation
+  const finalizarPausaMutation = useMutation({
+    mutationFn: async (pausaId: number) => {
+      const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
+      return await res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       setPausaActiva(false);
       setPausaActualId(null);
       
       toast({
-        title: "Pedido reanudado",
-        description: "El pedido ha sido reanudado correctamente",
+        title: "Pausa finalizada",
+        description: "Has reanudado el armado del pedido",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error al reanudar",
+        title: "Error al finalizar pausa",
         description: error.message,
         variant: "destructive",
       });
-    },
+    }
   });
-
-  // Finalizar pedido
+  
+  // Finalizar pedido mutation
   const finalizarPedidoMutation = useMutation({
-    mutationFn: async ({ 
-      pedidoId, 
-      estado = "completado" 
-    }: { 
-      pedidoId: number; 
-      estado?: PedidoEstado;
-    }) => {
-      const res = await apiRequest("PATCH", `/api/pedidos/${pedidoId}`, {
-        estado,
-        finalizado: new Date().toISOString(),
+    mutationFn: async (pedidoId: number) => {
+      const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
+        estado: "finalizado"
       });
-      return res.json();
+      return await res.json();
     },
     onSuccess: () => {
-      // No restablecemos el estado aquí - lo haremos cuando el usuario cierre el diálogo de finalización
-      // para que pueda ver el mensaje correctamente
-      
-      // Recargar datos
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos/siguiente"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      setCurrentPedido(null);
+      setProductos([]);
+      setMostrarAlertaFinal(false);
+      setCurrentProductoIndex(0);
       
       toast({
         title: "Pedido finalizado",
-        description: "El pedido ha sido completado correctamente",
+        description: "Has finalizado el armado del pedido correctamente",
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Error al finalizar pedido",
         description: error.message,
         variant: "destructive",
       });
-    },
-  });
-
-  // Comenzar un nuevo pedido
-  const comenzarPedido = async () => {
-    if (!proximoPedido) {
-      toast({
-        title: "No hay pedidos pendientes",
-        description: "No hay pedidos pendientes para armar",
-        variant: "destructive",
-      });
-      return;
     }
-
-    try {
-      // Iniciar el pedido (asignar armador)
-      console.log(`Iniciando petición para comenzar pedido ID ${proximoPedido.id}`);
-      const iniciarResponse = await fetch(`/api/pedidos/${proximoPedido.id}/iniciar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-      
-      // Siempre intentar obtener texto primero
-      const responseText = await iniciarResponse.text();
-      console.log("Respuesta texto:", responseText.substring(0, 200)); // Log para debugging
-      
-      if (!iniciarResponse.ok) {
-        let errorMessage = "Error al comenzar el pedido";
-        
-        // Intentar parsear como JSON si parece JSON
-        if (responseText.trim().startsWith('{')) {
-          try {
-            const errorData = JSON.parse(responseText);
-            if (errorData && errorData.message) {
-              errorMessage = errorData.message;
-            }
-          } catch (parseError) {
-            console.error("Error al analizar respuesta como JSON:", parseError);
-            // Si no es JSON, usar el texto como mensaje de error
-            if (responseText) {
-              errorMessage = "El servidor respondió con un error: " + responseText.substring(0, 100);
+  });
+  
+  // Fetch productos de pedido cuando cambia el pedido actual
+  useEffect(() => {
+    if (currentPedido?.id) {
+      const fetchProductos = async () => {
+        try {
+          const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
+          const data = await res.json();
+          setProductos(data);
+          
+          // Buscar el primer producto sin procesar
+          const primerProductoSinProcesar = data.findIndex(p => p.recolectado === null);
+          if (primerProductoSinProcesar !== -1) {
+            setCurrentProductoIndex(primerProductoSinProcesar);
+          } else {
+            setCurrentProductoIndex(0);
+          }
+          
+          // Verificar si hay una pausa activa
+          if (currentPedido.pausas && currentPedido.pausas.length > 0) {
+            const pausaActiva = currentPedido.pausas.find(p => !p.fin);
+            if (pausaActiva) {
+              setPausaActiva(true);
+              setPausaActualId(pausaActiva.id);
             }
           }
-        } else {
-          // Si la respuesta no parece JSON, mostrar mensaje genérico
-          errorMessage = "El servidor respondió con un formato inesperado. Por favor, inténtalo nuevamente.";
+        } catch (error) {
+          console.error("Error al cargar productos:", error);
+          toast({
+            title: "Error al cargar productos",
+            description: "No se pudieron cargar los productos del pedido",
+            variant: "destructive",
+          });
         }
-        
-        throw new Error(errorMessage);
-      }
+      };
       
-      let pedidoData;
-      // Intentar parsear la respuesta como JSON
-      try {
-        pedidoData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Error al analizar respuesta JSON después de éxito:", parseError);
-        throw new Error("Error al procesar la respuesta del servidor");
-      }
-      
-      // Actualizar el estado del pedido en la caché de React-Query
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      
-      // Cargar productos del pedido
-      const productosData = await fetchProductos(proximoPedido.id);
-      
-      setCurrentPedido(proximoPedido);
-      setProductos(productosData);
-      setCurrentProductoIndex(0);
-      
-      // Establecer la cantidad inicial igual a la cantidad solicitada del primer producto
-      if (productosData.length > 0) {
-        setRecolectados(productosData[0].cantidad);
-      } else {
-        setRecolectados(0);
-      }
-      
-      // Mostrar alerta de inicio
-      setMostrarAlertaInicio(true);
-    } catch (error) {
-      console.error("Error al comenzar pedido:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Error al comenzar el pedido",
-        variant: "destructive",
-      });
+      fetchProductos();
     }
-  };
-
-  // Incrementar cantidad recolectada
-  const incrementarRecolectados = () => {
-    const producto = productos[currentProductoIndex];
-    if (recolectados < producto.cantidad) {
-      setRecolectados(recolectados + 1);
+  }, [currentPedido, toast]);
+  
+  // Actualizar pedido actual cuando cambia el pedido del armador
+  useEffect(() => {
+    if (pedidoArmador && pedidoArmador.estado === 'en-proceso') {
+      setCurrentPedido(pedidoArmador);
     }
-  };
-
-  // Decrementar cantidad recolectada
-  const decrementarRecolectados = () => {
-    if (recolectados > 0) {
-      setRecolectados(recolectados - 1);
-    }
-  };
-
-  // Continuar al siguiente producto
-  const continuarSiguiente = () => {
-    const producto = productos[currentProductoIndex];
+  }, [pedidoArmador]);
+  
+  // Función para manejar el submit del formulario
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productos[currentProductoIndex]) return;
     
-    // Si recolectados es menor que cantidad, se requiere un motivo
-    if (recolectados < producto.cantidad && !motivo) {
+    const producto = productos[currentProductoIndex];
+    const cantidadRequerida = producto.cantidad;
+    
+    // Validar cantidad
+    if (recolectados > cantidadRequerida) {
       toast({
-        title: "Se requiere motivo",
-        description: "Selecciona un motivo por el cual no se recolectó la cantidad completa",
+        title: "Cantidad inválida",
+        description: `No puedes recolectar más de ${cantidadRequerida} unidades`,
         variant: "destructive",
       });
       return;
     }
     
-    // Actualizar el producto actual
-    actualizarProductoMutation.mutate({ 
-      productoId: producto.id, 
+    // Si hay faltantes, requerir motivo
+    if (recolectados < cantidadRequerida && !motivo) {
+      toast({
+        title: "Motivo requerido",
+        description: "Debe indicar un motivo para los faltantes",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Determinar si necesitamos enviar el motivo
+    const motivoParaEnviar = recolectados < cantidadRequerida ? motivo : undefined;
+    
+    // Actualizar producto
+    actualizarProductoMutation.mutate({
+      id: producto.id,
       recolectado: recolectados,
-      motivo: recolectados < producto.cantidad ? motivo : "",
+      motivo: motivoParaEnviar
     });
   };
-
-  // Continuar con otro pedido después de finalizar
-  const continuarOtroPedido = () => {
-    // Cerrar el diálogo de finalización
-    setMostrarAlertaFinal(false);
-    
-    // Restablecer el estado para comenzar con un nuevo pedido
-    setCurrentPedido(null);
-    setProductos([]);
-    setCurrentProductoIndex(0);
-    setRecolectados(0);
-    setMotivo("");
-    
-    // Recargar datos del próximo pedido
-    queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-  };
-
-  // Si no hay usuario o no tiene rol adecuado, mostrar mensaje
-  if (!user || (user.role !== "armador" && user.role !== "admin-plus")) {
+  
+  // Si no hay pedido en proceso, mostrar mensaje
+  if (isLoadingPedido) {
     return (
-      <div className="container py-6">
-        <h1 className="text-2xl font-bold mb-4">Armado de Pedidos</h1>
-        <p>Solo los usuarios con rol 'armador' o 'admin-plus' pueden acceder a esta sección.</p>
-      </div>
+      <MainLayout>
+        <div className="container py-6">
+          <h1 className="text-2xl font-bold mb-4">Armado de Pedidos</h1>
+          <div className="flex justify-center py-8">
+            <p>Cargando...</p>
+          </div>
+        </div>
+      </MainLayout>
     );
   }
-
-  // Si no hay pedido activo, mostrar pantalla de inicio
+  
   if (!currentPedido) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white px-4">
-        <h1 className="text-4xl font-bold mb-12">KONECTA</h1>
-        <Button
-          size="lg"
-          className="w-full max-w-xs text-xl py-6 mb-16 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
-          onClick={comenzarPedido}
-          disabled={isLoadingPedido || !proximoPedido}
-        >
-          {isLoadingPedido ? (
-            <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          ) : !proximoPedido ? (
-            "NO HAY PEDIDOS PENDIENTES"
+      <MainLayout>
+        <div className="container py-6">
+          <h1 className="text-2xl font-bold mb-4">Armado de Pedidos</h1>
+          
+          {pedidoArmador ? (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 text-blue-500">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="font-medium text-blue-800">Pedido asignado</h3>
+                  <p className="text-blue-800 mt-1">
+                    Tienes un pedido asignado. Puedes comenzar a armarlo cuando estés listo.
+                  </p>
+                  <div className="mt-3">
+                    <Button 
+                      onClick={() => setMostrarAlertaInicio(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Play size={16} className="mr-2" />
+                      Iniciar armado
+                    </Button>
+                    
+                    <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Iniciar armado</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ¿Estás seguro de que deseas iniciar el armado del pedido? 
+                            Se iniciará el cronómetro y no podrás cancelarlo.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => iniciarPedidoMutation.mutate(pedidoArmador.id)}
+                          >
+                            Iniciar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
-            "COMENZAR"
+            <div className="bg-gray-50 border border-gray-200 p-6 rounded text-center">
+              <p className="text-gray-600 mb-2">No tienes pedidos asignados</p>
+              <p className="text-sm text-gray-500">
+                Cuando se te asigne un pedido, aparecerá aquí para que puedas comenzar a armarlo.
+              </p>
+            </div>
           )}
-        </Button>
-        <div className="flex flex-col items-center gap-2 text-base">
-          <div>
-            Usuario: <span className="font-bold">{user.username}</span>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-white hover:text-white hover:bg-gray-700"
-            onClick={() => {
-              // Cerrar sesión
-              fetch("/api/logout", { method: "POST" })
-                .then(() => {
-                  window.location.href = "/auth";
-                })
-                .catch(err => {
-                  toast({
-                    title: "Error",
-                    description: "No se pudo cerrar sesión",
-                    variant: "destructive",
-                  });
-                });
-            }}
-          >
-            Cerrar sesión
-          </Button>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   // Si hay pedido activo pero estamos mostrando el estado
   if (mostrarEstadoPedido) {
     return (
-      <div className="container py-6">
-        <h1 className="text-2xl font-bold mb-4">Estado del Pedido</h1>
-        <div className="bg-gray-100 p-4 rounded-md mb-4">
-          <p>Cliente: {currentPedido.clienteId}</p>
-          <p>Pedido: {currentPedido.pedidoId}</p>
+      <MainLayout>
+        <div className="container py-6">
+          <h1 className="text-2xl font-bold mb-4">Estado del Pedido</h1>
+          <div className="bg-gray-100 p-4 rounded-md mb-4">
+            <p>Cliente: <span className="font-semibold">{currentPedido.clienteId}</span></p>
+            <p>Pedido: <span className="font-semibold">{currentPedido.pedidoId}</span></p>
+          </div>
+          
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">Productos</h2>
+            {productos.map((producto, index) => (
+              <div key={producto.id} className="mb-4 border rounded-md p-4 relative">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{producto.descripcion || producto.codigo}</p>
+                    <p className="text-sm text-gray-600 font-mono mb-1">{producto.codigo}</p>
+                    <p className="text-sm">Cantidad: {producto.cantidad}</p>
+                    <p className="text-sm">Ubicación: {producto.ubicacion || 'No especificada'}</p>
+                  </div>
+                  
+                  <div className="text-right">
+                    {editingProductId === producto.id ? (
+                      // MODO EDICIÓN
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={editRecolectado}
+                            onChange={(e) => setEditRecolectado(parseInt(e.target.value) || 0)}
+                            min={0}
+                            max={producto.cantidad}
+                            className="w-20"
+                          />
+                          <span className="text-sm text-gray-500">/ {producto.cantidad}</span>
+                        </div>
+                        
+                        {editRecolectado < producto.cantidad && (
+                          <Input
+                            type="text"
+                            value={editMotivo}
+                            onChange={(e) => setEditMotivo(e.target.value)}
+                            placeholder="Motivo del faltante"
+                            className="w-full"
+                          />
+                        )}
+                        
+                        <div className="flex justify-end gap-2 mt-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setEditingProductId(null);
+                              setEditRecolectado(0);
+                              setEditMotivo("");
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="default"
+                            onClick={() => {
+                              actualizarProductoMutation.mutate({
+                                id: producto.id,
+                                recolectado: editRecolectado,
+                                motivo: editRecolectado < producto.cantidad ? editMotivo : undefined
+                              });
+                            }}
+                          >
+                            Guardar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      // MODO VISUALIZACIÓN
+                      <>
+                        <div className="flex flex-col items-end">
+                          {producto.recolectado !== null ? (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              producto.recolectado === producto.cantidad 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {producto.recolectado}/{producto.cantidad}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500 text-sm">No procesado</span>
+                          )}
+                          
+                          {producto.motivo && (
+                            <span className="text-xs text-red-600 mt-1">{producto.motivo}</span>
+                          )}
+                        </div>
+                        
+                        {/* Botón de edición siempre visible */}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="mt-2"
+                          onClick={() => {
+                            setEditingProductId(producto.id);
+                            setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
+                            setEditMotivo(producto.motivo || "");
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <Button onClick={() => setMostrarEstadoPedido(false)} className="w-full">
+            Volver a la recolección
+          </Button>
+          
+          <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
+            Está controlando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
+          </div>
         </div>
-        
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-2">Productos</h2>
-          {productos.map((producto, index) => (
-            <ProductoArmadoItem
-              key={producto.id}
-              producto={producto}
-              isActive={index === currentProductoIndex}
-              isCompleted={producto.recolectado !== null && producto.recolectado > 0}
-              isPending={index > currentProductoIndex}
-            />
-          ))}
-        </div>
-        
-        <Button onClick={() => setMostrarEstadoPedido(false)} className="w-full">
-          Volver a la recolección
-        </Button>
-        
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
-          Está controlando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
-        </div>
-      </div>
+      </MainLayout>
     );
   }
-
-  // Pantalla principal de armado
-  const currentProducto = productos[currentProductoIndex];
   
+  // Si hay pedido activo y estamos en la interfaz de armado
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
-      {currentProducto && (
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="mb-4">
-              <p className="font-bold">Código SKU: {currentProducto.codigo}</p>
-              <p className="mt-1">Cantidad: {currentProducto.cantidad}</p>
-              {currentProducto.ubicacion ? (
-                <p className="mt-1 text-blue-700 font-medium bg-blue-50 px-3 py-1 rounded-md">
-                  Ubicación: {currentProducto.ubicacion}
-                </p>
-              ) : (
-                <p className="mt-1">Ubicación: No especificada</p>
-              )}
-              <p className="mt-1">Descripción: {currentProducto.descripcion}</p>
-            </div>
+    <MainLayout>
+      <div className="container py-6">
+        <div className="flex justify-between mb-6">
+          <h1 className="text-2xl font-bold">Armado de Pedidos</h1>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => setMostrarEstadoPedido(true)}
+            >
+              Ver Estado del Pedido
+            </Button>
             
-            <div className="flex items-center justify-between mt-6 mb-4">
+            {pausaActiva ? (
               <Button
-                variant="outline"
-                size="icon"
-                onClick={decrementarRecolectados}
-                disabled={recolectados <= 0}
+                onClick={() => {
+                  if (pausaActualId) {
+                    finalizarPausaMutation.mutate(pausaActualId);
+                  }
+                }}
+                disabled={finalizarPausaMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                <Minus className="h-4 w-4" />
+                <Play size={16} className="mr-2" />
+                Reanudar
               </Button>
-              
-              <div className="text-center text-2xl font-bold mx-4 w-16">
-                {recolectados}
-              </div>
-              
+            ) : (
               <Button
-                variant="outline"
-                size="icon"
-                onClick={incrementarRecolectados}
-                disabled={recolectados >= currentProducto.cantidad}
+                onClick={() => setMostrarModalPausa(true)}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
               >
-                <Plus className="h-4 w-4" />
+                <Pause size={16} className="mr-2" />
+                Pausar
               </Button>
-            </div>
-            
-            {recolectados < currentProducto.cantidad && (
-              <div className="mb-4">
-                <Label htmlFor="motivo">Motivo de faltante</Label>
-                <Select value={motivo} onValueChange={setMotivo}>
-                  <SelectTrigger id="motivo">
-                    <SelectValue placeholder="Seleccionar motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="falta-stock">Falta de stock</SelectItem>
-                    <SelectItem value="no-encontrado">No se encontró el artículo</SelectItem>
-                    <SelectItem value="dañado">Producto dañado</SelectItem>
-                    <SelectItem value="otro">Otro motivo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             )}
             
-            <div className="flex flex-col gap-2 mt-4">
-              <Button 
-                onClick={continuarSiguiente} 
-                className="w-full"
-                disabled={actualizarProductoMutation.isPending || pausaActiva}
-              >
-                {actualizarProductoMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : "CONTINUAR"}
-              </Button>
-              
-              <div className="flex gap-2 w-full">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setMostrarEstadoPedido(true)}
-                  className="flex-1"
-                  disabled={pausaActiva}
-                >
-                  Ver Estado del Pedido
-                </Button>
-                
-                {pausaActiva ? (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => reanudarPedidoMutation.mutate()}
-                    disabled={reanudarPedidoMutation.isPending}
-                    className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
-                  >
-                    {reanudarPedidoMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : "Reanudar"} 
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setMostrarModalPausa(true)}
-                    className="flex-1 text-amber-600 border-amber-600 hover:bg-amber-50"
-                  >
-                    Pausar
-                  </Button>
-                )}
+            <Button
+              onClick={() => setMostrarAlertaFinal(true)}
+              disabled={pausaActiva}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Flag size={16} className="mr-2" />
+              Finalizar
+            </Button>
+          </div>
+        </div>
+        
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-6">
+          <div className="flex justify-between">
+            <div>
+              <p className="font-medium">Pedido: <span className="font-semibold">{currentPedido.pedidoId}</span></p>
+              <p className="font-medium">Cliente: <span className="font-semibold">{currentPedido.clienteId}</span></p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Estado: 
+                <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                  En proceso
+                </span>
+              </p>
+              <p className="text-sm text-gray-600">
+                Producto: {currentProductoIndex + 1} de {productos.length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Producto actual */}
+        {productos[currentProductoIndex] && !pausaActiva && (
+          <div className="bg-white border p-6 rounded-lg shadow-sm mb-6">
+            <h2 className="text-xl font-semibold mb-4">Producto Actual</h2>
+            <div className="mb-4">
+              <p className="text-xl font-mono">{productos[currentProductoIndex].codigo}</p>
+              <p className="text-lg">{productos[currentProductoIndex].descripcion || 'Sin descripción'}</p>
+              <div className="mt-2 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Ubicación</p>
+                  <p className="font-medium">{productos[currentProductoIndex].ubicacion || 'No especificada'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Cantidad Requerida</p>
+                  <p className="font-medium">{productos[currentProductoIndex].cantidad}</p>
+                </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
-        Está controlando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
-      </div>
-      
-      {/* Alerta de Inicio de Pedido */}
-      <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {currentPedido?.estado === 'en-proceso' ? 'Continuar Pedido' : 'Nuevo Pedido Asignado'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {currentPedido?.estado === 'en-proceso' 
-                ? `Continúa con el pedido ${currentPedido.pedidoId} del cliente ${currentPedido.clienteId}.`
-                : `Se te ha asignado el pedido ${currentPedido.pedidoId} del cliente ${currentPedido.clienteId}.`
-              }
-              <br />
-              Total de ítems: {currentPedido.items}
-              <br />
-              Total de unidades: {currentPedido.totalProductos}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction>
-              {currentPedido?.estado === 'en-proceso' ? 'Continuar Armado' : 'Comenzar Armado'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      {/* Alerta de Finalización de Pedido */}
-      <AlertDialog open={mostrarAlertaFinal} onOpenChange={setMostrarAlertaFinal}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center justify-center">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mb-2" />
-              <span className="block text-center">Bien hecho, has finalizado el pedido</span>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad) && (
-                <div className="mt-4">
-                  <p className="font-semibold">Se registraron los siguientes productos faltantes:</p>
-                  <ul className="mt-2 text-sm">
-                    {productos.filter(p => p.recolectado !== null && p.recolectado < p.cantidad).map(p => (
-                      <li key={p.id}>
-                        {p.codigo} - {p.descripcion}: {p.cantidad - (p.recolectado || 0)} unidades faltantes ({p.motivo})
-                      </li>
-                    ))}
-                  </ul>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="recolectados" className="block mb-1 font-medium">
+                  Cantidad Recolectada
+                </label>
+                <Input
+                  id="recolectados"
+                  type="number"
+                  value={recolectados}
+                  onChange={(e) => setRecolectados(parseInt(e.target.value) || 0)}
+                  min={0}
+                  max={productos[currentProductoIndex].cantidad}
+                  className="w-full"
+                />
+              </div>
+              
+              {recolectados < productos[currentProductoIndex].cantidad && (
+                <div>
+                  <label htmlFor="motivo" className="block mb-1 font-medium">
+                    Motivo del Faltante
+                  </label>
+                  <Input
+                    id="motivo"
+                    type="text"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    placeholder="Indicar motivo del faltante"
+                    className="w-full"
+                  />
                 </div>
               )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={continuarOtroPedido}>
-              Continuar con el siguiente pedido
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Modal de Pausa */}
-      <Dialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Pausar Armado</DialogTitle>
-            <DialogDescription>
-              Selecciona el motivo por el cual deseas pausar el armado del pedido.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-4">
-            <Select
-              value={motivoPausa}
-              onValueChange={setMotivoPausa}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un motivo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Motivos sanitarios">Motivos sanitarios</SelectItem>
-                <SelectItem value="Hora de almuerzo">Hora de almuerzo</SelectItem>
-                <SelectItem value="Otro motivo">Otro motivo</SelectItem>
-              </SelectContent>
-            </Select>
+              
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={actualizarProductoMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {actualizarProductoMutation.isPending ? 'Guardando...' : 'Guardar y Continuar'}
+                </Button>
+              </div>
+            </form>
           </div>
-          <DialogFooter className="flex justify-between sm:justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setMostrarModalPausa(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={() => pausarPedidoMutation.mutate()}
-              disabled={!motivoPausa || pausarPedidoMutation.isPending}
-            >
-              {pausarPedidoMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : "Confirmar Pausa"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        )}
+        
+        {pausaActiva && (
+          <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-lg text-center mb-6">
+            <h2 className="text-xl font-semibold mb-2">Pedido en Pausa</h2>
+            <p className="mb-4">El cronómetro está detenido. Cuando estés listo para continuar, presiona el botón "Reanudar".</p>
+          </div>
+        )}
+        
+        {/* Lista de productos */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2">Resumen de Productos</h2>
+          <div className="bg-white border rounded-lg overflow-hidden">
+            <div className="max-h-64 overflow-y-auto">
+              {productos.map((producto, index) => (
+                <ProductoArmadoItem
+                  key={producto.id}
+                  producto={producto}
+                  isActive={index === currentProductoIndex && !pausaActiva}
+                  isCompleted={producto.recolectado !== null && producto.recolectado > 0}
+                  isPending={index > currentProductoIndex}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Modal para Pausas */}
+        <AlertDialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Pausar armado</AlertDialogTitle>
+              <AlertDialogDescription>
+                Indica el motivo por el cual estás pausando el armado del pedido.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            
+            <div className="py-4">
+              <Input
+                placeholder="Motivo de la pausa"
+                value={motivoPausa}
+                onChange={(e) => setMotivoPausa(e.target.value)}
+              />
+            </div>
+            
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (!motivoPausa) {
+                    toast({
+                      title: "Motivo requerido",
+                      description: "Debes indicar un motivo para la pausa",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  crearPausaMutation.mutate({
+                    pedidoId: currentPedido.id,
+                    motivo: motivoPausa,
+                    inicio: new Date()
+                  });
+                }}
+              >
+                Pausar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        {/* Modal para Finalizar Armado */}
+        <AlertDialog open={mostrarAlertaFinal} onOpenChange={setMostrarAlertaFinal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Finalizar armado</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Estás seguro de que deseas finalizar el armado del pedido?
+                Verifica que todos los productos estén procesados.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            
+            <div className="py-4">
+              {productos.some(p => p.recolectado === null) && (
+                <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm mb-4">
+                  <div className="flex items-center gap-2">
+                    <XCircle size={16} />
+                    <span className="font-medium">Advertencia:</span>
+                  </div>
+                  <p className="ml-6">Hay productos sin procesar. Debes procesar todos los productos antes de finalizar.</p>
+                </div>
+              )}
+              
+              {productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad && !p.motivo) && (
+                <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm">
+                  <div className="flex items-center gap-2">
+                    <XCircle size={16} />
+                    <span className="font-medium">Advertencia:</span>
+                  </div>
+                  <p className="ml-6">Hay productos con faltantes sin motivo. Debes indicar un motivo para todos los faltantes.</p>
+                </div>
+              )}
+              
+              {!productos.some(p => p.recolectado === null) && 
+               !productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad && !p.motivo) && (
+                <div className="bg-green-50 border border-green-200 p-3 rounded text-green-800 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} />
+                    <span className="font-medium">Correcto:</span>
+                  </div>
+                  <p className="ml-6">Todos los productos están procesados correctamente y puedes finalizar el armado.</p>
+                </div>
+              )}
+            </div>
+            
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  // Verificar que todos los productos estén procesados
+                  const todosProcesados = !productos.some(p => p.recolectado === null);
+                  const todosConMotivo = !productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad && !p.motivo);
+                  
+                  if (!todosProcesados || !todosConMotivo) {
+                    toast({
+                      title: "No se puede finalizar",
+                      description: "Debes procesar todos los productos y asignar motivos a los faltantes",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
+                  finalizarPedidoMutation.mutate(currentPedido.id);
+                }}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Finalizar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
+        <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
+          Está procesando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
+        </div>
+      </div>
+    </MainLayout>
   );
 }
