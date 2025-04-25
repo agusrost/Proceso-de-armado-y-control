@@ -36,8 +36,8 @@ export default function ArmadorPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      // Redirigir a la página de armado original
-      window.location.href = '/armado';
+      // Redirigir a la página de armado simplificada (según la imagen compartida)
+      window.location.href = '/armado-simple';
     },
     onError: (error: Error) => {
       setShowError(true);
@@ -62,9 +62,9 @@ export default function ArmadorPage() {
     // Verificar si ya se inició el armado - evitar bucle
     const armadoIniciado = sessionStorage.getItem('armadoIniciado');
     if (armadoIniciado === 'true') {
-      // Limpiar la bandera y redirigir a la página de armado
+      // Limpiar la bandera y redirigir a la página de armado simplificada
       sessionStorage.removeItem('armadoIniciado');
-      window.location.href = '/armado';
+      window.location.href = '/armado-simple';
       return;
     }
   
