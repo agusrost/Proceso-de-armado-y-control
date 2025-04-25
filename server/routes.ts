@@ -1439,6 +1439,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Endpoint para probar la conexión con Google Sheets
+  app.post("/api/control/test-google-sheets", requireAccess('config'), async (req, res, next) => {
+    try {
+      const { url } = req.body;
+      
+      if (!url) {
+        return res.status(400).json({ message: "La URL es requerida" });
+      }
+      
+      try {
+        // Importamos axios para hacer la solicitud
+        const axios = require('axios');
+        
+        // Verificamos si la URL es accesible
+        const response = await axios.get(url, { timeout: 5000 });
+        
+        // Comprobamos si la respuesta contiene datos de una hoja de cálculo
+        if (response.status !== 200) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "No se pudo acceder a la URL proporcionada"
+          });
+        }
+        
+        return res.status(200).json({ 
+          success: true, 
+          message: "Conexión exitosa con Google Sheets"
+        });
+      } catch (error: any) {
+        console.error("Error al probar conexión con Google Sheets:", error.message);
+        return res.status(400).json({ 
+          success: false, 
+          message: "Error al conectar: " + (error.message || "No se pudo verificar la URL")
+        });
+      }
+    } catch (error) {
+      console.error("Error al procesar solicitud de prueba de Google Sheets:", error);
+      next(error);
+    }
+  });
+
   // Endpoint para guardar la configuración de la URL de Google Sheets
   app.post("/api/control/config/sheets", requireAccess('config'), async (req, res, next) => {
     try {
