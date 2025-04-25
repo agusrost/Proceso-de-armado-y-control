@@ -125,10 +125,7 @@ export default function ControlConfigPage() {
     },
     onSuccess: (data) => {
       setTestStatus("success");
-      const mensaje = data.rowCount 
-        ? `Conexión exitosa. ${data.rowCount} filas encontradas.` 
-        : "Conexión exitosa con Google Sheets.";
-      setTestResult(mensaje);
+      setTestResult(`ID del documento verificado: ${data.sheetId}`);
     },
     onError: (error: Error) => {
       setTestStatus("error");
