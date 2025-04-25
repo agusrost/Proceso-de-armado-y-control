@@ -60,6 +60,14 @@ export default function ArmadoPage() {
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
   const [recolectados, setRecolectados] = useState<number>(0);
   const [motivo, setMotivo] = useState<string>("");
+  
+  // Opciones de motivos predefinidos
+  const motivosPreestablecidos = [
+    "Faltante de stock",
+    "No se encontró el artículo",
+    "Producto defectuoso",
+    "Otro motivo"
+  ];
   const [mostrarAlertaInicio, setMostrarAlertaInicio] = useState(false);
   const [mostrarAlertaFinal, setMostrarAlertaFinal] = useState(false);
   const [mostrarEstadoPedido, setMostrarEstadoPedido] = useState(false);
@@ -455,10 +463,41 @@ export default function ArmadoPage() {
             </button>
           </div>
           
+          {/* Selector de motivo si recolectados es 0 */}
+          {recolectados === 0 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Seleccione motivo para producto no recolectado:
+              </label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                required
+              >
+                <option value="">Seleccione un motivo</option>
+                {motivosPreestablecidos.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           <button 
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-md text-lg font-medium mb-4"
             onClick={() => {
               if (!producto) return;
+              
+              // Validación para productos no recolectados
+              if (recolectados === 0 && !motivo) {
+                toast({
+                  title: "Motivo requerido",
+                  description: "Debe seleccionar un motivo para productos no recolectados",
+                  variant: "destructive",
+                });
+                return;
+              }
+              
               actualizarProductoMutation.mutate({
                 id: producto.id,
                 recolectado: recolectados,
@@ -526,12 +565,10 @@ export default function ArmadoPage() {
               </div>
               {
                 producto.recolectado === 0 && !producto.motivo && (
-                  <div className="bg-red-50 py-1 px-3 border-t border-red-100">
-                    <div className="flex items-center">
-                      <Input
-                        type="text"
-                        placeholder="Indicar motivo del faltante"
-                        className="text-xs h-7 flex-1"
+                  <div className="bg-red-50 py-2 px-3 border-t border-red-100">
+                    <div className="space-y-2">
+                      <select
+                        className="w-full text-xs p-1.5 border border-gray-300 rounded-md"
                         value={producto.id === editingProductId ? editMotivo : ""}
                         onChange={(e) => {
                           if (producto.id === editingProductId) {
@@ -542,23 +579,51 @@ export default function ArmadoPage() {
                             setEditRecolectado(0);
                           }
                         }}
-                      />
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="ml-2 h-7"
-                        onClick={() => {
-                          if (editMotivo.trim()) {
-                            actualizarProductoMutation.mutate({
-                              id: producto.id,
-                              recolectado: 0,
-                              motivo: editMotivo
-                            });
-                          }
-                        }}
                       >
-                        Guardar
-                      </Button>
+                        <option value="">Seleccione un motivo</option>
+                        {motivosPreestablecidos.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      
+                      {editMotivo === "Otro motivo" && (
+                        <Input
+                          type="text"
+                          placeholder="Especifique el motivo"
+                          className="text-xs h-7 w-full mt-1"
+                          value={
+                            motivosPreestablecidos.includes(editMotivo) && editMotivo !== "Otro motivo" 
+                              ? "" 
+                              : editMotivo
+                          }
+                          onChange={(e) => setEditMotivo(e.target.value)}
+                        />
+                      )}
+                      
+                      <div className="flex justify-end">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-7"
+                          onClick={() => {
+                            if (editMotivo.trim()) {
+                              actualizarProductoMutation.mutate({
+                                id: producto.id,
+                                recolectado: 0,
+                                motivo: editMotivo
+                              });
+                            } else {
+                              toast({
+                                title: "Motivo requerido",
+                                description: "Debe seleccionar un motivo para productos no recolectados",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          Guardar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -624,7 +689,21 @@ export default function ArmadoPage() {
                           <span className="text-sm text-gray-500">/ {producto.cantidad}</span>
                         </div>
                         
-                        {editRecolectado < producto.cantidad && (
+                        {editRecolectado === 0 && (
+                          <select
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={editMotivo}
+                            onChange={(e) => setEditMotivo(e.target.value)}
+                            required
+                          >
+                            <option value="">Seleccione un motivo</option>
+                            {motivosPreestablecidos.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        )}
+                        
+                        {editRecolectado > 0 && editRecolectado < producto.cantidad && (
                           <Input
                             type="text"
                             value={editMotivo}
@@ -820,13 +899,47 @@ export default function ArmadoPage() {
                 />
               </div>
               
-              {recolectados < productos[currentProductoIndex].cantidad && (
+              {recolectados === 0 && (
                 <div>
                   <label htmlFor="motivo" className="block mb-1 font-medium">
                     Motivo del Faltante
                   </label>
-                  <Input
+                  <select
                     id="motivo"
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    required
+                  >
+                    <option value="">Seleccione un motivo</option>
+                    {motivosPreestablecidos.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  
+                  {motivo === "Otro motivo" && (
+                    <Input
+                      type="text"
+                      placeholder="Especifique el motivo"
+                      className="w-full mt-2"
+                      value={
+                        motivosPreestablecidos.includes(motivo) && motivo !== "Otro motivo" 
+                          ? "" 
+                          : motivo
+                      }
+                      onChange={(e) => setMotivo(e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
+              
+              {recolectados > 0 && recolectados < productos[currentProductoIndex].cantidad && (
+                <div>
+                  <label htmlFor="motivo-parcial" className="block mb-1 font-medium">
+                    Motivo del Faltante Parcial
+                  </label>
+                  <Input
+                    id="motivo-parcial"
                     type="text"
                     value={motivo}
                     onChange={(e) => setMotivo(e.target.value)}
