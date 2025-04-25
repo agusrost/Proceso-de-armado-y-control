@@ -27,6 +27,9 @@ export default function ArmadorPage() {
     mutationFn: async () => {
       if (!pedido) return null;
       
+      // Establecer una bandera para evitar el loop
+      sessionStorage.setItem('armadoIniciado', 'true');
+      
       // @ts-ignore - Ignoramos el error de tipo porque sabemos que pedido.id existe
       const res = await apiRequest("POST", `/api/pedidos/${pedido.id}/iniciar`, {});
       return await res.json();
@@ -39,6 +42,8 @@ export default function ArmadorPage() {
     onError: (error: Error) => {
       setShowError(true);
       setErrorMessage(error.message || "El pedido ya no está pendiente");
+      // Limpiar la bandera en caso de error
+      sessionStorage.removeItem('armadoIniciado');
     }
   });
   
@@ -54,6 +59,16 @@ export default function ArmadorPage() {
   const [buttonText, setButtonText] = useState("COMENZAR");
   
   useEffect(() => {
+    // Verificar si ya se inició el armado - evitar bucle
+    const armadoIniciado = sessionStorage.getItem('armadoIniciado');
+    if (armadoIniciado === 'true') {
+      // Limpiar la bandera y redirigir a la página de armado
+      sessionStorage.removeItem('armadoIniciado');
+      window.location.href = '/armado';
+      return;
+    }
+  
+    // Actualizar texto del botón
     if (pedido) {
       // @ts-ignore - Ignoramos el error de tipo
       if (pedido.estado === 'en-proceso') {
