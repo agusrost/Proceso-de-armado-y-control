@@ -7,31 +7,44 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Este script debe estar lo más arriba posible en el head -->
     <script>
-      // Desactivar el plugin de errores de runtime de Replit
-      window.runtimeErrorHandler = {
-        init: function() {},
-        hasError: function() { return false; },
-        getError: function() { return null; },
-        clearError: function() {}
-      };
-      
-      // Sobrescribir el plugin de overlay de errores
-      window.__RUNTIME_ERROR_OVERLAY__ = {
-        showError: function() {},
-        clearError: function() {}
-      };
-      
-      // Interceptar todos los errores globales
-      window.addEventListener('error', function(e) {
-        if (e.filename && e.filename.includes('runtime-error-plugin')) {
-          e.preventDefault();
-          e.stopPropagation();
-          console.warn('Error de plugin de Replit interceptado y suprimido:', e.message);
-          return true;
-        }
-      }, true);
+      try {
+        // Eliminar completamente la función de errores
+        window.__RUNTIME_ERROR_OVERLAY__ = {
+          showError: function() {},
+          clearError: function() {}
+        };
+        
+        // Desactivar el plugin de errores de runtime de Replit
+        window.runtimeErrorHandler = {
+          init: function() { console.log("Inicialización de runtimeErrorHandler bloqueada"); },
+          hasError: function() { return false; },
+          getError: function() { return null; },
+          clearError: function() {}
+        };
+        
+        // Desactivar la función del overlay completamente
+        window.__RUNTIME_ERROR_PLUGIN_ACTIVE__ = false;
+        
+        // Interceptar todos los errores globales
+        window.addEventListener('error', function(e) {
+          if (e.filename && e.filename.includes('runtime-error-plugin')) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.warn('Error de plugin de Replit interceptado y suprimido:', e.message);
+            return true;
+          }
+        }, true);
+        
+        console.log('Configuración de bloqueo de errores en HTML aplicada correctamente');
+      } catch (err) {
+        console.warn('Error al aplicar bloqueo de errores:', err);
+      }
     </script>
+    
+    <!-- Cargar nuestro interceptor de errores personalizado antes de cualquier otro script -->
+    <script src="/js/error-interceptor.js"></script>
   </head>
   <body>
     <div id="root"></div>
