@@ -75,6 +75,9 @@ export default function ArmadoPage() {
   const [editRecolectado, setEditRecolectado] = useState<number>(0);
   const [editMotivo, setEditMotivo] = useState<string>("");
   
+  // Interfaz simplificada
+  const [usingSimpleInterface, setUsingSimpleInterface] = useState(true);
+  
   // Fetch pedido en proceso
   const { data: pedidoArmador, isLoading: isLoadingPedido } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
@@ -419,6 +422,65 @@ export default function ArmadoPage() {
     );
   }
 
+  // Renderizar la interfaz simplificada
+  if (usingSimpleInterface && currentPedido && productos.length > 0) {
+    const producto = productos[currentProductoIndex];
+    if (!producto) return <div>Cargando productos...</div>;
+    
+    return (
+      <div className="min-h-screen flex flex-col items-center bg-slate-900 text-white">
+        <div className="pt-12 pb-8 w-full text-center">
+          <h1 className="text-5xl font-bold">KONECTA</h1>
+        </div>
+        
+        <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
+          <h2 className="text-xl font-semibold mb-3">Código SKU: {producto.codigo}</h2>
+          <p className="text-lg mb-3">Cantidad: {producto.cantidad}</p>
+          <p className="text-lg mb-3">Ubicación: {producto.ubicacion || 'Sin ubicación'}</p>
+          <p className="text-lg mb-5">Descripción: {producto.descripcion || 'Sin descripción'}</p>
+          
+          <div className="flex items-center justify-between border rounded-md mb-4">
+            <button 
+              className="px-4 py-2 text-2xl font-bold"
+              onClick={() => setRecolectados(Math.max(0, recolectados - 1))}
+            >
+              −
+            </button>
+            <span className="text-2xl font-semibold">{recolectados}</span>
+            <button 
+              className="px-4 py-2 text-2xl font-bold"
+              onClick={() => setRecolectados(Math.min(producto.cantidad, recolectados + 1))}
+            >
+              +
+            </button>
+          </div>
+          
+          <button 
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-md text-lg font-medium mb-4"
+            onClick={() => {
+              if (!producto) return;
+              actualizarProductoMutation.mutate({
+                id: producto.id,
+                recolectado: recolectados,
+                motivo: recolectados < producto.cantidad ? motivo : undefined
+              });
+            }}
+            disabled={actualizarProductoMutation.isPending}
+          >
+            CONTINUAR
+          </button>
+        </div>
+        
+        <button 
+          onClick={() => setUsingSimpleInterface(false)}
+          className="mt-6 bg-slate-800 hover:bg-slate-700 text-white py-3 px-6 rounded-md text-lg"
+        >
+          Ver todo el pedido
+        </button>
+      </div>
+    );
+  }
+  
   // Si hay pedido activo pero estamos mostrando el estado
   if (mostrarEstadoPedido) {
     return (
@@ -426,8 +488,8 @@ export default function ArmadoPage() {
         <div className="container py-6">
           <h1 className="text-2xl font-bold mb-4">Estado del Pedido</h1>
           <div className="bg-gray-100 p-4 rounded-md mb-4">
-            <p>Cliente: {currentPedido.clienteId}</p>
-            <p>Pedido: {currentPedido.pedidoId}</p>
+            <p>Cliente: {currentPedido?.clienteId}</p>
+            <p>Pedido: {currentPedido?.pedidoId}</p>
           </div>
           
           <div className="mb-6">
