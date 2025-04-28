@@ -53,10 +53,13 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
   // Determinar si un producto ha sido escaneado
   const productosEscaneados = controlData?.detalles || [];
   
-  // Crear un mapa de códigos escaneados para fácil búsqueda
+  // Crear un mapa de códigos escaneados para fácil búsqueda con cantidad controlada
   const codigosEscaneados = new Map();
   productosEscaneados.forEach((detalle: any) => {
-    codigosEscaneados.set(detalle.codigo, true);
+    codigosEscaneados.set(detalle.codigo, {
+      escaneado: true,
+      cantidadControlada: detalle.cantidadControlada || 0
+    });
   });
   
   // Extraer productos del resultado
@@ -100,7 +103,12 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
                   <tr>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1">
+                        <span>Cantidad</span>
+                        <span className="text-[10px] normal-case font-normal text-neutral-400">(Registrada / Solicitada)</span>
+                      </div>
+                    </th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Descripción</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Ubicación</th>
                   </tr>
@@ -108,7 +116,22 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {productos.length > 0 ? (
                     productos.map((producto) => {
-                      const estaEscaneado = codigosEscaneados.has(producto.codigo);
+                      const infoProducto = codigosEscaneados.get(producto.codigo);
+                      const estaEscaneado = !!infoProducto;
+                      const cantidadControlada = infoProducto?.cantidadControlada || 0;
+                      
+                      // Determinar el color del texto de cantidad según si hay faltantes o excedentes
+                      let cantidadClassName = "text-neutral-500";
+                      if (estaEscaneado) {
+                        if (cantidadControlada < producto.cantidad) {
+                          cantidadClassName = "text-amber-600 font-medium"; // Faltante
+                        } else if (cantidadControlada > producto.cantidad) {
+                          cantidadClassName = "text-blue-600 font-medium"; // Excedente
+                        } else {
+                          cantidadClassName = "text-emerald-600 font-medium"; // Correcto
+                        }
+                      }
+                      
                       return (
                         <tr 
                           key={producto.id} 
@@ -125,7 +148,12 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
                             )}
                           </td>
                           <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-neutral-900">{producto.codigo}</td>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">{producto.cantidad}</td>
+                          <td className={`px-4 py-2 whitespace-nowrap text-sm ${cantidadClassName}`}>
+                            {estaEscaneado 
+                              ? `${cantidadControlada} / ${producto.cantidad}`
+                              : producto.cantidad
+                            }
+                          </td>
                           <td className="px-4 py-2 text-sm text-neutral-500">{producto.descripcion}</td>
                           <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">{producto.ubicacion || "-"}</td>
                         </tr>

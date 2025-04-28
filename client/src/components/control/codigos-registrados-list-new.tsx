@@ -144,8 +144,18 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
             </div>
           </div>
           <div className="flex items-center">
-            <div className="px-2 py-1 text-sm rounded-full border mr-2">
-              {producto.controlado || 0} / {producto.cantidad || 0}
+            <div className="px-2 py-1 text-sm rounded-full border mr-2 flex flex-col items-center">
+              <div className="flex items-center">
+                <span className={`${producto.controlado !== producto.cantidad ? 'font-medium' : ''} ${
+                  producto.controlado < producto.cantidad ? 'text-amber-600' : 
+                  producto.controlado > producto.cantidad ? 'text-blue-600' : 'text-emerald-600'
+                }`}>
+                  {producto.controlado || 0} / {producto.cantidad || 0}
+                </span>
+              </div>
+              <div className="text-[9px] text-neutral-400">
+                Registrada / Solicitada
+              </div>
             </div>
             {producto.estado === 'correcto' ? (
               <Check className="h-5 w-5 text-green-500" />
