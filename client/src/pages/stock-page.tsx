@@ -44,7 +44,7 @@ export default function StockPage() {
   
   // Fetch stock historial
   const { data: historialSolicitudes = [], isLoading: isLoadingHistorial } = useQuery<StockSolicitudWithDetails[]>({
-    queryKey: ["/__api/stock/historial"],
+    queryKey: ["/__api/api/stock/historial"],
     enabled: activeTab === "historial",
   });
 

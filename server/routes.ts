@@ -415,8 +415,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
   // API para obtener historial de solicitudes de stock
   app.get("/api/stock/historial", requireAuth, requireAccess('stock'), async (req, res, next) => {
     try {
-      // Obtener solicitudes de stock
+      // Obtener solicitudes de stock no pendientes (históricas)
       const solicitudes = await storage.getStockSolicitudes({});
+      
+      // Filtrar para incluir solo solicitudes realizadas o sin stock (históricas)
+      const solicitudesHistoricas = solicitudes.filter(
+        solicitud => solicitud.estado === 'realizado' || solicitud.estado === 'no-hay'
+      );
       
       // Enriquecer las solicitudes con información de usuario
       const solicitudesEnriquecidas = await Promise.all(
