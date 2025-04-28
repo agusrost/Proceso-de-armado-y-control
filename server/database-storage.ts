@@ -48,6 +48,19 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return user;
   }
+  
+  async getAllUsers(): Promise<User[]> {
+    const allUsers = await db
+      .select()
+      .from(users)
+      .orderBy(asc(users.username));
+    return allUsers;
+  }
+  
+  async getUsersCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(users);
+    return Number(result[0].count) || 0;
+  }
 
   async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
     const [user] = await db
@@ -58,17 +71,8 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return db.select().from(users);
-  }
-
   async getUsersByRole(role: string): Promise<User[]> {
     return db.select().from(users).where(eq(users.role, role));
-  }
-
-  async getUsersCount(): Promise<number> {
-    const result = await db.select({ count: sql<number>`count(*)` }).from(users);
-    return result[0].count;
   }
   
   // Pedido methods
