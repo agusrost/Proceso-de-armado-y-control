@@ -43,6 +43,7 @@ import { CodigosRegistradosList } from "@/components/control/codigos-registrados
 import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
 import { RetirarExcedenteAlert } from "@/components/control/retirar-excedente-alert";
 import { ControlFinalizadoDialog } from "@/components/control/control-finalizado-dialog";
+import PedidoDetailModal from "@/components/pedidos/pedido-detail-modal";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -59,6 +60,7 @@ export default function ControlPedidoPage() {
   const [excedenteAlertOpen, setExcedenteAlertOpen] = useState(false);
   const [retirarExcedenteOpen, setRetirarExcedenteOpen] = useState(false);
   const [finalizadoOpen, setFinalizadoOpen] = useState(false);
+  const [detalleModalOpen, setDetalleModalOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
     codigo: "",
@@ -1165,10 +1167,7 @@ export default function ControlPedidoPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      // Abrir en una nueva ventana la página de detalles del pedido
-                      window.open(`/pedidos/detalle/${pedido.id}`, '_blank');
-                    }}
+                    onClick={() => setDetalleModalOpen(true)}
                     title="Ver detalle completo del pedido"
                   >
                     <Eye className="h-4 w-4 mr-1" />
@@ -1393,6 +1392,15 @@ export default function ControlPedidoPage() {
         onOpenChange={setFinalizadoOpen}
         mensaje="El control del pedido ha sido finalizado correctamente"
       />
+      
+      {/* Modal de detalles del pedido */}
+      {pedidoId && (
+        <PedidoDetailModal
+          pedidoId={pedidoId}
+          isOpen={detalleModalOpen}
+          onClose={() => setDetalleModalOpen(false)}
+        />
+      )}
     </MainLayout>
   );
 }
