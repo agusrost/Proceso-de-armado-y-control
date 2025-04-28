@@ -338,10 +338,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
               pedido.estado = 'controlado';
             }
             
+            // Obtener datos de control si existen
+            let controlInicio = null;
+            let controlFin = null;
+            let controlTiempo = null;
+            let controlTiempoNeto = null;
+            
+            if (historicos.length > 0) {
+              // Usamos el último registro de control histórico (el más reciente)
+              const ultimoControl = historicos[historicos.length - 1];
+              
+              if (ultimoControl.inicio) {
+                controlInicio = ultimoControl.inicio;
+              }
+              
+              if (ultimoControl.fin) {
+                controlFin = ultimoControl.fin;
+              }
+              
+              if (ultimoControl.tiempoTotal) {
+                controlTiempo = ultimoControl.tiempoTotal;
+                
+                // Si hay tiempoTotal, calcular tiempoNeto (restando pausas)
+                const controlPausas = await storage.getPausasByPedidoId(pedido.id, true); // Pausas de control
+                
+                if (controlPausas.length > 0 && ultimoControl.tiempoTotal) {
+                  // Convertir tiempo bruto (formato HH:MM) a segundos
+                  const [horasControl, minutosControl] = ultimoControl.tiempoTotal.split(':').map(Number);
+                  const tiempoControlSegundos = (horasControl * 3600) + (minutosControl * 60);
+                  
+                  // Calcular tiempo total de pausas en segundos
+                  const tiempoPausasControlSegundos = controlPausas.reduce((total, pausa) => {
+                    if (pausa.duracion) {
+                      const [pausaHoras, pausaMinutos] = pausa.duracion.split(':').map(Number);
+                      return total + ((pausaHoras * 3600) + (pausaMinutos * 60));
+                    }
+                    return total;
+                  }, 0);
+                  
+                  // Calcular tiempo neto
+                  const tiempoNetoControlSegundos = Math.max(0, tiempoControlSegundos - tiempoPausasControlSegundos);
+                  const netoHorasControl = Math.floor(tiempoNetoControlSegundos / 3600);
+                  const netoMinutosControl = Math.floor((tiempoNetoControlSegundos % 3600) / 60);
+                  controlTiempoNeto = `${netoHorasControl.toString().padStart(2, '0')}:${netoMinutosControl.toString().padStart(2, '0')}`;
+                } else {
+                  // Si no hay pausas, el tiempo neto es igual al tiempo bruto
+                  controlTiempoNeto = ultimoControl.tiempoTotal;
+                }
+              }
+            }
+            
             return {
               ...pedido,
               tiempoNeto,
-              pausas
+              pausas,
+              controlInicio,
+              controlFin,
+              controlTiempo,
+              controlTiempoNeto
             };
           } catch (err) {
             console.error(`Error al procesar pedido ${pedido.id}:`, err);

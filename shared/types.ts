@@ -25,6 +25,11 @@ export interface PedidoWithDetails extends Pedido {
   armador?: User;
   controlador?: User;
   controlHistorico?: any;
+  controlInicio?: Date | string;
+  controlFin?: Date | string;
+  controlTiempo?: string;
+  controlTiempoNeto?: string;
+  controlPausas?: Pausa[];
 }
 
 export interface StockSolicitudWithDetails extends StockSolicitud {
