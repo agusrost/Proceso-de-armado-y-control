@@ -381,15 +381,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(pedidos[0]);
       }
       
-      // Filtrar solo los pedidos en estado 'completado' que están listos para control
-      const pedidosCompletados = pedidos.filter(p => p.estado === 'completado');
+      // Filtrar solo los pedidos en estado 'armado' que están listos para control
+      const pedidosArmados = pedidos.filter(p => p.estado === 'armado');
       
-      // Si hay pedidos completados, devolver esos primero
-      if (pedidosCompletados.length > 0) {
-        return res.json(pedidosCompletados);
+      // Si hay pedidos armados, devolver esos primero
+      if (pedidosArmados.length > 0) {
+        return res.json(pedidosArmados);
       }
       
-      // Si no hay ningún pedido completado, devolver todos los encontrados
+      // Si no hay ningún pedido armado, devolver todos los encontrados
       res.json(pedidos);
     } catch (error) {
       console.error("Error en búsqueda de pedidos:", error);
