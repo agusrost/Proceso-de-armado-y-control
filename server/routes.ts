@@ -1270,16 +1270,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (debeCompletarse) {
           console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
           
-          // Actualizar el pedido a armado
+          // Verificar si el pedido ya fue controlado para no cambiar su estado
+          let nuevoEstado = 'armado';
+          
+          // Si el pedido ya está marcado como controlado, mantener ese estado
+          if (pedido.estado === 'controlado' || pedido.controlFin !== null) {
+            nuevoEstado = 'controlado';
+            console.log(`Manteniendo estado 'controlado' para pedido ${pedido.id} (${pedido.pedidoId})`);
+          }
+          
+          // Actualizar el pedido al estado correspondiente
           const pedidoActualizado = await storage.updatePedido(pedido.id, {
-            estado: 'armado',
+            estado: nuevoEstado,
             finalizado: new Date()
           });
           
           resultados.push({
             pedidoId: pedido.pedidoId,
             estadoAnterior: pedido.estado,
-            estadoNuevo: 'armado',
+            estadoNuevo: nuevoEstado,
             actualizado: true
           });
         } else {
