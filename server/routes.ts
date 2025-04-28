@@ -2261,33 +2261,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Obtener pedidos en curso de control (estado "controlando")
   app.get("/api/control/en-curso", requireAuth, async (req, res, next) => {
     try {
-      // Obtenemos pedidos que tengan un control iniciado pero no finalizado
-      // También debemos buscar los históricos en proceso
-      const historicosEnProceso = await storage.getControlHistorico({ resultado: "en-proceso" });
+      console.log("⚠️ Obteniendo controles en curso - verificación mejorada");
       
-      // Obtenemos los IDs de pedidos de estos históricos
-      const pedidoIdsEnControl = historicosEnProceso
-        .filter(historico => !historico.fin) // Aseguramos que no tengan fecha de fin
-        .map(historico => historico.pedidoId);
+      // 1. Obtenemos todos los históricos de control que no tienen fecha de fin
+      // Estos son controles que se iniciaron pero nunca se finalizaron formalmente
+      const todosHistoricos = await storage.getControlHistorico({});
+      const historicosEnProceso = todosHistoricos.filter(historico => historico.fin === null);
       
-      console.log(`Pedidos en proceso de control: ${pedidoIdsEnControl.length}`);
+      console.log(`Históricos sin fecha de fin: ${historicosEnProceso.length}`);
       
-      // Obtenemos los detalles de estos pedidos
+      // 2. Obtenemos los IDs de pedidos de estos históricos
+      const pedidoIdsEnControl = historicosEnProceso.map(historico => historico.pedidoId);
+      
+      console.log(`Pedidos en proceso de control (por histórico): ${pedidoIdsEnControl.length}`);
+      
+      // 3. Obtenemos los detalles de estos pedidos
       const pedidosEnControl = [];
       
       for (const pedidoId of pedidoIdsEnControl) {
         const pedido = await storage.getPedidoById(pedidoId);
         
-        // Verificamos que el pedido exista y esté realmente en estado de control
-        // Solo incluimos pedidos en estado 'controlando', no los que ya hayan sido finalizados (estado 'controlado')
-        if (pedido && pedido.estado === 'controlando') {
+        // 4. Verificación mejorada:
+        // - El pedido debe existir
+        // - El pedido debe estar en estado 'controlando'
+        // - El pedido debe tener un controladoId (usuario que está controlando)
+        // - No debe tener fecha de controlFin (no finalizado)
+        if (pedido && 
+            pedido.estado === 'controlando' && 
+            pedido.controladoId !== null && 
+            pedido.controlFin === null) {
+          
           pedidosEnControl.push(pedido);
+          console.log(`✓ Pedido ${pedido.pedidoId} está en control activo`);
         } else if (pedido) {
-          console.log(`Pedido ${pedidoId} con histórico sin fin, pero estado actual: ${pedido.estado} - No incluido en lista de control`);
+          console.log(`⚠️ Pedido ${pedido.pedidoId} con histórico sin fin, pero estado: ${pedido.estado}, controladoId: ${pedido.controladoId}, controlFin: ${pedido.controlFin ? 'Finalizado' : 'No finalizado'} - No incluido en controles en curso`);
+          
+          // Si tiene histórico sin fin pero el pedido está marcado como finalizado,
+          // debemos actualizar el histórico también para evitar inconsistencias
+          if (pedido.controlFin !== null) {
+            // Identificar el histórico pendiente para actualizarlo
+            const historicoSinFin = historicosEnProceso.find(h => h.pedidoId === pedidoId);
+            if (historicoSinFin) {
+              console.log(`🔄 Actualizando histórico ID ${historicoSinFin.id} para marcarlo como finalizado`);
+              await storage.updateControlHistorico(historicoSinFin.id, {
+                fin: pedido.controlFin,
+                resultado: 'completo',
+                comentarios: "Finalizado automáticamente (corrección de inconsistencia)"
+              });
+            }
+          }
         }
       }
       
-      // Agregamos información adicional para cada pedido
+      // 5. Agregamos información adicional para cada pedido en control
       const pedidosDetallados = await Promise.all(pedidosEnControl.map(async (pedido) => {
         // Obtener información del armador si existe
         let armadorInfo = null;

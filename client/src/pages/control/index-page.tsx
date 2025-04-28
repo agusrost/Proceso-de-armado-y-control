@@ -38,19 +38,33 @@ export default function ControlIndexPage() {
     const oneDayAgo = new Date();
     oneDayAgo.setHours(oneDayAgo.getHours() - 24);
     
+    console.log("Historial de controles:", historialControlesRaw);
+    
     return historialControlesRaw
       .filter((control: any) => {
-        // Verificamos que tenga fecha de fin
-        if (!control.fin) return false;
+        // Si el control tiene resultado 'completo', 'excedente' o 'faltante', lo consideramos finalizado
+        // (incluso si faltara la fecha de fin por alguna razón)
+        const esControlFinalizado = 
+          control.fin !== null || 
+          control.resultado === 'completo' || 
+          control.resultado === 'excedente' || 
+          control.resultado === 'faltante';
         
-        // Convertimos la fecha de fin a objeto Date para compararla
-        const finDate = new Date(control.fin);
-        return finDate >= oneDayAgo;
+        if (!esControlFinalizado) {
+          console.log(`Control ${control.id} (${control.pedido?.pedidoId}) NO finalizado:`, 
+                    `fin=${control.fin}, resultado=${control.resultado}`);
+          return false;
+        }
+        
+        // Si no tiene fecha de fin pero está finalizado, usamos la fecha actual
+        const fechaFin = control.fin ? new Date(control.fin) : new Date();
+        return fechaFin >= oneDayAgo;
       })
       // Ordenamos por fecha de fin descendente (más reciente primero)
       .sort((a: any, b: any) => {
-        const dateA = new Date(a.fin || 0);
-        const dateB = new Date(b.fin || 0);
+        // Si no tiene fecha de fin pero está finalizado, usamos la fecha actual
+        const dateA = a.fin ? new Date(a.fin) : new Date();
+        const dateB = b.fin ? new Date(b.fin) : new Date();
         return dateB.getTime() - dateA.getTime();
       });
   }, [historialControlesRaw]);
