@@ -121,6 +121,22 @@ export default function ControlPedidoPage() {
     },
     enabled: !!pedidoId,
   });
+  
+  // Cargar datos del armador si existe
+  const { 
+    data: armador,
+    isLoading: isLoadingArmador 
+  } = useQuery<User>({
+    queryKey: ["/api/users", pedido?.armadorId],
+    queryFn: async () => {
+      if (!pedido?.armadorId) throw new Error("No hay armador asignado");
+      const res = await apiRequest("GET", `/api/users/${pedido.armadorId}`);
+      if (!res.ok) throw new Error("No se pudo obtener información del armador");
+      return res.json();
+    },
+    enabled: !!pedido?.armadorId,
+    retry: false
+  });
 
   // Consulta para cargar un control activo si existe
   const { 
@@ -213,19 +229,7 @@ export default function ControlPedidoPage() {
   const [finalizarOpen, setFinalizarOpen] = useState(false);
   const [comentarios, setComentarios] = useState("");
   
-  // Obtener información del armador
-  const {
-    data: armador,
-    isLoading: isLoadingArmador
-  } = useQuery<User>({
-    queryKey: ["/api/users", pedido?.armadorId],
-    queryFn: async () => {
-      if (!pedido?.armadorId) throw new Error("No hay armador asignado");
-      const res = await apiRequest("GET", `/api/users/${pedido.armadorId}`);
-      return res.json();
-    },
-    enabled: !!pedido?.armadorId,
-  });
+  // Ya tenemos la query de información del armador arriba
   
   // Cargar productos del pedido
   const { 
@@ -1183,7 +1187,7 @@ export default function ControlPedidoPage() {
                 </div>
                 <div>
                   <p><span className="font-semibold">Vendedor:</span> {pedido.vendedor}</p>
-                  <p><span className="font-semibold">Armador:</span> {armador ? (armador.firstName || armador.username) : pedido.armadorId}</p>
+                  <p><span className="font-semibold">Armador:</span> {armador ? (armador.firstName || armador.username) : isLoadingArmador ? "Cargando..." : "No asignado"}</p>
                   {pedido.tipo && (
                     <p><span className="font-semibold">Tipo:</span> {pedido.tipo}</p>
                   )}
@@ -1324,21 +1328,12 @@ export default function ControlPedidoPage() {
             {/* Productos escaneados */}
             <Card>
               <CardHeader>
-                <CardTitle>Productos Registrados</CardTitle>
+                <CardTitle>Productos Escaneados</CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Enviamos todos los productos de este pedido para mostrar los que no han sido escaneados también */}
+                {/* Mostramos solo los productos que han sido escaneados */}
                 <CodigosRegistradosList 
-                  registros={[
-                    ...controlState.historialEscaneos,
-                    ...controlState.productosControlados.filter(p => 
-                      !controlState.historialEscaneos.some(h => h.codigo === p.codigo)
-                    ).map(p => ({
-                      ...p,
-                      timestamp: new Date(),
-                      escaneado: false
-                    }))
-                  ]}
+                  registros={controlState.historialEscaneos}
                   showEmpty={true}
                 />
               </CardContent>
