@@ -124,6 +124,7 @@ export default function PedidosEstadoPage() {
                     <SelectItem value="pendiente">Pendiente</SelectItem>
                     <SelectItem value="en-proceso">En Proceso</SelectItem>
                     <SelectItem value="pre-finalizado">Pre-finalizado</SelectItem>
+                    <SelectItem value="armado">Armado</SelectItem>
                     <SelectItem value="completado">Completado</SelectItem>
                   </SelectContent>
                 </Select>

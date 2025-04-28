@@ -25,9 +25,9 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
 
   // Query para obtener todos los pedidos listos para control
   const { data: pedidosCompletados = [], isLoading: isLoadingPedidos, refetch } = useQuery({
-    queryKey: ["/api/pedidos", { estado: "completado" }],
+    queryKey: ["/api/pedidos", { estado: "armado" }],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/pedidos?estado=completado");
+      const res = await apiRequest("GET", "/api/pedidos?estado=armado");
       if (!res.ok) return [];
       return await res.json();
     },
@@ -211,7 +211,7 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                         {pedido.finalizado ? formatDate(pedido.finalizado) : "-"}
                       </td>
                       <td className="px-3 py-2 text-sm text-right">
-                        {pedido.estado === 'completado' ? (
+                        {pedido.estado === 'armado' ? (
                           <Button size="sm" variant="outline" asChild>
                             <Link to={`/control/pedido/${pedido.id}`}>
                               <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
