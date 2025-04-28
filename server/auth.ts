@@ -119,22 +119,35 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    // Validate the login data
-    const validationResult = loginSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      return res.status(400).json({ errors: validationResult.error.format() });
-    }
-
-    passport.authenticate("local", (err: any, user: User | false) => {
-      if (err) { return next(err); }
-      if (!user) {
-        return res.status(401).json({ message: "Usuario o contraseña incorrectos" });
+    try {
+      // Validate the login data
+      const validationResult = loginSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Datos de inicio de sesión inválidos", errors: validationResult.error.format() });
       }
-      req.login(user, (err) => {
-        if (err) { return next(err); }
-        return res.status(200).json(user);
-      });
-    })(req, res, next);
+
+      passport.authenticate("local", (err: any, user: User | false) => {
+        if (err) { 
+          console.error("Error en autenticación:", err);
+          return next(err); 
+        }
+        if (!user) {
+          return res.status(401).json({ message: "Usuario o contraseña incorrectos" });
+        }
+        req.login(user, (err) => {
+          if (err) { 
+            console.error("Error en login:", err);
+            return next(err); 
+          }
+          // Asegurarse de establecer el tipo de contenido correcto
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(200).json(user);
+        });
+      })(req, res, next);
+    } catch (error) {
+      console.error("Error general en inicio de sesión:", error);
+      next(error);
+    }
   });
 
   app.post("/api/logout", (req, res, next) => {
