@@ -110,8 +110,26 @@ export default function ArmadoPage() {
   // Iniciar pedido mutation
   const iniciarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
-      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/iniciar`, {});
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/iniciar`, {});
+        
+        // Si la respuesta no es exitosa, extraemos el mensaje de error
+        if (!res.ok) {
+          const errorData = await res.json();
+          // Lanzamos un error con el mensaje del servidor o uno por defecto
+          throw new Error(errorData.message || "El pedido ya no está disponible para iniciar");
+        }
+        
+        return await res.json();
+      } catch (err: any) {
+        // Personalizar el mensaje de error para que sea más amigable
+        if (err.message.includes("ya no está disponible") || 
+            err.message.includes("400") || 
+            err.message.includes("404")) {
+          throw new Error("El pedido ya no está disponible para iniciar. Podría haber sido completado o asignado a otro armador.");
+        }
+        throw err;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
@@ -128,11 +146,16 @@ export default function ArmadoPage() {
       setMostrarAlertaInicio(false);
     },
     onError: (error: Error) => {
+      // Mostrar un mensaje más amigable para el usuario
       toast({
-        title: "Error al iniciar pedido",
+        title: "No se pudo iniciar el pedido",
         description: error.message,
         variant: "destructive",
       });
+      
+      // Cerrar el diálogo y refrescar la lista de pedidos
+      setMostrarAlertaInicio(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     }
   });
   
