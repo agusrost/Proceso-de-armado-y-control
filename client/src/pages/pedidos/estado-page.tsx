@@ -187,8 +187,8 @@ export default function PedidosEstadoPage() {
                     <th scope="col" className="px-4 py-2 border-t-0"></th>
                     <th scope="col" className="px-4 py-2 border-t-0"></th>
                     {/* Columnas de Armado */}
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Inicio</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Fin</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Inicio</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Fin</th>
                     <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Pausas</th>
                     <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Bruto</th>
                     <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Neto</th>
