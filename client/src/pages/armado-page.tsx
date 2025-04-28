@@ -63,7 +63,7 @@ export default function ArmadoPage() {
   const [currentPedido, setCurrentPedido] = useState<Pedido | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
-  const [recolectados, setRecolectados] = useState<number>(0);
+  const [recolectados, setRecolectados] = useState<number | null>(null);
   const [motivo, setMotivo] = useState<string>("");
   const [motivoPersonalizado, setMotivoPersonalizado] = useState<string>("");
   
