@@ -1604,9 +1604,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      if (pedido.estado !== 'completado') {
+      if (pedido.estado !== 'completado' && pedido.estado !== 'armado') {
         return res.status(400).json({ 
-          message: "Solo se pueden controlar pedidos en estado completado",
+          message: "Solo se pueden controlar pedidos en estado completado o armado",
           error: true,
           estado: pedido.estado
         });
@@ -1692,9 +1692,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verificar que el pedido esté en un estado válido para control
-      if (pedido.estado !== 'completado' && pedido.estado !== 'finalizado' && pedido.estado !== 'controlando') {
+      if (pedido.estado !== 'completado' && pedido.estado !== 'finalizado' && pedido.estado !== 'controlando' && pedido.estado !== 'armado') {
         return res.status(400).json({ 
-          message: "Solo se pueden controlar pedidos en estado completado, finalizado o en control",
+          message: "Solo se pueden controlar pedidos en estado completado, finalizado, armado o en control",
           estado: pedido.estado
         });
       }
@@ -1883,11 +1883,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Cancelar el control - revertir al estado completado para que pueda ser controlado nuevamente
+      // Cancelar el control - revertir al estado armado para que pueda ser controlado nuevamente
       const pedidoActualizado = await storage.updatePedido(pedidoId, {
         controladoId: null,
         controlInicio: null,
-        estado: 'completado' // Volver al estado completado para permitir iniciar control de nuevo
+        estado: 'armado' // Volver al estado armado para permitir iniciar control de nuevo
       });
       
       // Actualizar control histórico - marcar como cancelado
