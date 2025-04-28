@@ -1197,16 +1197,12 @@ export default function ControlPedidoPage() {
                 <div>
                   <p><span className="font-semibold">Cliente:</span> {pedido.clienteId}</p>
                   <p><span className="font-semibold">Fecha:</span> {formatDate(pedido.fecha)}</p>
-                  {pedido.prioridad && (
-                    <p><span className="font-semibold">Prioridad:</span> {pedido.prioridad}</p>
-                  )}
+
                 </div>
                 <div>
                   <p><span className="font-semibold">Vendedor:</span> {pedido.vendedor}</p>
                   <p><span className="font-semibold">Armador:</span> {armador ? (armador.firstName || armador.username) : isLoadingArmador ? "Cargando..." : "No asignado"}</p>
-                  {pedido.tipo && (
-                    <p><span className="font-semibold">Tipo:</span> {pedido.tipo}</p>
-                  )}
+
                 </div>
               </div>
             </CardContent>
