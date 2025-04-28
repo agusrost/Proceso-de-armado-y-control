@@ -226,7 +226,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Obtener datos del armador si existe
             let armador = null;
             if (pedido.armadorId) {
-              armador = await storage.getUser(pedido.armadorId);
+              try {
+                armador = await storage.getUser(pedido.armadorId);
+                console.log(`Obtenido armador para pedido ${pedido.id}: ${JSON.stringify(armador)}`);
+              } catch (error) {
+                console.error(`Error al obtener armador con ID ${pedido.armadorId} para pedido ${pedido.id}:`, error);
+              }
+            } else {
+              console.log(`El pedido ${pedido.id} no tiene armadorId asignado`);
             }
             
             // Retornar el pedido con la información adicional
