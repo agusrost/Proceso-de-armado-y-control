@@ -122,15 +122,15 @@ export default function ControlPedidoPage() {
     enabled: !!pedidoId,
   });
   
-  // Cargar datos del armador si existe
+  // Cargar datos del armador si existe (usando la nueva ruta pública)
   const { 
     data: armador,
     isLoading: isLoadingArmador 
   } = useQuery<User>({
-    queryKey: ["/api/users", pedido?.armadorId],
+    queryKey: ["/api/users/info", pedido?.armadorId],
     queryFn: async () => {
       if (!pedido?.armadorId) throw new Error("No hay armador asignado");
-      const res = await apiRequest("GET", `/api/users/${pedido.armadorId}`);
+      const res = await apiRequest("GET", `/api/users/${pedido.armadorId}/info`);
       if (!res.ok) throw new Error("No se pudo obtener información del armador");
       return res.json();
     },

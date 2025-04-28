@@ -103,6 +103,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(error);
     }
   });
+  
+  // Ruta para obtener información pública básica de un usuario (solo nombre)
+  // Cualquier usuario autenticado puede acceder a esta información básica
+  app.get("/api/users/:id/info", requireAuth, async (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id);
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      
+      // Solo devolver información pública del usuario
+      res.json({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get("/api/users/:id", requireAuth, async (req, res, next) => {
     try {
