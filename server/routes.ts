@@ -412,6 +412,36 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // API para obtener todos los usuarios (para administración)
+  app.get("/api/users", requireAuth, async (req, res, next) => {
+    try {
+      // Solo admin-plus o usuario con acceso a config puede ver todos los usuarios
+      if (req.user.role !== 'admin-plus' && (!req.user.access || !req.user.access.includes('config'))) {
+        return res.status(403).json({ message: "No tienes permisos para ver esta información" });
+      }
+      
+      // Obtener todos los usuarios
+      const users = await storage.getAllUsers();
+      console.log(`Se encontraron ${users.length} usuarios en el sistema`);
+      
+      // Devolver los usuarios sin información sensible
+      const safeUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        access: user.access || []
+      }));
+      
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error al obtener los usuarios:", error);
+      next(error);
+    }
+  });
+
   // API para obtener historial de solicitudes de stock
   app.get("/api/stock/historial", requireAuth, requireAccess('stock'), async (req, res, next) => {
     try {
