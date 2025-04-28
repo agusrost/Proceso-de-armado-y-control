@@ -171,28 +171,44 @@ export default function PedidosEstadoPage() {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Armador</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Control</th>
                     {/* Columnas de Armado Agrupadas */}
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Inicio</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Fin</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Pausas</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Bruto</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Neto</th>
+                    <th colSpan={5} className="px-4 py-1 text-center text-xs font-medium text-neutral-800 bg-blue-100 uppercase tracking-wider">HORARIOS DE ARMADO</th>
                     {/* Columnas de Control Agrupadas */}
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Inicio</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Fin</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Pausas</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Bruto</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Neto</th>
+                    <th colSpan={5} className="px-4 py-1 text-center text-xs font-medium text-neutral-800 bg-green-100 uppercase tracking-wider">HORARIOS DE CONTROL</th>
+                  </tr>
+                  <tr>
+                    {/* Columnas base - dejamos 9 columnas vacías para alinear */}
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    <th scope="col" className="px-4 py-2 border-t-0"></th>
+                    {/* Columnas de Armado */}
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Inicio</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Fin</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Pausas</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Bruto</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Neto</th>
+                    {/* Columnas de Control */}
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Inicio</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Fin</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Pausas</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Bruto</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Neto</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={18} className="px-4 py-4 text-center">Cargando...</td>
+                      <td colSpan={20} className="px-4 py-4 text-center">Cargando...</td>
                     </tr>
                   ) : pedidos.length === 0 ? (
                     <tr>
-                      <td colSpan={18} className="px-4 py-4 text-center">No hay pedidos que coincidan con los filtros</td>
+                      <td colSpan={20} className="px-4 py-4 text-center">No hay pedidos que coincidan con los filtros</td>
                     </tr>
                   ) : (
                     pedidos.map((pedido) => (
