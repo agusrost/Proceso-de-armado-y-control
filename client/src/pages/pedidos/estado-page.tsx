@@ -169,15 +169,19 @@ export default function PedidosEstadoPage() {
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Vendedor</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Armador</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Control</th>
+                    {/* Columnas de Armado Agrupadas */}
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Inicio</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Hora Fin</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Tiempo Bruto</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Pausas</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">Tiempo Neto</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Inicio Control</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Fin Control</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Bruto Control</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Neto Control</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Bruto</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-blue-50">T. Neto</th>
+                    {/* Columnas de Control Agrupadas */}
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Inicio</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Fin</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">Pausas</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Bruto</th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-green-50">T. Neto</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acción</th>
                   </tr>
                 </thead>
@@ -220,15 +224,16 @@ export default function PedidosEstadoPage() {
                           {pedido.armador?.firstName || pedido.armador?.username || "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                          {pedido.controlador?.firstName || pedido.controlador?.username || "-"}
+                        </td>
+                        {/* Columnas de Armado */}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-blue-50/40">
                           {pedido.inicio ? new Date(pedido.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : "-"}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-blue-50/40">
                           {pedido.finalizado ? new Date(pedido.finalizado).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : "-"}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : "-"}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-blue-50/40">
                           {pedido.pausas && pedido.pausas.length > 0 ? (
                             <div className="relative group">
                               <span className="underline cursor-pointer">
@@ -256,7 +261,10 @@ export default function PedidosEstadoPage() {
                             "0"
                           )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-blue-50/40">
+                          {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : "-"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-blue-50/40">
                           {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : "-"}
                         </td>
                         {/* Columnas de Control */}
@@ -265,6 +273,34 @@ export default function PedidosEstadoPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-green-50/40">
                           {pedido.controlFin ? new Date(pedido.controlFin).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : "-"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-green-50/40">
+                          {pedido.controlPausas && pedido.controlPausas.length > 0 ? (
+                            <div className="relative group">
+                              <span className="underline cursor-pointer">
+                                {pedido.controlPausas.length} {pedido.controlPausas.length === 1 ? 'pausa' : 'pausas'}
+                              </span>
+                              <div className="absolute hidden group-hover:block bg-white border border-gray-200 p-2 rounded shadow-lg z-10 w-56">
+                                <div className="text-xs font-semibold mb-1 text-gray-700">Detalles de pausas:</div>
+                                {pedido.controlPausas.map((pausa, index) => (
+                                  <div key={index} className="text-xs mb-1 pb-1 border-b border-gray-100">
+                                    <div><span className="font-medium">Motivo:</span> {pausa.motivo}</div>
+                                    {pausa.inicio && (
+                                      <div><span className="font-medium">Inicio:</span> {new Date(pausa.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'})}</div>
+                                    )}
+                                    {pausa.fin && (
+                                      <div><span className="font-medium">Fin:</span> {new Date(pausa.fin).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'})}</div>
+                                    )}
+                                    {pausa.duracion && (
+                                      <div><span className="font-medium">Duración:</span> {formatTimeHM(pausa.duracion)}</div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            "0"
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 bg-green-50/40">
                           {pedido.controlTiempo || "-"}
