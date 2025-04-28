@@ -281,11 +281,14 @@ export class DatabaseStorage implements IStorage {
     return pausa;
   }
   
-  async getPausasByPedidoId(pedidoId: number): Promise<Pausa[]> {
+  async getPausasByPedidoId(pedidoId: number, esControl: boolean = false): Promise<Pausa[]> {
     return db
       .select()
       .from(pausas)
-      .where(eq(pausas.pedidoId, pedidoId));
+      .where(and(
+        eq(pausas.pedidoId, pedidoId),
+        esControl ? eq(pausas.tipo, 'control') : eq(pausas.tipo, 'armado')
+      ));
   }
   
   async updatePausa(id: number, pausaData: Partial<Pausa>): Promise<Pausa | undefined> {

@@ -305,11 +305,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Obtener las pausas asociadas al pedido
             const pausas = await storage.getPausasByPedidoId(pedido.id);
             
-            // Calcular tiempo neto si no existe
+            // Calcular tiempoBruto si existe inicio y fin pero no tiempoBruto
+            let tiempoBruto = pedido.tiempoBruto;
             let tiempoNeto = pedido.tiempoNeto;
-            if (pausas.length > 0 && pedido.tiempoBruto && !pedido.tiempoNeto) {
+            
+            if (pedido.inicio && pedido.finalizado && !tiempoBruto) {
+              // Calcular tiempo bruto basado en los timestamps de inicio y fin
+              const inicioDate = new Date(pedido.inicio);
+              const finDate = new Date(pedido.finalizado);
+              const tiempoBrutoMs = finDate.getTime() - inicioDate.getTime();
+              const tiempoBrutoSegundos = Math.floor(tiempoBrutoMs / 1000);
+              
+              const brutoHoras = Math.floor(tiempoBrutoSegundos / 3600);
+              const brutoMinutos = Math.floor((tiempoBrutoSegundos % 3600) / 60);
+              tiempoBruto = `${brutoHoras.toString().padStart(2, '0')}:${brutoMinutos.toString().padStart(2, '0')}`;
+              
+              // Actualizar el pedido en la base de datos con el tiempo bruto calculado
+              await storage.updatePedido(pedido.id, { tiempoBruto });
+            }
+            
+            // Calcular tiempo neto si no existe pero hay tiempo bruto
+            if ((tiempoBruto || pedido.tiempoBruto) && !tiempoNeto) {
+              const brutoParaCalculo = tiempoBruto || pedido.tiempoBruto;
+              
               // Convertir tiempo bruto (formato HH:MM) a segundos
-              const [horas, minutos] = pedido.tiempoBruto.split(':').map(Number);
+              const [horas, minutos] = brutoParaCalculo.split(':').map(Number);
               const tiempoBrutoSegundos = (horas * 3600) + (minutos * 60);
               
               // Calcular tiempo total de pausas en segundos
