@@ -74,7 +74,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Agregar armador explícitamente, ya que parece haber problemas con la serialización automática
       for (const pedido of pedidos) {
         if (pedido.armadorId) {
-          pedido.armador = await storage.getUser(pedido.armadorId);
+          const armadorUser = await storage.getUser(pedido.armadorId);
+          // Añadimos la información del armador al pedido como una propiedad no estándar
+          // @ts-ignore - Esto es seguro, estamos añadiendo una propiedad extra al objeto
+          pedido.armador = armadorUser;
         }
       }
 

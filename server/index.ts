@@ -8,6 +8,22 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Middleware para asegurar que las respuestas API sean JSON - IMPORTANTE colocarlo antes de registrar las rutas
+app.use('/api', (req, res, next) => {
+  // Establecer explícitamente el tipo de contenido a JSON
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Guardar el método .json() original
+  const originalJson = res.json;
+  
+  // Sobreescribir el método .json() para asegurar que las cabeceras sean correctas
+  res.json = function(body) {
+    return originalJson.call(this, body);
+  };
+  
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -45,6 +61,8 @@ app.use((req, res, next) => {
   // Servir los archivos estáticos públicos antes de registrar rutas
   app.use('/js', express.static(path.join(process.cwd(), 'public/js')));
   
+  // Registramos primero todas las rutas en Express, antes de que Vite pueda intervenir
+  // Orden importante: primero API, luego Vite, luego middleware de captura
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -76,20 +94,8 @@ app.use((req, res, next) => {
     console.error("Error en middleware:", err);
   });
 
-  // Configurar un middleware para asegurar que las respuestas API sean JSON
-  app.use('/api', (req, res, next) => {
-    // Guardar el método .json() original
-    const originalJson = res.json;
-    
-    // Sobreescribir el método .json() para asegurar que las cabeceras sean correctas
-    res.json = function(body) {
-      // Asegurar que el Content-Type sea application/json antes de llamar a .json()
-      res.setHeader('Content-Type', 'application/json');
-      return originalJson.call(this, body);
-    };
-    
-    next();
-  });
+  // Este middleware ya se estableció al inicio de la aplicación, no lo duplicamos
+  // app.use('/api', ...); 
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
