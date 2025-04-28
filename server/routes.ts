@@ -368,7 +368,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             }
             
             // Obtener detalles del control
-            const detalles = await storage.getControlDetalleByHistoricoId(historial.id);
+            const detalles = await storage.getControlDetalleByControlId(historial.id);
             
             return {
               ...historial,
@@ -387,7 +387,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 lastName: controlador.lastName,
               } : null,
               detalles: detalles.length,
-              errores: detalles.filter(d => d.tipo !== 'normal').length
+              errores: detalles.filter(d => d.tipo && d.tipo !== 'normal').length
             };
           } catch (err) {
             console.error(`Error al procesar historial ${historial.id}:`, err);

@@ -496,6 +496,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(controlDetalle.controlId, controlId));
   }
   
+  // Helper para obtener detalles por historico id (alias para mantener compatibilidad)
+  async getControlDetalleByHistoricoId(historicoId: number): Promise<ControlDetalle[]> {
+    return this.getControlDetalleByControlId(historicoId);
+  }
+  
   async updateControlDetalle(id: number, data: Partial<ControlDetalle>): Promise<ControlDetalle | undefined> {
     const [detalle] = await db
       .update(controlDetalle)
