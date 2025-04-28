@@ -223,11 +223,18 @@ export async function registerRoutes(app: Application): Promise<Server> {
               }
             }
             
+            // Obtener datos del armador si existe
+            let armador = null;
+            if (pedido.armadorId) {
+              armador = await storage.getUser(pedido.armadorId);
+            }
+            
             // Retornar el pedido con la información adicional
             return {
               ...pedido,
               tiempoNeto,
               pausas,
+              armador,
               controlInicio,
               controlFin,
               controlTiempo,
