@@ -712,22 +712,25 @@ export default function ControlPedidoPage() {
             // Mostrar el diálogo de excedentes para que el usuario confirme que los ha retirado
             setTimeout(() => verificarExcedentesParaRetirar(), 1000);
           } else {
-            console.log("No hay excedentes, finalizando automáticamente");
-            // No hay excedentes, podemos finalizar automáticamente
+            console.log("No hay excedentes, mostrando confirmación de finalización");
+            // No hay excedentes, mostramos el diálogo de finalización exitosa
             setTimeout(() => {
-              toast({
-                title: "Control Completado",
-                description: "¡Todos los productos han sido controlados correctamente! Finalizando control...",
-                variant: "default",
-              });
+              try {
+                // Reproducir sonido de éxito
+                const audio = new Audio('/sounds/success.mp3');
+                audio.play();
+              } catch (e) {
+                console.log('Error reproduciendo sonido:', e);
+              }
               
-              // Finalizar automáticamente después de mostrar el mensaje
-              setTimeout(() => {
-                finalizarControlMutation.mutate({ 
-                  resultado: 'completo' as any,
-                  comentarios: "Finalización automática - Todos los productos controlados correctamente" 
-                });
-              }, 1500);
+              // Mostrar diálogo de finalización exitosa
+              setFinalizadoOpen(true);
+              
+              // Finalizar automáticamente el control en segundo plano
+              finalizarControlMutation.mutate({ 
+                resultado: 'completo' as any,
+                comentarios: "Finalización automática - Todos los productos controlados correctamente" 
+              });
             }, 500);
           }
         }
