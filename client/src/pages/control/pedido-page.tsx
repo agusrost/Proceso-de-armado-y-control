@@ -43,7 +43,7 @@ import { CodigosRegistradosList } from "@/components/control/codigos-registrados
 import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
 import { RetirarExcedenteAlert } from "@/components/control/retirar-excedente-alert";
 import { ControlFinalizadoDialog } from "@/components/control/control-finalizado-dialog";
-import PedidoDetailModal from "@/components/pedidos/pedido-detail-modal";
+import PedidoProductosModal from "@/components/control/pedido-productos-modal";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -1393,9 +1393,9 @@ export default function ControlPedidoPage() {
         mensaje="El control del pedido ha sido finalizado correctamente"
       />
       
-      {/* Modal de detalles del pedido */}
+      {/* Modal simplificado de productos del pedido */}
       {pedidoId && (
-        <PedidoDetailModal
+        <PedidoProductosModal
           pedidoId={pedidoId}
           isOpen={detalleModalOpen}
           onClose={() => setDetalleModalOpen(false)}
