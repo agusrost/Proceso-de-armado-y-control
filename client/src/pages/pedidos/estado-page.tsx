@@ -237,7 +237,9 @@ export default function PedidosEstadoPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {pedido.armador?.firstName || pedido.armador?.username || "-"}
+                          {/* Debugging armador */}
+                          {console.log("Armador para pedido", pedido.id, ":", pedido.armador)}
+                          {pedido.armador ? (pedido.armador.firstName || pedido.armador.username) : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {pedido.controlador?.firstName || pedido.controlador?.username || "-"}

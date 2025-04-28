@@ -71,6 +71,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
         pedidoId: pedidoId as string
       });
       
+      // Agregar armador explícitamente, ya que parece haber problemas con la serialización automática
+      for (const pedido of pedidos) {
+        if (pedido.armadorId) {
+          pedido.armador = await storage.getUser(pedido.armadorId);
+        }
+      }
+
       // Procesar pedidos para corregir estados y añadir información
       const pedidosProcesados = await Promise.all(
         pedidos.map(async (pedido) => {
