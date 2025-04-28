@@ -291,6 +291,17 @@ export class DatabaseStorage implements IStorage {
       ));
   }
   
+  async getPausasActivasByPedidoId(pedidoId: number, esControl: boolean = false): Promise<Pausa[]> {
+    return db
+      .select()
+      .from(pausas)
+      .where(and(
+        eq(pausas.pedidoId, pedidoId),
+        isNull(pausas.fin),
+        esControl ? eq(pausas.tipo, 'control') : eq(pausas.tipo, 'armado')
+      ));
+  }
+  
   async updatePausa(id: number, pausaData: Partial<Pausa>): Promise<Pausa | undefined> {
     const [pausa] = await db
       .update(pausas)

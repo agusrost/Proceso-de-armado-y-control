@@ -307,7 +307,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
             }
             
             // Obtener pausas activas
-            const pausasActivas = await storage.getPausasActivasByPedidoId(pedido.id, true);
+            const pausasActivas = await storage.getPausasByPedidoId(pedido.id, true)
+              .then(pausas => pausas.filter(p => p.fin === null));
             
             return {
               ...pedido,
