@@ -425,7 +425,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Enriquecer las solicitudes con información de usuario
       const solicitudesEnriquecidas = await Promise.all(
-        solicitudes.map(async (solicitud) => {
+        solicitudesHistoricas.map(async (solicitud) => {
           const solicitante = solicitud.solicitadoPor 
             ? await storage.getUser(solicitud.solicitadoPor) 
             : undefined;
