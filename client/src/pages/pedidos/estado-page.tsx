@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PedidoWithDetails } from "@shared/types";
+import { User } from "@shared/schema";
 import { getEstadoColor, getEstadoLabel, formatDate, formatTimeHM } from "@/lib/utils";
 import { Eye, RefreshCw } from "lucide-react";
 import PedidoDetailModal from "@/components/pedidos/pedido-detail-modal";
@@ -27,7 +28,7 @@ export default function PedidosEstadoPage() {
   const [filterArmador, setFilterArmador] = useState("todos");
 
   // Fetch armadores for the filter dropdown
-  const { data: armadores = [] } = useQuery({
+  const { data: armadores = [] } = useQuery<User[]>({
     queryKey: ["/api/users/armadores"],
     enabled: true,
   });
@@ -237,9 +238,12 @@ export default function PedidosEstadoPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                          {/* Debugging armador */}
-                          {console.log("Armador para pedido", pedido.id, ":", pedido.armador)}
-                          {pedido.armador ? (pedido.armador.firstName || pedido.armador.username) : "-"}
+                          {/* Mostrar armador de forma segura, para evitar errores */}
+                          {(pedido.armadorId && pedido.armador?.firstName) 
+                            ? pedido.armador.firstName 
+                            : (pedido.armadorId && pedido.armador?.username)
+                              ? pedido.armador.username 
+                              : "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                           {pedido.controlador?.firstName || pedido.controlador?.username || "-"}
