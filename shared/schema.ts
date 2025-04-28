@@ -98,6 +98,7 @@ export const controlDetalle = pgTable("control_detalle", {
   cantidadEsperada: integer("cantidad_esperada").notNull(),
   cantidadControlada: integer("cantidad_controlada").notNull(),
   estado: text("estado").notNull(), // faltante, correcto, excedente
+  tipo: text("tipo").default('normal'), // normal, faltante, excedente
   timestamp: timestamp("timestamp").notNull(),
 });
 
