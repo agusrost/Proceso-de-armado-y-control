@@ -837,7 +837,8 @@ export default function ArmadoPage() {
                           
                         crearPausaMutation.mutate({
                           pedidoId: currentPedido.id,
-                          motivo: motivoFinal
+                          motivo: motivoFinal,
+                          tipo: "armado" // Especificar que es una pausa de armado
                           // No enviamos el campo inicio para que el backend lo maneje
                         });
                       }}
@@ -1602,6 +1603,7 @@ export default function ArmadoPage() {
                   crearPausaMutation.mutate({
                     pedidoId: currentPedido.id,
                     motivo: motivoPausa,
+                    tipo: "armado", // Especificar que es una pausa de armado
                     inicio: now
                   });
                 }}
