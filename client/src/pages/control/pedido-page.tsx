@@ -61,7 +61,10 @@ export default function ControlPedidoPage() {
   const [retirarExcedenteOpen, setRetirarExcedenteOpen] = useState(false);
   const [finalizadoOpen, setFinalizadoOpen] = useState(false);
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
+  const [pausaModalOpen, setPausaModalOpen] = useState(false);
   const [cargandoControl, setCargandoControl] = useState(false);
+  const [pausaActiva, setPausaActiva] = useState(false);
+  const [pausaActualId, setPausaActualId] = useState<number | null>(null);
   const [codigoNoEncontrado, setCodigoNoEncontrado] = useState({
     codigo: "",
     descripcion: ""
