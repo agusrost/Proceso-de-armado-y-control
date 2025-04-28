@@ -29,9 +29,16 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-    console.log(`Ejecutando ${method} a ${url}`);
+    // Modificar la URL para evitar que Vite la intercepte
+    let apiUrl = url;
+    if (url.startsWith('/api/')) {
+      apiUrl = '/__api' + url;
+      console.log(`Redirigiendo ${method} a: ${apiUrl}`);
+    } else {
+      console.log(`Ejecutando ${method} a: ${apiUrl}`);
+    }
     
-    const res = await fetch(url, {
+    const res = await fetch(apiUrl, {
       method,
       headers: {
         ...(data ? { "Content-Type": "application/json" } : {}),
@@ -71,8 +78,17 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      console.log(`Haciendo petición a: ${queryKey[0]}`);
-      const res = await fetch(queryKey[0] as string, {
+      // Modificar la URL para evitar que Vite la intercepte
+      let url = queryKey[0] as string;
+      // Añadir un prefijo especial /__api/ para las rutas API que Vite no interceptará
+      if (url.startsWith('/api/')) {
+        url = '/__api' + url;
+        console.log(`Redirigiendo petición a: ${url}`);
+      } else {
+        console.log(`Haciendo petición a: ${url}`);
+      }
+      
+      const res = await fetch(url, {
         credentials: "include",
         // Forzar que acepte JSON
         headers: {

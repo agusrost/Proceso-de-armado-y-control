@@ -8,6 +8,20 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Middleware para manejar ruta especial que evita la intercepción de Vite
+app.use('/__api', (req, res, next) => {
+  // Reescribir la URL para que apunte a /api
+  console.log(`Redirigiendo solicitud de /__api${req.url} a /api${req.url}`);
+  req.url = req.url; // Mantener el resto de la URL igual
+  req.baseUrl = '/api'; // Cambiar el baseUrl para que las rutas se resuelvan correctamente
+  
+  // Establecer los encabezados para forzar JSON
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Transferir la solicitud a las rutas API
+  app._router.handle(req, res, next);
+});
+
 // Middleware para asegurar que las respuestas API sean JSON - IMPORTANTE colocarlo antes de registrar las rutas
 app.use('/api', (req, res, next) => {
   // Establecer explícitamente el tipo de contenido a JSON
