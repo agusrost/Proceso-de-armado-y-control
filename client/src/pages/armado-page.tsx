@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshCw } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -85,6 +85,7 @@ export default function ArmadoPage() {
   const [mostrarAlertaInicio, setMostrarAlertaInicio] = useState(false);
   const [mostrarAlertaFinal, setMostrarAlertaFinal] = useState(false);
   const [mostrarEstadoPedido, setMostrarEstadoPedido] = useState(false);
+  const [errorInicioPedido, setErrorInicioPedido] = useState<string | null>(null);
   
   // Estado para manejo de pausas
   const [mostrarModalPausa, setMostrarModalPausa] = useState(false);
@@ -146,6 +147,9 @@ export default function ArmadoPage() {
       setMostrarAlertaInicio(false);
     },
     onError: (error: Error) => {
+      // Guardar el mensaje de error para mostrarlo en la interfaz
+      setErrorInicioPedido(error.message);
+      
       // Mostrar un mensaje más amigable para el usuario
       toast({
         title: "No se pudo iniciar el pedido",
@@ -466,35 +470,61 @@ export default function ArmadoPage() {
                   <p className="text-blue-800 mt-1">
                     Tienes un pedido asignado. Puedes comenzar a armarlo cuando estés listo.
                   </p>
-                  <div className="mt-3">
-                    <Button 
-                      onClick={() => setMostrarAlertaInicio(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Play size={16} className="mr-2" />
-                      Iniciar armado
-                    </Button>
-                    
-                    <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Iniciar armado</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            ¿Estás seguro de que deseas iniciar el armado del pedido? 
-                            Se iniciará el cronómetro y no podrás cancelarlo.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => iniciarPedidoMutation.mutate(pedidoArmador.id)}
-                          >
-                            Iniciar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                  
+                  {/* Mostrar mensaje de error si existe */}
+                  {errorInicioPedido && (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <XCircle size={16} className="text-red-500" />
+                        <span className="font-medium text-red-800">Error:</span>
+                      </div>
+                      <p>{errorInicioPedido}</p>
+                      <Button
+                        className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          // Limpiar el error y refrescar los datos
+                          setErrorInicioPedido(null);
+                          queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+                        }}
+                      >
+                        <RefreshCw size={16} className="mr-2" />
+                        Actualizar estado
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Solo mostrar el botón si no hay error */}
+                  {!errorInicioPedido && (
+                    <div className="mt-3">
+                      <Button 
+                        onClick={() => setMostrarAlertaInicio(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Play size={16} className="mr-2" />
+                        Iniciar armado
+                      </Button>
+                      
+                      <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Iniciar armado</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              ¿Estás seguro de que deseas iniciar el armado del pedido? 
+                              Se iniciará el cronómetro y no podrás cancelarlo.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => iniciarPedidoMutation.mutate(pedidoArmador.id)}
+                            >
+                              Iniciar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
