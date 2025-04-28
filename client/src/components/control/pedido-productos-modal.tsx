@@ -7,8 +7,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle, Circle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 
 // Definición de la interfaz Producto
 interface Producto {
@@ -30,7 +31,7 @@ interface PedidoProductosModalProps {
 export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: PedidoProductosModalProps) {
   // Cargar los productos del pedido usando el endpoint alternativo de pre-control
   // que está diseñado específicamente para resolver problemas de datos
-  const { data: preControlData, isLoading } = useQuery({
+  const { data: preControlData, isLoading: isLoadingPreControl } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "pre-control"],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/pre-control`);
@@ -39,12 +40,35 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
     enabled: isOpen && !!pedidoId,
   });
   
+  // Obtener el estado actual del control para saber qué productos ya han sido escaneados
+  const { data: controlData, isLoading: isLoadingControl } = useQuery({
+    queryKey: ["/api/control/pedidos", pedidoId, "activo"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
+      return res.json();
+    },
+    enabled: isOpen && !!pedidoId,
+  });
+  
+  // Determinar si un producto ha sido escaneado
+  const productosEscaneados = controlData?.detalles || [];
+  
+  // Crear un mapa de códigos escaneados para fácil búsqueda
+  const codigosEscaneados = new Map();
+  productosEscaneados.forEach((detalle: any) => {
+    codigosEscaneados.set(detalle.codigo, true);
+  });
+  
   // Extraer productos del resultado
   const productos = preControlData?.productos || [];
+  
+  // Estado de carga combinado
+  const isLoading = isLoadingPreControl || isLoadingControl;
   
   // Agregar logs para depuración
   console.log("Datos de pre-control:", preControlData);
   console.log("Productos encontrados:", productos?.length || 0);
+  console.log("Productos escaneados:", productosEscaneados?.length || 0, codigosEscaneados);
 
   // Cargar información básica del pedido para el título
   const { data: pedido } = useQuery({
@@ -74,6 +98,7 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
               <table className="min-w-full divide-y divide-neutral-200">
                 <thead className="bg-neutral-100">
                   <tr>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                     <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Descripción</th>
@@ -82,17 +107,33 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {productos.length > 0 ? (
-                    productos.map((producto) => (
-                      <tr key={producto.id} className="hover:bg-neutral-50">
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-neutral-900">{producto.codigo}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">{producto.cantidad}</td>
-                        <td className="px-4 py-2 text-sm text-neutral-500">{producto.descripcion}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">{producto.ubicacion || "-"}</td>
-                      </tr>
-                    ))
+                    productos.map((producto) => {
+                      const estaEscaneado = codigosEscaneados.has(producto.codigo);
+                      return (
+                        <tr 
+                          key={producto.id} 
+                          className={cn(
+                            "hover:bg-neutral-50",
+                            estaEscaneado ? "bg-emerald-50" : ""
+                          )}
+                        >
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">
+                            {estaEscaneado ? (
+                              <CheckCircle className="h-5 w-5 text-emerald-500" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-neutral-300" />
+                            )}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-neutral-900">{producto.codigo}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">{producto.cantidad}</td>
+                          <td className="px-4 py-2 text-sm text-neutral-500">{producto.descripcion}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-neutral-500">{producto.ubicacion || "-"}</td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-4 py-4 text-center text-sm text-neutral-500">
+                      <td colSpan={5} className="px-4 py-4 text-center text-sm text-neutral-500">
                         No hay productos para este pedido
                       </td>
                     </tr>
