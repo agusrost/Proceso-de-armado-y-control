@@ -681,6 +681,52 @@ export default function ControlPedidoPage() {
         title: "Producto registrado",
         description: `Código ${data.producto?.codigo || "[sin código]"} registrado correctamente`,
       });
+
+      // Verificar si todos los productos están correctamente controlados para finalización automática
+      setControlState(prevState => {
+        // Verificar si todos los productos están controlados correctamente o han sido ajustados
+        const todosProductosControlados = prevState.productosControlados.every(p => 
+          p.estado === 'correcto' || 
+          (p.controlado === p.cantidad && p.estado !== 'pendiente')
+        );
+        
+        const todosProductosRegistrados = prevState.productosControlados.every(p => 
+          p.controlado !== 0
+        );
+
+        if (todosProductosControlados && todosProductosRegistrados) {
+          console.log("¡Todos los productos están controlados correctamente! Verificando excedentes...");
+          
+          // Verificar si hay excedentes que necesitan ser retirados
+          const hayExcedentes = prevState.productosControlados.some(p => p.controlado > p.cantidad);
+          
+          if (hayExcedentes) {
+            console.log("Hay excedentes que retirar antes de finalizar automáticamente");
+            // Mostrar el diálogo de excedentes para que el usuario confirme que los ha retirado
+            setTimeout(() => verificarExcedentesParaRetirar(), 1000);
+          } else {
+            console.log("No hay excedentes, finalizando automáticamente");
+            // No hay excedentes, podemos finalizar automáticamente
+            setTimeout(() => {
+              toast({
+                title: "Control Completado",
+                description: "¡Todos los productos han sido controlados correctamente! Finalizando control...",
+                variant: "default",
+              });
+              
+              // Finalizar automáticamente después de mostrar el mensaje
+              setTimeout(() => {
+                finalizarControlMutation.mutate({ 
+                  resultado: 'completo' as any,
+                  comentarios: "Finalización automática - Todos los productos controlados correctamente" 
+                });
+              }, 1500);
+            }, 500);
+          }
+        }
+        
+        return prevState; // No necesitamos actualizar el estado aquí
+      });
     },
     onError: (error: Error) => {
       console.error("Error completo al escanear:", error);
@@ -941,8 +987,33 @@ export default function ControlPedidoPage() {
       // Primero cerrar el diálogo de excedentes
       setRetirarExcedenteOpen(false);
       
+      // Mostrar mensaje de confirmación
+      toast({
+        title: "Excedentes confirmados",
+        description: "Se ha confirmado que los excedentes han sido retirados del pedido",
+        variant: "default",
+      });
+      
       // Pequeña pausa antes de iniciar el proceso de finalización
       setTimeout(() => {
+        // Verificar si todos los productos están en cantidad correcta después de retirar excedentes
+        const todosProductosCorrectos = controlState.productosControlados.every(p => {
+          // Asumimos que después de retirar excedentes, las cantidades son correctas
+          // Es decir, controlado === cantidad para todos los productos
+          return p.controlado === p.cantidad;
+        });
+        
+        console.log("¿Todos los productos están correctos después de retirar excedentes?", todosProductosCorrectos);
+        
+        if (todosProductosCorrectos) {
+          // Mostrar alerta de finalización
+          toast({
+            title: "Control Completado",
+            description: "¡Todos los productos han sido controlados correctamente! Finalizando control...",
+            variant: "default",
+          });
+        }
+        
         try {
           // Finalizar el control con estado completo
           finalizarControlMutation.mutate({
