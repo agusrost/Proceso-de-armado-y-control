@@ -289,8 +289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pedidoId: pedidoId as string
       });
       
-      // Filtrar pedidos que ya fueron controlados
-      const pedidosFiltrados = await Promise.all(
+      // Procesar pedidos para corregir estados y añadir información
+      const pedidosProcesados = await Promise.all(
         pedidos.map(async (pedido) => {
           try {
             // Verificar si este pedido ya fue controlado (tiene histórico con fin no nulo)
@@ -302,16 +302,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return null; // Marcar para exclusión
             }
             
-            return pedido;
+            // Obtener las pausas asociadas al pedido
+            const pausas = await storage.getPausasByPedidoId(pedido.id);
+            
+            // Calcular tiempo neto si no existe
+            let tiempoNeto = pedido.tiempoNeto;
+            if (pausas.length > 0 && pedido.tiempoBruto && !pedido.tiempoNeto) {
+              // Convertir tiempo bruto (formato HH:MM) a segundos
+              const [horas, minutos] = pedido.tiempoBruto.split(':').map(Number);
+              const tiempoBrutoSegundos = (horas * 3600) + (minutos * 60);
+              
+              // Calcular tiempo total de pausas en segundos
+              const tiempoPausasTotalSegundos = pausas.reduce((total, pausa) => {
+                if (pausa.duracion) {
+                  const [pausaHoras, pausaMinutos] = pausa.duracion.split(':').map(Number);
+                  return total + ((pausaHoras * 3600) + (pausaMinutos * 60));
+                }
+                return total;
+              }, 0);
+              
+              // Calcular tiempo neto
+              const tiempoNetoSegundos = Math.max(0, tiempoBrutoSegundos - tiempoPausasTotalSegundos);
+              const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
+              const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
+              tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}`;
+              
+              // Actualizar el pedido en la base de datos con el tiempo neto calculado
+              await storage.updatePedido(pedido.id, { tiempoNeto });
+            }
+            
+            // Corregir el estado si ya fue controlado
+            if (yaControlado && pedido.estado !== 'controlado') {
+              console.log(`Corrigiendo estado del pedido ${pedido.id} (${pedido.pedidoId}) de "${pedido.estado}" a "controlado"`);
+              await storage.updatePedido(pedido.id, { estado: 'controlado' });
+              pedido.estado = 'controlado';
+            }
+            
+            return {
+              ...pedido,
+              tiempoNeto,
+              pausas
+            };
           } catch (err) {
-            console.error(`Error al verificar control para pedido ${pedido.id}:`, err);
-            return pedido; // En caso de error, incluimos el pedido
+            console.error(`Error al procesar pedido ${pedido.id}:`, err);
+            return pedido; // En caso de error, incluimos el pedido sin modificaciones
           }
         })
       );
       
       // Filtrar los pedidos marcados como null (ya controlados)
-      const pedidosFinales = pedidosFiltrados.filter(p => p !== null);
+      const pedidosFinales = pedidosProcesados.filter(p => p !== null);
       
       res.json(pedidosFinales);
     } catch (error) {
@@ -1237,9 +1277,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const resultados = [];
       
+      // Primero verificar cuáles pedidos tienen controles finalizados
+      const pedidosControlados = new Set();
       for (const pedido of pedidos) {
-        // No procesamos pedidos ya completados
-        if (pedido.estado === 'completado') {
+        const historicos = await storage.getControlHistoricoByPedidoId(pedido.id);
+        const yaControlado = historicos.some(h => h.fin !== null);
+        if (yaControlado) {
+          pedidosControlados.add(pedido.id);
+          
+          // Si está controlado pero no tiene estado 'controlado', corregirlo ahora
+          if (pedido.estado !== 'controlado') {
+            console.log(`Corrigiendo estado del pedido ${pedido.id} (${pedido.pedidoId}) de "${pedido.estado}" a "controlado"`);
+            await storage.updatePedido(pedido.id, { 
+              estado: 'controlado' 
+            });
+            
+            resultados.push({
+              pedidoId: pedido.pedidoId,
+              estadoAnterior: pedido.estado,
+              estadoNuevo: 'controlado',
+              actualizado: true,
+              correccion: true
+            });
+          }
+        }
+      }
+      
+      for (const pedido of pedidos) {
+        // No procesamos pedidos ya completados o ya controlados
+        if (pedido.estado === 'completado' || pedidosControlados.has(pedido.id)) {
           continue;
         }
         
@@ -1270,25 +1336,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (debeCompletarse) {
           console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
           
-          // Verificar si el pedido ya fue controlado para no cambiar su estado
-          let nuevoEstado = 'armado';
-          
-          // Si el pedido ya está marcado como controlado, mantener ese estado
-          if (pedido.estado === 'controlado' || pedido.controlFin !== null) {
-            nuevoEstado = 'controlado';
-            console.log(`Manteniendo estado 'controlado' para pedido ${pedido.id} (${pedido.pedidoId})`);
-          }
-          
-          // Actualizar el pedido al estado correspondiente
+          // Actualizar el pedido a armado
           const pedidoActualizado = await storage.updatePedido(pedido.id, {
-            estado: nuevoEstado,
+            estado: 'armado',
             finalizado: new Date()
           });
           
           resultados.push({
             pedidoId: pedido.pedidoId,
             estadoAnterior: pedido.estado,
-            estadoNuevo: nuevoEstado,
+            estadoNuevo: 'armado',
             actualizado: true
           });
         } else {
@@ -1301,6 +1358,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     'Falta confirmar transferencia de stock para algunos productos' : 
                     'Aún hay productos pendientes por completar'
           });
+        }
+      }
+      
+      // Calcular los tiempos netos para todos los pedidos
+      for (const pedido of pedidos) {
+        // Saltar si el pedido no tiene tiempo bruto
+        if (!pedido.tiempoBruto) continue;
+        
+        // Obtener las pausas asociadas al pedido
+        const pausas = await storage.getPausasByPedidoId(pedido.id);
+        
+        // Calcular tiempo neto si hay pausas y no tiene tiempoNeto
+        if (pausas.length > 0 && pedido.tiempoBruto && !pedido.tiempoNeto) {
+          // Convertir tiempo bruto (formato HH:MM) a segundos
+          const [horas, minutos] = pedido.tiempoBruto.toString().split(':').map(Number);
+          const tiempoBrutoSegundos = (horas * 3600) + (minutos * 60);
+          
+          // Calcular tiempo total de pausas en segundos
+          const tiempoPausasTotalSegundos = pausas.reduce((total, pausa) => {
+            if (pausa.duracion) {
+              const [pausaHoras, pausaMinutos] = pausa.duracion.toString().split(':').map(Number);
+              return total + ((pausaHoras * 3600) + (pausaMinutos * 60));
+            }
+            return total;
+          }, 0);
+          
+          // Calcular tiempo neto
+          const tiempoNetoSegundos = Math.max(0, tiempoBrutoSegundos - tiempoPausasTotalSegundos);
+          const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
+          const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
+          const tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}`;
+          
+          // Actualizar el pedido en la base de datos con el tiempo neto calculado
+          await storage.updatePedido(pedido.id, { tiempoNeto });
         }
       }
       
