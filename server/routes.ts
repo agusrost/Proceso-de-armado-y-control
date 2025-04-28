@@ -3,6 +3,7 @@ import { createServer, type Server } from 'http';
 import { storage } from './storage';
 import { formatTimeHM } from '../client/src/lib/utils';
 import { WebSocketServer } from 'ws';
+// Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
 function requireAuth(req: Request, res: Response, next: NextFunction) {
