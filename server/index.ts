@@ -76,6 +76,21 @@ app.use((req, res, next) => {
     console.error("Error en middleware:", err);
   });
 
+  // Configurar un middleware para asegurar que las respuestas API sean JSON
+  app.use('/api', (req, res, next) => {
+    // Guardar el método .json() original
+    const originalJson = res.json;
+    
+    // Sobreescribir el método .json() para asegurar que las cabeceras sean correctas
+    res.json = function(body) {
+      // Asegurar que el Content-Type sea application/json antes de llamar a .json()
+      res.setHeader('Content-Type', 'application/json');
+      return originalJson.call(this, body);
+    };
+    
+    next();
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
