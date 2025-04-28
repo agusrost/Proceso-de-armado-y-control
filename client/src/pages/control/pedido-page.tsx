@@ -23,7 +23,8 @@ import {
   Check, 
   AlertTriangle, 
   StopCircle,
-  ClipboardList
+  ClipboardList,
+  Eye
 } from "lucide-react";
 import { formatDate, formatTimestamp } from "@/lib/utils";
 import { Pedido, Producto, User } from "@shared/schema";
@@ -1160,20 +1161,35 @@ export default function ControlPedidoPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Información del Pedido</CardTitle>
-                {pedido.estado && (
-                  <Badge className={`
-                    ${pedido.estado === 'pendiente' ? 'bg-orange-500' : ''}
-                    ${pedido.estado === 'armando' ? 'bg-blue-500' : ''}
-                    ${pedido.estado === 'finalizado' ? 'bg-green-500' : ''}
-                    ${pedido.estado === 'controlando' ? 'bg-purple-500' : ''}
-                    ${pedido.estado === 'pre-finalizado' ? 'bg-amber-500' : ''}
-                  `}>
-                    {pedido.estado.toUpperCase()}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Abrir en una nueva ventana la página de detalles del pedido
+                      window.open(`/pedidos/detalle/${pedido.id}`, '_blank');
+                    }}
+                    title="Ver detalle completo del pedido"
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Ver detalle
+                  </Button>
+                  
+                  {pedido.estado && (
+                    <Badge className={`
+                      ${pedido.estado === 'pendiente' ? 'bg-orange-500' : ''}
+                      ${pedido.estado === 'armando' ? 'bg-blue-500' : ''}
+                      ${pedido.estado === 'finalizado' ? 'bg-green-500' : ''}
+                      ${pedido.estado === 'controlando' ? 'bg-purple-500' : ''}
+                      ${pedido.estado === 'pre-finalizado' ? 'bg-amber-500' : ''}
+                    `}>
+                      {pedido.estado.toUpperCase()}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <CardDescription>
-                Nº {pedido.orden} - {pedido.pedidoId || 'Sin ID'}
+                Nº {pedido.pedidoId || 'Sin ID'}
               </CardDescription>
             </CardHeader>
             <CardContent>
