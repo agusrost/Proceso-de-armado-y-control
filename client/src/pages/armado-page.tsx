@@ -267,7 +267,10 @@ export default function ArmadoPage() {
   // Crear pausa mutation
   const crearPausaMutation = useMutation({
     mutationFn: async (data: InsertPausa) => {
-      const res = await apiRequest("POST", "/api/pausas", data);
+      const res = await apiRequest("POST", "/api/pausas", {
+        ...data,
+        tipo: "armado" // Especificar que es una pausa de armado
+      });
       return await res.json();
     },
     onSuccess: (data: Pausa) => {

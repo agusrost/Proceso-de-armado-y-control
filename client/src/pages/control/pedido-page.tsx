@@ -1363,6 +1363,26 @@ export default function ControlPedidoPage() {
                   <Button variant="destructive" onClick={handleCancelarControl}>
                     Cancelar Control
                   </Button>
+                  
+                  {/* Botón de Pausar o Reanudar control */}
+                  {pausaActiva ? (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => reanudarControlMutation.mutate()}
+                      disabled={reanudarControlMutation.isPending}
+                    >
+                      {reanudarControlMutation.isPending ? 'Reanudando...' : 'Reanudar Control'}
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setPausaModalOpen(true)}
+                      disabled={pausarControlMutation.isPending}
+                    >
+                      {pausarControlMutation.isPending ? 'Procesando...' : 'Pausar Control'}
+                    </Button>
+                  )}
+                  
                   <Button onClick={() => setFinalizarOpen(true)}>
                     Finalizar Control
                   </Button>
@@ -1545,6 +1565,19 @@ export default function ControlPedidoPage() {
           pedidoId={pedidoId}
           isOpen={detalleModalOpen}
           onClose={() => setDetalleModalOpen(false)}
+        />
+      )}
+      
+      {/* Modal de pausa de control */}
+      {pedidoId && (
+        <PausaControlModal
+          isOpen={pausaModalOpen}
+          onClose={() => setPausaModalOpen(false)}
+          pedidoId={pedidoId}
+          onPausaCreada={(pausaId) => {
+            setPausaActualId(pausaId);
+            setPausaActiva(true);
+          }}
         />
       )}
     </MainLayout>
