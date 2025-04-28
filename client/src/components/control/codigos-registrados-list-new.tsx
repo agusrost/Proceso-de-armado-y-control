@@ -8,6 +8,20 @@ type CodigosRegistradosListProps = {
 };
 
 export function CodigosRegistradosList({ registros, showEmpty = false }: CodigosRegistradosListProps) {
+  // Log detallado de los registros para depuración
+  console.log("Registros recibidos:", JSON.stringify(registros));
+  
+  // Verificar específicamente el producto con código 17061
+  const producto17061 = registros.find(p => p?.codigo === '17061');
+  if (producto17061) {
+    console.log("DATOS PRODUCTO 17061:", {
+      codigo: producto17061.codigo,
+      cantidad: producto17061.cantidad, // Cantidad solicitada (debe ser 2)
+      controlado: producto17061.controlado, // Cantidad registrada (debe ser 1)
+      estado: producto17061.estado
+    });
+  }
+  
   // Validación mejorada: filtrar registros nulos o inválidos
   const registrosValidos = registros.filter((p) => 
     p && typeof p === 'object' && 

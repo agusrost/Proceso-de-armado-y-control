@@ -72,6 +72,21 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
   console.log("Datos de pre-control:", preControlData);
   console.log("Productos encontrados:", productos?.length || 0);
   console.log("Productos escaneados:", productosEscaneados?.length || 0, codigosEscaneados);
+  
+  // Buscar y mostrar información específica del producto 17061 para depuración
+  const producto17061 = productos.find(p => p.codigo === '17061');
+  if (producto17061) {
+    console.log("DETALLE PRODUCTO 17061 (modal):", {
+      id: producto17061.id,
+      codigo: producto17061.codigo,
+      cantidad: producto17061.cantidad, // Debería ser 2
+      ubicacion: producto17061.ubicacion,
+      descripcion: producto17061.descripcion
+    });
+    
+    const controlInfo = codigosEscaneados.get('17061');
+    console.log("INFO CONTROL 17061:", controlInfo || "No hay información de control");
+  }
 
   // Cargar información básica del pedido para el título
   const { data: pedido } = useQuery({
