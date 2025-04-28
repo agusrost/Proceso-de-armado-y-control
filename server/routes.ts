@@ -412,6 +412,45 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // API para obtener historial de solicitudes de stock
+  app.get("/api/stock/historial", requireAuth, requireAccess('stock'), async (req, res, next) => {
+    try {
+      // Obtener solicitudes de stock
+      const solicitudes = await storage.getStockSolicitudes({});
+      
+      // Enriquecer las solicitudes con información de usuario
+      const solicitudesEnriquecidas = await Promise.all(
+        solicitudes.map(async (solicitud) => {
+          const solicitante = solicitud.solicitadoPor 
+            ? await storage.getUser(solicitud.solicitadoPor) 
+            : undefined;
+          
+          const realizador = solicitud.realizadoPor 
+            ? await storage.getUser(solicitud.realizadoPor) 
+            : undefined;
+          
+          return {
+            ...solicitud,
+            solicitante,
+            realizador
+          };
+        })
+      );
+      
+      // Ordenar por fecha descendente (más reciente primero)
+      const solicitudesFinales = solicitudesEnriquecidas.sort((a, b) => {
+        if (!a || !b || !a.fecha || !b.fecha) return 0;
+        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+      });
+      
+      console.log(`Se encontraron ${solicitudesFinales.length} registros de historial de stock`);
+      res.json(solicitudesFinales);
+    } catch (error) {
+      console.error("Error al obtener historial de stock:", error);
+      next(error);
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Configurar WebSocket Server
