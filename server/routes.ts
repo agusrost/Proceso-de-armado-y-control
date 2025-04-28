@@ -276,7 +276,140 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
-  // resto del archivo... se mantiene igual
+  // Endpoint para obtener pedidos en control (en curso)
+  app.get("/api/control/en-curso", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      console.log("Obteniendo pedidos en control (en curso)...");
+      
+      // Obtener pedidos que están en estado 'controlando'
+      const pedidosControlando = await storage.getPedidos({ 
+        estado: 'controlando' 
+      });
+      
+      // Enriquecer con datos adicionales
+      const pedidosEnriquecidos = await Promise.all(
+        pedidosControlando.map(async (pedido) => {
+          try {
+            // Obtener historial de control para este pedido
+            const historiales = await storage.getControlHistoricoByPedidoId(pedido.id);
+            
+            // Filtrar sólo los controles que están en curso (sin fecha de fin)
+            const controlEnCurso = historiales.find(h => h.inicio && !h.fin);
+            
+            if (!controlEnCurso) {
+              return null; // No está realmente en control
+            }
+            
+            // Obtener datos del controlador
+            let controlador = null;
+            if (controlEnCurso.controladoPor) {
+              controlador = await storage.getUser(controlEnCurso.controladoPor);
+            }
+            
+            // Obtener pausas activas
+            const pausasActivas = await storage.getPausasActivasByPedidoId(pedido.id, true);
+            
+            return {
+              ...pedido,
+              controlInicio: controlEnCurso.inicio,
+              controlId: controlEnCurso.id,
+              controladoPor: controlEnCurso.controladoPor,
+              controlador: controlador ? {
+                id: controlador.id,
+                username: controlador.username,
+                firstName: controlador.firstName,
+                lastName: controlador.lastName,
+              } : null,
+              pausasActivas
+            };
+          } catch (err) {
+            console.error(`Error al procesar pedido en control ${pedido.id}:`, err);
+            return null;
+          }
+        })
+      );
+      
+      // Filtrar los nulos
+      const pedidosFinales = pedidosEnriquecidos.filter(p => p !== null);
+      
+      console.log(`Se encontraron ${pedidosFinales.length} pedidos en control`);
+      res.json(pedidosFinales);
+    } catch (error) {
+      console.error("Error al obtener pedidos en control:", error);
+      next(error);
+    }
+  });
+  
+  // Endpoint para obtener historial de controles
+  app.get("/api/control/historial", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      console.log("Obteniendo historial de controles...");
+
+      // Obtener todos los historiales de control
+      const historiales = await storage.getControlHistorico({});
+      
+      // Enriquecer cada historial con datos del pedido y controlador
+      const historialesEnriquecidos = await Promise.all(
+        historiales.map(async (historial) => {
+          try {
+            // Obtener datos del pedido
+            const pedido = await storage.getPedidoById(historial.pedidoId);
+            
+            if (!pedido) {
+              console.log(`No se encontró el pedido ${historial.pedidoId} para el historial ${historial.id}`);
+              return null; // El pedido no existe
+            }
+            
+            // Obtener datos del controlador
+            let controlador = null;
+            if (historial.controladoPor) {
+              controlador = await storage.getUser(historial.controladoPor);
+            }
+            
+            // Obtener detalles del control
+            const detalles = await storage.getControlDetalleByHistoricoId(historial.id);
+            
+            return {
+              ...historial,
+              pedido: {
+                id: pedido.id,
+                pedidoId: pedido.pedidoId,
+                clienteId: pedido.clienteId,
+                fecha: pedido.fecha,
+                estado: pedido.estado,
+                vendedor: pedido.vendedor
+              },
+              controlador: controlador ? {
+                id: controlador.id,
+                username: controlador.username,
+                firstName: controlador.firstName,
+                lastName: controlador.lastName,
+              } : null,
+              detalles: detalles.length,
+              errores: detalles.filter(d => d.tipo !== 'normal').length
+            };
+          } catch (err) {
+            console.error(`Error al procesar historial ${historial.id}:`, err);
+            return null;
+          }
+        })
+      );
+      
+      // Filtrar los nulos y ordenar por fecha de inicio (más recientes primero)
+      const historialesFinales = historialesEnriquecidos
+        .filter(h => h !== null)
+        .sort((a, b) => {
+          if (!a || !b || !a.inicio || !b.inicio) return 0;
+          return new Date(b.inicio).getTime() - new Date(a.inicio).getTime();
+        });
+      
+      console.log(`Se encontraron ${historialesFinales.length} registros de historial de control`);
+      res.json(historialesFinales);
+    } catch (error) {
+      console.error("Error al obtener historial de controles:", error);
+      next(error);
+    }
+  });
 
   const httpServer = createServer(app);
   
