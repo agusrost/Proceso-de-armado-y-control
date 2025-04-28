@@ -44,6 +44,7 @@ import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-
 import { RetirarExcedenteAlert } from "@/components/control/retirar-excedente-alert";
 import { ControlFinalizadoDialog } from "@/components/control/control-finalizado-dialog";
 import PedidoProductosModal from "@/components/control/pedido-productos-modal";
+import PausaControlModal from "@/components/control/pausa-control-modal";
 
 export default function ControlPedidoPage() {
   const { toast } = useToast();
@@ -51,6 +52,60 @@ export default function ControlPedidoPage() {
   const [, setLocation] = useLocation();
   const [matched, params] = useRoute("/control/pedido/:id");
   const pedidoId = matched && params?.id ? parseInt(params.id) : null;
+  
+  // Mutation para pausar control
+  const pausarControlMutation = useMutation({
+    mutationFn: async (datos: { pedidoId: number, motivo: string }) => {
+      const res = await apiRequest("POST", "/api/pausas", {
+        ...datos,
+        tipo: "control" // Especificar que es una pausa de control
+      });
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setPausaActiva(true);
+      setPausaActualId(data.id);
+      toast({
+        title: "Control pausado",
+        description: "El control del pedido ha sido pausado",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al pausar control",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutation para reanudar control
+  const reanudarControlMutation = useMutation({
+    mutationFn: async () => {
+      if (!pausaActualId) {
+        throw new Error("No hay pausa activa para reanudar");
+      }
+      const res = await apiRequest("PUT", `/api/pausas/${pausaActualId}/fin`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      setPausaActiva(false);
+      setPausaActualId(null);
+      toast({
+        title: "Control reanudado",
+        description: "El control del pedido ha sido reanudado",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al reanudar control",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   
   // Referencias
   const escanerInputRef = useRef<HTMLInputElement>(null);
@@ -834,6 +889,91 @@ export default function ControlPedidoPage() {
         variant: "destructive",
       });
       console.error("Error al finalizar control:", error);
+    },
+  });
+  
+  // Mutación para crear pausa de control
+  const crearPausaMutation = useMutation({
+    mutationFn: async (pausaData: { pedidoId: number, motivo: string }) => {
+      const res = await apiRequest("POST", "/api/pausas", {
+        ...pausaData,
+        tipo: "control" // Indicar que es una pausa de control
+      });
+      
+      if (!res.ok) {
+        let errorMessage = "Error al crear pausa de control";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          const errorText = await res.text();
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Control pausado",
+        description: "El control se ha pausado correctamente",
+      });
+      
+      // Guardar ID de la pausa activa
+      setPausaActiva(true);
+      setPausaActualId(data.id);
+      
+      // Actualizar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al pausar control",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutación para finalizar pausa de control
+  const finalizarPausaMutation = useMutation({
+    mutationFn: async (pausaId: number) => {
+      const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
+      
+      if (!res.ok) {
+        let errorMessage = "Error al finalizar pausa";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          const errorText = await res.text();
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Control reanudado",
+        description: "El control se ha reanudado correctamente",
+      });
+      
+      // Resetear estado de pausa
+      setPausaActiva(false);
+      setPausaActualId(null);
+      
+      // Actualizar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al reanudar control",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
   

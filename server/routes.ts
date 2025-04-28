@@ -869,14 +869,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Pausas routes
   app.post("/api/pausas", requireAuth, async (req, res, next) => {
     try {
-      // Solo armadores o admin-plus pueden crear pausas
-      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
-        return res.status(403).json({ message: "Solo los armadores o admin-plus pueden registrar pausas" });
-      }
-      
       console.log("Datos de pausa recibidos:", req.body);
       
-      const validation = insertPausaSchema.safeParse(req.body);
+      // Extender el schema para incluir el tipo de pausa
+      const pausaSchema = insertPausaSchema.extend({
+        tipo: z.enum(['armado', 'control']).optional()
+      });
+      
+      const validation = pausaSchema.safeParse(req.body);
       if (!validation.success) {
         console.error("Error en validación de datos de pausa:", validation.error.format());
         return res.status(400).json({ 
@@ -885,18 +885,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verificar que el pedido exista y esté siendo armado por este usuario
+      // Verificar que el pedido exista
       const pedido = await storage.getPedidoById(validation.data.pedidoId);
       if (!pedido) {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
-      // Admin-plus puede registrar pausas en cualquier pedido, armadores solo en los suyos
-      if (req.user.role !== 'admin-plus' && pedido.armadorId !== req.user.id) {
-        return res.status(403).json({ message: "No tienes permiso para registrar pausas en este pedido" });
+      // Determinar el tipo de pausa
+      const tipoPausa = validation.data.tipo || "armado"; // Default a "armado" si no se especifica
+      
+      // Verificar permisos según el tipo de pausa
+      if (tipoPausa === 'armado') {
+        // Solo armadores o admin-plus pueden crear pausas de armado
+        if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
+          return res.status(403).json({ message: "Solo los armadores o admin-plus pueden registrar pausas de armado" });
+        }
+        
+        // Admin-plus puede registrar pausas en cualquier pedido, armadores solo en los suyos
+        if (req.user.role !== 'admin-plus' && pedido.armadorId !== req.user.id) {
+          return res.status(403).json({ message: "No tienes permiso para registrar pausas de armado en este pedido" });
+        }
+      } else if (tipoPausa === 'control') {
+        // Solo controladores o admin-plus pueden crear pausas de control
+        if (req.user.role !== 'control' && req.user.role !== 'admin-control' && req.user.role !== 'admin-plus') {
+          return res.status(403).json({ message: "Solo los controladores o admin-plus pueden registrar pausas de control" });
+        }
+        
+        // Verificar que el pedido esté en proceso de control
+        if (pedido.estado !== 'controlando') {
+          return res.status(400).json({ message: "El pedido debe estar en estado de control para registrar pausas de control" });
+        }
+        
+        // Admin-plus puede registrar pausas en cualquier pedido, controladores solo en los suyos
+        if (req.user.role !== 'admin-plus' && pedido.controladoId !== req.user.id) {
+          return res.status(403).json({ message: "No tienes permiso para registrar pausas de control en este pedido" });
+        }
       }
       
-      console.log("Creando pausa con motivo:", validation.data.motivo);
+      console.log(`Creando pausa de ${tipoPausa} con motivo:`, validation.data.motivo);
       
       // Iniciar una pausa
       const pausaData = {
@@ -904,7 +930,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         motivo: validation.data.motivo,
         inicio: new Date(),
         fin: null,
-        duracion: null
+        duracion: null,
+        tipo: tipoPausa
       };
       
       const pausa = await storage.createPausa(pausaData);
@@ -948,21 +975,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const pausaId = parseInt(req.params.id);
       
-      // Solo armadores o admin-plus pueden finalizar pausas
-      if (req.user.role !== 'armador' && req.user.role !== 'admin-plus') {
-        return res.status(403).json({ message: "Solo los armadores o admin-plus pueden finalizar pausas" });
-      }
-      
       const pausa = await storage.getPausaById(pausaId);
       if (!pausa) {
         return res.status(404).json({ message: "Pausa no encontrada" });
       }
       
-      // Verificar que el pedido esté siendo armado por este usuario
+      // Verificar permisos según el tipo de pausa
+      const userRole = req.user.role;
+      const esControlador = userRole === 'admin-control' || userRole === 'control';
+      const esArmador = userRole === 'armador';
+      const esAdminPlus = userRole === 'admin-plus';
+      
+      // Verificar permisos basados en el tipo de pausa
+      if (pausa.tipo === 'armado') {
+        // Solo armadores o admin-plus pueden finalizar pausas de armado
+        if (!esArmador && !esAdminPlus) {
+          return res.status(403).json({ message: "Solo los armadores o admin-plus pueden finalizar pausas de armado" });
+        }
+      } else if (pausa.tipo === 'control') {
+        // Solo controladores o admin-plus pueden finalizar pausas de control
+        if (!esControlador && !esAdminPlus) {
+          return res.status(403).json({ message: "Solo los controladores o admin-plus pueden finalizar pausas de control" });
+        }
+      }
+      
+      // Verificar que el pedido exista y el usuario tenga permisos sobre él
       const pedido = await storage.getPedidoById(pausa.pedidoId);
-      // Admin-plus puede finalizar cualquier pausa, pero armadores solo las suyas
-      if (!pedido || (req.user.role !== 'admin-plus' && pedido.armadorId !== req.user.id)) {
-        return res.status(403).json({ message: "No tienes permiso para finalizar esta pausa" });
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Validar permisos específicos según el tipo de pausa
+      if (pausa.tipo === 'armado') {
+        // Admin-plus puede finalizar cualquier pausa, pero armadores solo las suyas
+        if (!esAdminPlus && pedido.armadorId !== req.user.id) {
+          return res.status(403).json({ message: "No tienes permiso para finalizar esta pausa de armado" });
+        }
+      } else if (pausa.tipo === 'control') {
+        // Admin-plus puede finalizar cualquier pausa, pero controladores solo las suyas
+        if (!esAdminPlus && pedido.controladoId !== req.user.id) {
+          return res.status(403).json({ message: "No tienes permiso para finalizar esta pausa de control" });
+        }
       }
       
       // Calcular duración
