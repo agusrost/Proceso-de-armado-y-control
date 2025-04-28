@@ -1183,7 +1183,7 @@ export default function ControlPedidoPage() {
                 </div>
                 <div>
                   <p><span className="font-semibold">Vendedor:</span> {pedido.vendedor}</p>
-                  <p><span className="font-semibold">Armador:</span> {armador?.nombre || pedido.armadorId}</p>
+                  <p><span className="font-semibold">Armador:</span> {armador ? (armador.firstName || armador.username) : pedido.armadorId}</p>
                   {pedido.tipo && (
                     <p><span className="font-semibold">Tipo:</span> {pedido.tipo}</p>
                   )}
