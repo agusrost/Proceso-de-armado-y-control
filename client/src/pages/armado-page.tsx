@@ -65,6 +65,7 @@ export default function ArmadoPage() {
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
   const [recolectados, setRecolectados] = useState<number>(0);
   const [motivo, setMotivo] = useState<string>("");
+  const [motivoPersonalizado, setMotivoPersonalizado] = useState<string>("");
   
   // Opciones de motivos predefinidos para faltantes
   const motivosPreestablecidos = [
@@ -531,7 +532,13 @@ export default function ArmadoPage() {
               <select
                 className="w-full p-2 border border-gray-300 rounded-md"
                 value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
+                onChange={(e) => {
+                  setMotivo(e.target.value);
+                  if (e.target.value !== "Otro motivo") {
+                    // Si no es "Otro motivo", limpiamos el campo personalizado
+                    setMotivoPersonalizado("");
+                  }
+                }}
                 required
               >
                 <option value="">Seleccione un motivo</option>
@@ -545,12 +552,11 @@ export default function ArmadoPage() {
                   type="text"
                   placeholder="Especifique el motivo"
                   className="mt-2 p-2 border border-gray-300 rounded-md"
-                  value={
-                    motivosPreestablecidos.includes(motivo) && motivo !== "Otro motivo" 
-                      ? "" 
-                      : motivo
-                  }
-                  onChange={(e) => setMotivo(e.target.value)}
+                  value={motivoPersonalizado || ""}
+                  onChange={(e) => {
+                    setMotivoPersonalizado(e.target.value);
+                    setMotivo(e.target.value);
+                  }}
                 />
               )}
             </div>
