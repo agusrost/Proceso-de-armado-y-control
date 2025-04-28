@@ -64,19 +64,39 @@ export default function PedidosCargaPage() {
       const pedidoData = {
         pedidoId: uniquePedidoId,
         clienteId: parsedPedido.clienteId,
-        fecha: new Date(),
+        fecha: new Date().toISOString(), // Usar ISO string para fechas
         items: parsedPedido.items,
         totalProductos: parsedPedido.totalProductos,
         vendedor: parsedPedido.vendedor,
         estado: "pendiente",
         puntaje: parsedPedido.puntaje,
-        armadorId: armadorId !== "aleatorio" ? parseInt(armadorId) : undefined,
+        armadorId: armadorId !== "aleatorio" ? parseInt(armadorId) : null, // Usar null en lugar de undefined
         rawText: pedidoText,
-        productos: parsedPedido.productos,
+        productos: parsedPedido.productos.map(p => ({
+          ...p,
+          pedidoId: undefined, // Evitar enviar pedidoId para cada producto, se asigna en el servidor
+        })),
       };
       
-      const res = await apiRequest("POST", "/api/pedidos", pedidoData);
-      return await res.json();
+      console.log("Enviando datos de pedido:", pedidoData);
+      
+      try {
+        const res = await apiRequest("POST", "/api/pedidos", pedidoData);
+        
+        // Verificar si la respuesta es JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("La respuesta no es JSON:", contentType);
+          const text = await res.text();
+          console.error("Contenido de respuesta:", text);
+          throw new Error("La respuesta del servidor no tiene el formato esperado");
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Error al crear pedido:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -91,9 +111,10 @@ export default function PedidosCargaPage() {
       setLocation("/pedidos/estado");
     },
     onError: (error: Error) => {
+      console.error("Error en mutation de pedido:", error);
       toast({
         title: "Error al ingresar el pedido",
-        description: error.message,
+        description: error.message || "Ocurrió un error al procesar el pedido",
         variant: "destructive",
       });
     },
