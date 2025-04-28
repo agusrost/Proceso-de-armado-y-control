@@ -441,6 +441,34 @@ export async function registerRoutes(app: Application): Promise<Server> {
       next(error);
     }
   });
+  
+  // API para obtener usuarios con rol de armador
+  app.get("/api/users/armadores", requireAuth, async (req, res, next) => {
+    try {
+      // Obtener usuarios que sean armadores (por rol o acceso)
+      const allUsers = await storage.getAllUsers();
+      const armadores = allUsers.filter(user => 
+        user.role === 'armador' || 
+        (user.access && Array.isArray(user.access) && user.access.includes('armado'))
+      );
+      
+      console.log(`Se encontraron ${armadores.length} armadores en el sistema`);
+      
+      // Devolver los armadores sin información sensible
+      const safeArmadores = armadores.map(armador => ({
+        id: armador.id,
+        username: armador.username,
+        firstName: armador.firstName,
+        lastName: armador.lastName,
+        role: armador.role
+      }));
+      
+      res.json(safeArmadores);
+    } catch (error) {
+      console.error("Error al obtener los armadores:", error);
+      next(error);
+    }
+  });
 
   // API para obtener historial de solicitudes de stock
   app.get("/api/stock/historial", requireAuth, requireAccess('stock'), async (req, res, next) => {
