@@ -2253,8 +2253,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const pedidoId of pedidoIdsEnControl) {
         const pedido = await storage.getPedidoById(pedidoId);
-        if (pedido) {
+        
+        // Verificamos que el pedido exista y esté realmente en estado de control
+        // Solo incluimos pedidos en estado 'controlando', no los que ya hayan sido finalizados (estado 'controlado')
+        if (pedido && pedido.estado === 'controlando') {
           pedidosEnControl.push(pedido);
+        } else if (pedido) {
+          console.log(`Pedido ${pedidoId} con histórico sin fin, pero estado actual: ${pedido.estado} - No incluido en lista de control`);
         }
       }
       
