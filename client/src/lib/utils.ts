@@ -92,9 +92,12 @@ export function getEstadoLabel(estado: string): string {
   const estados: Record<string, string> = {
     'pendiente': 'Pendiente',
     'en-proceso': 'En Proceso',
-    'pre-finalizado': 'Pre-finalizado, falta transferencia',
+    'pre-finalizado': 'Armado, pendiente Stock',
     'armado': 'Armado',
-    'completado': 'Controlado',
+    'completado': 'Completado',
+    'controlando': 'En Control',
+    'controlado': 'Controlado',
+    'finalizado': 'Finalizado',
     'realizado': 'Realizado',
     'no-hay': 'No hay, realizar NC'
   };
@@ -108,7 +111,10 @@ export function getEstadoColor(estado: string): string {
     'en-proceso': 'bg-blue-500 text-white',
     'pre-finalizado': 'bg-amber-500 text-white',
     'armado': 'bg-green-500 text-white',
-    'completado': 'bg-emerald-700 text-white',
+    'completado': 'bg-blue-600 text-white',
+    'controlando': 'bg-violet-600 text-white',
+    'controlado': 'bg-emerald-700 text-white',
+    'finalizado': 'bg-emerald-800 text-white',
     'realizado': 'bg-green-500 text-white',
     'no-hay': 'bg-purple-500 text-white'
   };
