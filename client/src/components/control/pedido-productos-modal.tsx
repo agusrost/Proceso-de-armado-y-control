@@ -28,15 +28,23 @@ interface PedidoProductosModalProps {
 }
 
 export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: PedidoProductosModalProps) {
-  // Cargar solo los productos del pedido
-  const { data: productos = [], isLoading } = useQuery<Producto[]>({
-    queryKey: ["/api/pedidos", pedidoId, "productos"],
+  // Cargar los productos del pedido usando el endpoint alternativo de pre-control
+  // que está diseñado específicamente para resolver problemas de datos
+  const { data: preControlData, isLoading } = useQuery({
+    queryKey: ["/api/control/pedidos", pedidoId, "pre-control"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/pedidos/${pedidoId}/productos`);
+      const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/pre-control`);
       return res.json();
     },
     enabled: isOpen && !!pedidoId,
   });
+  
+  // Extraer productos del resultado
+  const productos = preControlData?.productos || [];
+  
+  // Agregar logs para depuración
+  console.log("Datos de pre-control:", preControlData);
+  console.log("Productos encontrados:", productos?.length || 0);
 
   // Cargar información básica del pedido para el título
   const { data: pedido } = useQuery({
