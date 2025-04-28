@@ -29,7 +29,26 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/pedidos?estado=armado");
       if (!res.ok) return [];
-      return await res.json();
+      const pedidos = await res.json();
+      
+      // Obtener información de los armadores
+      return await Promise.all(pedidos.map(async (pedido: any) => {
+        if (pedido.armadorId) {
+          try {
+            const armadorRes = await apiRequest("GET", `/api/users/${pedido.armadorId}`);
+            if (armadorRes.ok) {
+              const armador = await armadorRes.json();
+              return {
+                ...pedido,
+                armadorNombre: armador.firstName || armador.username || `Armador ID ${pedido.armadorId}`
+              };
+            }
+          } catch (error) {
+            console.error("Error al obtener información del armador:", error);
+          }
+        }
+        return pedido;
+      }));
     },
   });
 
@@ -285,7 +304,7 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                       <td className="px-3 py-2 text-sm text-neutral-700">
                         {pedido.finalizado ? formatDate(pedido.finalizado) : "-"}
                       </td>
-                      <td className="px-3 py-2 text-sm text-neutral-700">{pedido.armador || "-"}</td>
+                      <td className="px-3 py-2 text-sm text-neutral-700">{pedido.armadorNombre || "-"}</td>
                       <td className="px-3 py-2 text-sm text-right">
                         <Button size="sm" variant="outline" asChild>
                           <Link to={`/control/pedido/${pedido.id}`}>
