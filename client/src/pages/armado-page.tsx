@@ -301,7 +301,7 @@ export default function ArmadoPage() {
   const finalizarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
       const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
-        estado: "completado"
+        estado: "armado"
       });
       return await res.json();
     },
@@ -310,8 +310,8 @@ export default function ArmadoPage() {
       
       // Mostrar mensaje de éxito antes de resetear el estado
       toast({
-        title: "Pedido finalizado con éxito",
-        description: "El pedido ha sido completado y está listo para la siguiente etapa",
+        title: "Pedido armado con éxito",
+        description: "El pedido ha sido armado y está listo para la etapa de Control",
         variant: "default",
       });
       
@@ -1083,7 +1083,7 @@ export default function ArmadoPage() {
                   ? "Todos los productos fueron recolectados correctamente." 
                   : "Algunos productos no fueron recolectados completamente, pero sus motivos están justificados."}
                 <br/><br/>
-                ¿Confirmas que deseas finalizar el armado del pedido?
+                ¿Confirmas que deseas finalizar el armado del pedido? El pedido pasará a estado "armado" y estará disponible para Control.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

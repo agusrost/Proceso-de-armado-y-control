@@ -550,8 +550,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updateData: any = { estado };
       
-      // If estado is 'completado', also update finalizado date
-      if (estado === 'completado') {
+      // Si el estado es 'armado' o 'completado', actualizar la fecha de finalización
+      if (estado === 'armado' || estado === 'completado') {
         updateData.finalizado = new Date();
       }
       
@@ -909,7 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Actualizar pedido
       const updatedPedido = await storage.updatePedido(pedidoId, {
-        estado: 'completado',
+        estado: 'armado',
         finalizado,
         tiempoBruto: tiempoBrutoSegundos,
         tiempoNeto: tiempoNetoSegundos
@@ -1174,13 +1174,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (debeCompletarse) {
                 console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
                 
-                // Actualizar el pedido a completado
+                // Actualizar el pedido a armado
                 const pedidoActualizado = await storage.updatePedido(pedido.id, {
-                  estado: 'completado',
+                  estado: 'armado',
                   finalizado: new Date()
                 });
                 
-                console.log(`Pedido ${pedido.id} marcado como completado.`);
+                console.log(`Pedido ${pedido.id} marcado como armado.`);
               } else {
                 console.log(`No todos los productos del pedido ${pedido.id} están completos. El estado sigue en '${pedido.estado}'.`);
                 // Listar productos pendientes
@@ -1236,7 +1236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return Boolean(p.motivo);
         });
         
-        // Un pedido debe marcarse como completado si:
+        // Un pedido debe marcarse como armado si:
         // 1. Todos los productos han sido recolectados en la cantidad requerida, o
         // 2. Todos los productos tienen estado (recolectados completamente o con motivo)
         // Esto asegura que los pedidos en estado pre-finalizado se actualizarán cuando
@@ -1246,16 +1246,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (debeCompletarse) {
           console.log(`Pedido ${pedido.id} listo para completar. Estado anterior: ${pedido.estado}`);
           
-          // Actualizar el pedido a completado
+          // Actualizar el pedido a armado
           const pedidoActualizado = await storage.updatePedido(pedido.id, {
-            estado: 'completado',
+            estado: 'armado',
             finalizado: new Date()
           });
           
           resultados.push({
             pedidoId: pedido.pedidoId,
             estadoAnterior: pedido.estado,
-            estadoNuevo: 'completado',
+            estadoNuevo: 'armado',
             actualizado: true
           });
         } else {
