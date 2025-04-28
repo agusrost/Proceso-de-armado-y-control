@@ -145,6 +145,20 @@ export default function ArmadoPage() {
       
       // Cerrar el diálogo de confirmación
       setMostrarAlertaInicio(false);
+      
+      // Cargar productos para establecer la cantidad por defecto
+      setTimeout(async () => {
+        try {
+          const res = await apiRequest("GET", `/api/productos/pedido/${data.id}`);
+          const productos = await res.json();
+          if (productos.length > 0) {
+            // Establecer la cantidad por defecto al primer producto
+            setRecolectados(productos[0].cantidad);
+          }
+        } catch (error) {
+          console.error("Error al cargar productos iniciales:", error);
+        }
+      }, 500);
     },
     onError: (error: Error) => {
       // Guardar el mensaje de error para mostrarlo en la interfaz
@@ -211,7 +225,13 @@ export default function ArmadoPage() {
         if (currentProductoIndex < productos.length - 1) {
           // Aún hay más productos, avanzar al siguiente
           setCurrentProductoIndex(currentProductoIndex + 1);
-          setRecolectados(0);
+          // Establecer la cantidad predeterminada igual a la cantidad requerida del siguiente producto
+          const siguienteProducto = productos[currentProductoIndex + 1];
+          if (siguienteProducto) {
+            setRecolectados(siguienteProducto.cantidad);
+          } else {
+            setRecolectados(0);
+          }
           setMotivo("");
         } else {
           // Era el último producto, verificar si todos han sido procesados
@@ -397,6 +417,23 @@ export default function ArmadoPage() {
   useEffect(() => {
     if (pedidoArmador && pedidoArmador.estado === 'en-proceso') {
       setCurrentPedido(pedidoArmador);
+      
+      // Cargar productos para establecer la cantidad por defecto
+      setTimeout(async () => {
+        try {
+          const res = await apiRequest("GET", `/api/productos/pedido/${pedidoArmador.id}`);
+          const productos = await res.json();
+          if (productos.length > 0) {
+            // Establecer la cantidad por defecto del producto actual
+            const primerProducto = productos[0];
+            if (primerProducto) {
+              setRecolectados(primerProducto.cantidad);
+            }
+          }
+        } catch (error) {
+          console.error("Error al cargar productos para cantidad predeterminada:", error);
+        }
+      }, 500);
     }
   }, [pedidoArmador]);
   
@@ -407,6 +444,12 @@ export default function ArmadoPage() {
     
     const producto = productos[currentProductoIndex];
     const cantidadRequerida = producto.cantidad;
+    
+    // Si recolectados es null, establecerlo como la cantidad requerida
+    if (recolectados === null) {
+      setRecolectados(cantidadRequerida);
+      return;
+    }
     
     // Validar cantidad
     if (recolectados > cantidadRequerida) {
@@ -561,14 +604,28 @@ export default function ArmadoPage() {
           <div className="flex items-center justify-between border rounded-md mb-4">
             <button 
               className="px-4 py-2 text-2xl font-bold"
-              onClick={() => setRecolectados(Math.max(0, recolectados - 1))}
+              onClick={() => {
+                // Si es null, establecer a la cantidad predeterminada y luego restar 1
+                if (recolectados === null) {
+                  setRecolectados(Math.max(0, producto.cantidad - 1));
+                } else {
+                  setRecolectados(Math.max(0, recolectados - 1));
+                }
+              }}
             >
               −
             </button>
-            <span className="text-2xl font-semibold">{recolectados}</span>
+            <span className="text-2xl font-semibold">{recolectados === null ? producto.cantidad : recolectados}</span>
             <button 
               className="px-4 py-2 text-2xl font-bold"
-              onClick={() => setRecolectados(Math.min(producto.cantidad, recolectados + 1))}
+              onClick={() => {
+                // Si es null, establecer a la cantidad predeterminada y luego sumar 1 (limitando al máximo)
+                if (recolectados === null) {
+                  setRecolectados(Math.min(producto.cantidad, producto.cantidad));
+                } else {
+                  setRecolectados(Math.min(producto.cantidad, recolectados + 1));
+                }
+              }}
             >
               +
             </button>
@@ -631,6 +688,13 @@ export default function ArmadoPage() {
             onClick={() => {
               if (!producto) return;
               
+              // Si recolectados es null, establecerlo como la cantidad requerida
+              if (recolectados === null) {
+                console.log("Recolectados es null, estableciendo a cantidad predeterminada:", producto.cantidad);
+                setRecolectados(producto.cantidad);
+                return;
+              }
+              
               // Validación para productos no recolectados o con faltantes parciales
               if ((recolectados === 0 || recolectados < producto.cantidad) && !motivo) {
                 toast({
@@ -647,10 +711,13 @@ export default function ArmadoPage() {
               const esUltimoProducto = currentProductoIndex >= productos.length - 1;
               console.log("¿Es último producto?", esUltimoProducto ? "SÍ" : "NO");
               
+              // Si aún es null, usar la cantidad del producto como valor predeterminado
+              const cantidadRecolectada = recolectados === null ? producto.cantidad : recolectados;
+              
               actualizarProductoMutation.mutate({
                 id: producto.id,
-                recolectado: recolectados,
-                motivo: recolectados < producto.cantidad ? motivo : ""
+                recolectado: cantidadRecolectada,
+                motivo: cantidadRecolectada < producto.cantidad ? motivo : ""
               }, {
                 onSuccess: async () => {
                   // Si es el último producto, verificar si todos están procesados y finalizar automáticamente
