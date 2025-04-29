@@ -1187,8 +1187,40 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (todosCompletados) {
         console.log(`Todos los productos del pedido ${pedidoId} han sido procesados`);
         
-        // Podríamos marcar el pedido como "armado-pendiente" automáticamente
-        // await storage.updatePedido(pedidoId, { estado: 'armado-pendiente' });
+        // Verificar si hay productos faltantes
+        const productosFaltantes = productos.filter(p => p.recolectado === 0 && p.motivo);
+        
+        if (productosFaltantes.length > 0) {
+          console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
+          
+          // Actualizar estado a "armado-pendiente-stock"
+          await storage.updatePedido(pedidoId, { estado: 'armado-pendiente-stock' });
+          
+          // Crear solicitudes de transferencia para cada producto faltante
+          for (const producto of productosFaltantes) {
+            try {
+              // Crear solicitud de stock
+              const solicitudData = {
+                fecha: new Date(),
+                horario: new Date(),
+                codigo: producto.codigo,
+                cantidad: producto.cantidad,
+                motivo: `Faltante en pedido ${pedidoId} - ${producto.motivo || 'Sin stock'}`,
+                estado: 'pendiente',
+                solicitadoPor: req.user?.id,
+                solicitante: req.user?.username
+              };
+              
+              console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
+              await storage.createStockSolicitud(solicitudData);
+            } catch (error) {
+              console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+            }
+          }
+        } else {
+          // Si no hay faltantes, marcar como armado normal
+          await storage.updatePedido(pedidoId, { estado: 'armado' });
+        }
       }
       
       res.json(productoActualizado);
