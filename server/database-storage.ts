@@ -166,6 +166,35 @@ export class DatabaseStorage implements IStorage {
     return pedido;
   }
   
+  async updatePedidoTimestamp(id: number, campo: string): Promise<void> {
+    // Usar una consulta SQL directa para actualizar el timestamp a NOW()
+    let columnName: string;
+    
+    switch (campo) {
+      case 'inicio':
+        columnName = 'inicio';
+        break;
+      case 'finalizado':
+        columnName = 'finalizado';
+        break;
+      case 'controlInicio':
+        columnName = 'control_inicio';
+        break;
+      case 'controlFin':
+        columnName = 'control_fin';
+        break;
+      default:
+        throw new Error('Campo timestamp no válido');
+    }
+    
+    // Ejecutar la consulta SQL directa para establecer el timestamp actual
+    await db.execute(sql`
+      UPDATE pedidos 
+      SET ${sql.identifier(columnName)} = NOW() 
+      WHERE id = ${id}
+    `);
+  }
+  
   async getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined> {
     // Si hay un armadorId especificado, primero buscamos pedidos en proceso asignados a ese armador
     if (armadorId) {
