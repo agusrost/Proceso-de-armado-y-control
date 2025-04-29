@@ -31,11 +31,19 @@ export async function apiRequest(
   try {
     // Modificar la URL para evitar que Vite la intercepte
     let apiUrl = url;
+    
+    // Asegurarse de que no exista duplicación de prefijos
     if (url.startsWith('/api/')) {
-      apiUrl = '/__api' + url;
-      console.log(`Redirigiendo ${method} a: ${apiUrl}`);
+      // Usar /__api sin duplicar el /api/ en el camino
+      const path = url.substring(5); // Eliminar '/api/' inicial
+      apiUrl = `/__api/${path}`;
+      console.log(`Corrigiendo ruta API: ${method} ${url} → ${apiUrl}`);
+    } else if (!url.startsWith('http')) {
+      // Si es una ruta relativa pero no comienza con /api/
+      apiUrl = `/__api${url.startsWith('/') ? url : '/' + url}`;
+      console.log(`Ajustando ruta API: ${method} ${url} → ${apiUrl}`);
     } else {
-      console.log(`Ejecutando ${method} a: ${apiUrl}`);
+      console.log(`Ejecutando petición a URL externa: ${method} ${apiUrl}`);
     }
     
     const res = await fetch(apiUrl, {
@@ -80,12 +88,19 @@ export const getQueryFn: <T>(options: {
     try {
       // Modificar la URL para evitar que Vite la intercepte
       let url = queryKey[0] as string;
-      // Añadir un prefijo especial /__api/ para las rutas API que Vite no interceptará
+      
+      // Asegurarse de que no exista duplicación de prefijos
       if (url.startsWith('/api/')) {
-        url = '/__api' + url;
-        console.log(`Redirigiendo petición a: ${url}`);
+        // Usar /__api sin duplicar el /api/ en el camino
+        const path = url.substring(5); // Eliminar '/api/' inicial
+        url = `/__api/${path}`;
+        console.log(`Corrigiendo ruta API para queryKey: ${url}`);
+      } else if (!url.startsWith('http')) {
+        // Si es una ruta relativa pero no comienza con /api/
+        url = `/__api${url.startsWith('/') ? url : '/' + url}`;
+        console.log(`Ajustando ruta API para queryKey: ${url}`);
       } else {
-        console.log(`Haciendo petición a: ${url}`);
+        console.log(`Haciendo petición a URL externa: ${url}`);
       }
       
       const res = await fetch(url, {

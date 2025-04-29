@@ -10,16 +10,17 @@ app.use(express.urlencoded({ extended: false }));
 
 // Middleware para manejar ruta especial que evita la intercepción de Vite
 app.use('/__api', (req, res, next) => {
-  // Reescribir la URL para que apunte a /api
-  console.log(`Redirigiendo solicitud de /__api${req.url} a /api${req.url}`);
-  
   // Almacenamos la URL original antes de modificarla
   const originalUrl = req.url;
   
   // Corregimos para que todas las rutas que contienen /api/ no dupliquen el prefijo
   if (req.url.startsWith('/api/')) {
-    // Si ya contiene /api/, eliminar el prefijo duplicado
-    req.url = req.url.replace('/api/', '/');
+    // Si ya contiene /api/, eliminar el prefijo duplicado para evitar doble /api/api/
+    const newUrl = req.url.replace('/api/', '/');
+    console.log(`Corrigiendo duplicación: /__api${req.url} → /api${newUrl}`);
+    req.url = newUrl;
+  } else {
+    console.log(`Redirigiendo solicitud: /__api${req.url} → /api${req.url}`);
   }
   
   // Establecer la baseUrl correctamente
