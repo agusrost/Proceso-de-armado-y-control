@@ -607,6 +607,70 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // Actualizar estado de un pedido
+  app.put("/api/pedidos/:id/estado", requireAuth, async (req, res, next) => {
+    try {
+      // Verificar que se proporcionó un estado
+      const { estado } = req.body;
+      if (!estado) {
+        return res.status(400).json({ message: "Debe indicar el estado a establecer" });
+      }
+      
+      // Verificar que el estado sea válido
+      const estadosValidos = ['pendiente', 'en-proceso', 'armado', 'controlando', 'controlado', 'armado, pendiente stock'];
+      if (!estadosValidos.includes(estado)) {
+        return res.status(400).json({ message: `Estado inválido: ${estado}. Los estados válidos son: ${estadosValidos.join(', ')}` });
+      }
+      
+      // Obtener el pedido
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar permisos
+      if (req.user?.role === 'armador' && estado !== 'armado' && estado !== 'en-proceso') {
+        return res.status(403).json({ message: "Los armadores solo pueden cambiar el estado a 'armado' o 'en-proceso'" });
+      }
+      
+      // Actualizar el estado del pedido
+      const pedidoActualizado = await storage.updatePedido(pedidoId, {
+        estado: estado,
+        // Si cambia a armado, registrar la fecha de fin de armado
+        ...(estado === 'armado' && !pedido.finArmado ? { finArmado: new Date().toISOString() } : {}),
+        // Si cambia a controlado, registrar la fecha de fin de control
+        ...(estado === 'controlado' && !pedido.controlFin ? { controlFin: new Date().toISOString() } : {})
+      });
+      
+      // Si el estado cambiado es 'armado', actualizar todos los productos sin procesar
+      if (estado === 'armado') {
+        const productos = await storage.getProductosByPedidoId(pedidoId);
+        const productosSinProcesar = productos.filter(p => p.recolectado === null);
+        
+        // Para cada producto sin procesar, establecer recolectado=0 y motivo="No procesado"
+        for (const producto of productosSinProcesar) {
+          await storage.updateProducto(producto.id, {
+            recolectado: 0,
+            motivo: "No procesado"
+          });
+        }
+      }
+      
+      console.log(`Pedido ${pedido.pedidoId} actualizado a estado "${estado}" por ${req.user?.username || 'usuario desconocido'}`);
+      
+      // Devolver el pedido actualizado
+      res.json(pedidoActualizado);
+    } catch (error) {
+      console.error("Error al actualizar estado del pedido:", error);
+      next(error);
+    }
+  });
+
   // Iniciar un pedido (para armadores)
   app.post("/api/pedidos/:id/iniciar", requireAuth, async (req, res, next) => {
     try {

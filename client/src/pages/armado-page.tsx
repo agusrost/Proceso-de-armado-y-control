@@ -180,11 +180,24 @@ export default function ArmadoPage() {
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
     mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
-      const res = await apiRequest("PUT", `/api/productos/${params.id}`, {
-        recolectado: params.recolectado,
-        motivo: params.motivo
-      });
-      return await res.json();
+      try {
+        const res = await apiRequest("PUT", `/api/productos/${params.id}`, {
+          recolectado: params.recolectado,
+          motivo: params.motivo
+        });
+        
+        // Verificar que la respuesta es JSON antes de procesarla
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error(`Error: La respuesta no es JSON al actualizar producto ${params.id}`, res.status, res.statusText);
+          throw new Error(`Error al actualizar producto: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
+        }
+        
+        return await res.json();
+      } catch (err: any) {
+        console.error("Error al actualizar producto:", err);
+        throw new Error(err.message || "No se pudo actualizar el producto");
+      }
     },
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
@@ -267,11 +280,24 @@ export default function ArmadoPage() {
   // Crear pausa mutation
   const crearPausaMutation = useMutation({
     mutationFn: async (data: InsertPausa) => {
-      const res = await apiRequest("POST", "/api/pausas", {
-        ...data,
-        tipo: "armado" // Especificar que es una pausa de armado
-      });
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", "/api/pausas", {
+          ...data,
+          tipo: "armado" // Especificar que es una pausa de armado
+        });
+        
+        // Verificar que la respuesta es JSON antes de procesarla
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error(`Error: La respuesta no es JSON al crear pausa`, res.status, res.statusText);
+          throw new Error(`Error al crear pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
+        }
+        
+        return await res.json();
+      } catch (err: any) {
+        console.error("Error al crear pausa:", err);
+        throw new Error(err.message || "No se pudo crear la pausa");
+      }
     },
     onSuccess: (data: Pausa) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
@@ -298,8 +324,21 @@ export default function ArmadoPage() {
   // Finalizar pausa mutation
   const finalizarPausaMutation = useMutation({
     mutationFn: async (pausaId: number) => {
-      const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
-      return await res.json();
+      try {
+        const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
+        
+        // Verificar que la respuesta es JSON antes de procesarla
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error(`Error: La respuesta no es JSON al finalizar pausa ${pausaId}`, res.status, res.statusText);
+          throw new Error(`Error al finalizar pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
+        }
+        
+        return await res.json();
+      } catch (err: any) {
+        console.error("Error al finalizar pausa:", err);
+        throw new Error(err.message || "No se pudo finalizar la pausa");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
@@ -323,10 +362,23 @@ export default function ArmadoPage() {
   // Finalizar pedido mutation
   const finalizarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
-      const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
-        estado: "armado"
-      });
-      return await res.json();
+      try {
+        const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
+          estado: "armado"
+        });
+        
+        // Verificar que la respuesta es JSON antes de procesarla
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error(`Error: La respuesta no es JSON al finalizar pedido ${pedidoId}`, res.status, res.statusText);
+          throw new Error(`Error al finalizar pedido: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
+        }
+        
+        return await res.json();
+      } catch (err: any) {
+        console.error("Error al finalizar pedido:", err);
+        throw new Error(err.message || "No se pudo finalizar el pedido");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
