@@ -607,6 +607,51 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // Obtener el próximo pedido pendiente para un armador
+  app.get("/api/pedido-para-armador", requireAuth, async (req, res, next) => {
+    try {
+      // Verificar que el usuario sea armador
+      if (req.user?.role !== 'armador') {
+        return res.status(403).json({ 
+          message: "Solo los usuarios con rol de armador pueden ver pedidos para armar" 
+        });
+      }
+      
+      // Obtener el armadorId del usuario autenticado
+      const armadorId = req.user.id;
+      console.log(`Buscando pedido pendiente para armador con ID ${armadorId}`);
+      
+      // Buscar pedidos en proceso asignados al armador
+      const pedidosEnProceso = await storage.getPedidos({
+        estado: 'en-proceso',
+        armadorId: armadorId
+      });
+      
+      if (pedidosEnProceso.length > 0) {
+        console.log(`Se encontró un pedido en proceso para el armador ${armadorId}: ${pedidosEnProceso[0].pedidoId}`);
+        return res.json(pedidosEnProceso[0]);
+      }
+      
+      // Si no hay pedidos en proceso, buscar pedidos pendientes
+      const pedidosPendientes = await storage.getPedidos({
+        estado: 'pendiente',
+        armadorId: armadorId
+      });
+      
+      if (pedidosPendientes.length > 0) {
+        console.log(`Se encontró un pedido pendiente para el armador ${armadorId}: ${pedidosPendientes[0].pedidoId}`);
+        return res.json(pedidosPendientes[0]);
+      }
+      
+      // Si no hay pedidos asignados, devolver respuesta vacía
+      console.log(`No se encontraron pedidos asignados al armador ${armadorId}`);
+      return res.json(null);
+    } catch (error) {
+      console.error("Error al obtener pedido para armador:", error);
+      next(error);
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Configurar WebSocket Server
