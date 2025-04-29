@@ -388,14 +388,24 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   </span>
                                   
                                   {/* Mostrar unidades transferidas si hay */}
-                                  {producto.unidadesTransferidas > 0 && (
-                                    <div className="mt-1 flex items-center gap-1 bg-blue-50 border border-blue-200 rounded p-1 text-xs">
-                                      <TruckIcon className="h-3 w-3 text-blue-600" />
-                                      <span className="font-medium text-blue-600">
-                                        {producto.unidadesTransferidas} {producto.unidadesTransferidas === 1 ? 'unidad transferida' : 'unidades transferidas'} por Stock
-                                      </span>
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    // Verificar si el producto tiene unidades transferidas mediante stock
+                                    const unidadesTransferidas = producto.unidadesTransferidas > 0 
+                                      ? producto.unidadesTransferidas // Si el campo tiene un valor positivo, usarlo
+                                      : producto.motivo?.includes('[Stock: Transferencia completada')
+                                        ? parseInt(producto.motivo.match(/Transferencia completada - (\d+) unidades/)?.[1] || '0')
+                                        : 0;
+                                    
+                                    // Mostrar la notificación de transferencia si hay unidades
+                                    return unidadesTransferidas > 0 ? (
+                                      <div className="mt-1 flex items-center gap-1 bg-blue-50 border border-blue-200 rounded p-1 text-xs">
+                                        <TruckIcon className="h-3 w-3 text-blue-600" />
+                                        <span className="font-medium text-blue-600">
+                                          {unidadesTransferidas} {unidadesTransferidas === 1 ? 'unidad transferida' : 'unidades transferidas'} por Stock
+                                        </span>
+                                      </div>
+                                    ) : null;
+                                  })()}
                                   
                                   {producto.motivo && (
                                     <div className={`mt-1 text-xs ${producto.motivo.includes('[Stock: Transferencia completada') ? 'text-green-600' : 'text-red-600'}`}>
