@@ -844,15 +844,19 @@ export async function registerRoutes(app: Application): Promise<Server> {
               
               // También actualizar el producto para marcarlo como recolectado y registrar las unidades transferidas
               // Primero, encontrar el producto del pedido que corresponde a esta solicitud
-              const productos = await db.execute(sql`
+              const productosResultado = await db.execute(sql`
                 SELECT * FROM productos 
                 WHERE pedido_id = ${pedido.id} 
                 AND codigo = ${solicitud.codigo}
               `);
               
+              // Extraer los productos del resultado
+              const productos = productosResultado.rows || [];
+              console.log('Productos encontrados:', productos);
+              
               if (productos.length > 0) {
                 const producto = productos[0];
-                console.log(`Producto encontrado: ID ${producto.id}, código ${producto.codigo}, cantidad ${producto.cantidad}, recolectado ${producto.recolectado}`);
+                console.log(`Producto encontrado: ID ${producto.id}, código ${producto.codigo}, cantidad ${producto.cantidad}`);
                 
                 if (estado === 'realizado') {
                   // Calcular las unidades que fueron transferidas por stock
@@ -864,7 +868,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
                     SET 
                       unidades_transferidas = ${unidadesTransferidas},
                       recolectado = cantidad,
-                      motivo = CONCAT(motivo, ' [Stock: Transferencia completada - ${unidadesTransferidas} unidades]')
+                      motivo = CASE 
+                                WHEN motivo LIKE '%[Stock: Transferencia completada%' THEN motivo 
+                                ELSE CONCAT(COALESCE(motivo, ''), ' [Stock: Transferencia completada - ${unidadesTransferidas} unidades]') 
+                              END
                     WHERE id = ${producto.id}
                   `);
                   
@@ -874,7 +881,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
                   await db.execute(sql`
                     UPDATE productos 
                     SET 
-                      motivo = CONCAT(motivo, ' [Stock: No disponible para transferencia]')
+                      motivo = CASE 
+                                WHEN motivo LIKE '%[Stock: No disponible%' THEN motivo 
+                                ELSE CONCAT(COALESCE(motivo, ''), ' [Stock: No disponible para transferencia]') 
+                              END
                     WHERE id = ${producto.id}
                   `);
                   
