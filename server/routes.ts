@@ -45,6 +45,31 @@ function requireAdminPlus(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Application): Promise<Server> {
+  // Obtener lista de usuarios armadores (para asignación de pedidos)
+  app.get("/api/users/armadores", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Obteniendo lista de armadores para asignación de pedidos");
+      const armadores = await storage.getUsersByRole('armador');
+      
+      // Devolver sólo la información necesaria
+      const armadoresSimplificados = armadores.map(armador => ({
+        id: armador.id,
+        username: armador.username,
+        firstName: armador.firstName || '',
+        lastName: armador.lastName || '',
+        fullName: armador.firstName && armador.lastName 
+                 ? `${armador.firstName} ${armador.lastName}`
+                 : armador.username
+      }));
+      
+      console.log(`Se encontraron ${armadoresSimplificados.length} armadores`);
+      res.json(armadoresSimplificados);
+    } catch (error) {
+      console.error("Error al obtener lista de armadores:", error);
+      next(error);
+    }
+  });
+  
   // Crear un nuevo pedido
   app.post("/api/pedidos", requireAuth, async (req, res, next) => {
     try {

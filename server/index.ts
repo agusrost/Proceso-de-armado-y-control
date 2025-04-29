@@ -13,24 +13,30 @@ app.use('/__api', (req, res, next) => {
   // Almacenamos la URL original antes de modificarla
   const originalUrl = req.url;
   
+  // Forzar Content-Type para todas las respuestas desde este middleware
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  
   // Corregimos para que todas las rutas que contienen /api/ no dupliquen el prefijo
   if (req.url.startsWith('/api/')) {
     // Si ya contiene /api/, eliminar el prefijo duplicado para evitar doble /api/api/
     const newUrl = req.url.replace('/api/', '/');
     console.log(`Corrigiendo duplicación: /__api${req.url} → /api${newUrl}`);
+    
+    // Redirigir a la ruta API
     req.url = newUrl;
+    req.baseUrl = '/api';
+    
+    // Usar next('route') para pasar directamente a la siguiente ruta en lugar de continuar
+    // en la pila del middleware actual
+    req.url = `/api${newUrl}`;
+    return res.redirect(307, req.url);
   } else {
     console.log(`Redirigiendo solicitud: /__api${req.url} → /api${req.url}`);
+    
+    // Modificar la URL para incluir el prefijo /api/
+    const apiUrl = `/api${req.url}`;
+    return res.redirect(307, apiUrl);
   }
-  
-  // Establecer la baseUrl correctamente
-  req.baseUrl = '/api';
-  
-  // Establecer los encabezados para forzar JSON
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  
-  // Transferir la solicitud a las rutas API
-  app._router.handle(req, res, next);
 });
 
 // Middleware para asegurar que las respuestas API sean JSON - IMPORTANTE colocarlo antes de registrar las rutas
