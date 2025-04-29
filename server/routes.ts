@@ -607,6 +607,58 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // Iniciar un pedido (para armadores)
+  app.post("/api/pedidos/:id/iniciar", requireAuth, async (req, res, next) => {
+    try {
+      // Verificar que el usuario sea armador
+      if (req.user?.role !== 'armador') {
+        return res.status(403).json({ 
+          message: "Solo los usuarios con rol de armador pueden iniciar pedidos" 
+        });
+      }
+      
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el pedido exista
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido esté asignado al armador
+      if (pedido.armadorId !== req.user.id) {
+        return res.status(403).json({ message: "Este pedido no está asignado a usted" });
+      }
+      
+      // Verificar que el pedido esté en estado pendiente o en-proceso
+      if (pedido.estado !== 'pendiente' && pedido.estado !== 'en-proceso') {
+        return res.status(400).json({ message: `No se puede iniciar un pedido en estado ${pedido.estado}` });
+      }
+      
+      // Si el pedido está en estado pendiente, actualizarlo a en-proceso y guardar tiempo de inicio
+      if (pedido.estado === 'pendiente') {
+        await storage.updatePedido(pedidoId, { 
+          estado: 'en-proceso',
+          inicio: new Date().toISOString()
+        });
+        
+        console.log(`Pedido ${pedido.pedidoId} iniciado por el armador ${req.user.username} (${req.user.id})`);
+      } else {
+        console.log(`Pedido ${pedido.pedidoId} ya está en proceso, continuando armado`);
+      }
+      
+      // Devolver el pedido actualizado
+      const pedidoActualizado = await storage.getPedidoById(pedidoId);
+      res.json(pedidoActualizado);
+    } catch (error) {
+      console.error("Error al iniciar pedido:", error);
+      next(error);
+    }
+  });
+
   // Obtener el próximo pedido pendiente para un armador
   app.get("/api/pedido-para-armador", requireAuth, async (req, res, next) => {
     try {
