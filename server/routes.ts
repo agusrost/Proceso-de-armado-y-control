@@ -719,6 +719,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
+      console.log("DIAGNÓSTICO DE TIPOS -> Pedido:", {
+        id: pedido.id,
+        pedidoId: pedido.pedidoId,
+        estado: pedido.estado,
+        inicio: pedido.inicio ? typeof pedido.inicio : null,
+        finalizado: pedido.finalizado ? typeof pedido.finalizado : null,
+        armadorId: pedido.armadorId
+      });
+      
       // Verificar que el pedido esté asignado al armador
       if (pedido.armadorId !== req.user.id) {
         return res.status(403).json({ message: "Este pedido no está asignado a usted" });
@@ -732,6 +741,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Si el pedido está en estado pendiente, actualizarlo a en-proceso y guardar tiempo de inicio
       if (pedido.estado === 'pendiente') {
         try {
+          console.log("Ejecutando consulta SQL directa para actualizar inicio del pedido");
+          
           // Ejecutar una consulta SQL directa para actualizar el estado y el timestamp
           await db.execute(sql`
             UPDATE pedidos 
@@ -780,7 +791,18 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       if (pedidosEnProceso.length > 0) {
         console.log(`Se encontró un pedido en proceso para el armador ${armadorId}: ${pedidosEnProceso[0].pedidoId}`);
-        return res.json(pedidosEnProceso[0]);
+        const pedido = pedidosEnProceso[0];
+        
+        console.log("DIAGNÓSTICO DE TIPOS -> Pedido en proceso:", {
+          id: pedido.id,
+          pedidoId: pedido.pedidoId,
+          estado: pedido.estado,
+          inicio: pedido.inicio ? typeof pedido.inicio + " - " + JSON.stringify(pedido.inicio) : null,
+          finalizado: pedido.finalizado ? typeof pedido.finalizado + " - " + JSON.stringify(pedido.finalizado) : null,
+          armadorId: pedido.armadorId
+        });
+        
+        return res.json(pedido);
       }
       
       // Si no hay pedidos en proceso, buscar pedidos pendientes
@@ -791,7 +813,18 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       if (pedidosPendientes.length > 0) {
         console.log(`Se encontró un pedido pendiente para el armador ${armadorId}: ${pedidosPendientes[0].pedidoId}`);
-        return res.json(pedidosPendientes[0]);
+        const pedido = pedidosPendientes[0];
+        
+        console.log("DIAGNÓSTICO DE TIPOS -> Pedido pendiente:", {
+          id: pedido.id,
+          pedidoId: pedido.pedidoId,
+          estado: pedido.estado,
+          inicio: pedido.inicio ? typeof pedido.inicio + " - " + JSON.stringify(pedido.inicio) : null,
+          finalizado: pedido.finalizado ? typeof pedido.finalizado + " - " + JSON.stringify(pedido.finalizado) : null,
+          armadorId: pedido.armadorId
+        });
+        
+        return res.json(pedido);
       }
       
       // Si no hay pedidos asignados, devolver respuesta vacía
