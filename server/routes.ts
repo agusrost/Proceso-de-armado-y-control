@@ -754,10 +754,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Actualizar la solicitud con el nuevo estado
-      const datosActualizacion: Partial<StockSolicitud> = { 
+      const userIdActual = req.user ? (req.user as any).id : null;
+      
+      // Crear los datos de actualización
+      const datosActualizacion = { 
         estado,
         // Si cambia a realizado o no-hay, registrar el usuario que lo realiza
-        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? req.user?.id : null
+        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? userIdActual : null
       };
       
       console.log(`Actualizando solicitud de stock ${solicitudId} a estado: ${estado}, realizadoPor: ${datosActualizacion.realizadoPor}`);
@@ -776,9 +779,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
           console.log(`La solicitud está relacionada con el pedido: ${pedidoIdStr}`);
           
           // Buscar el pedido por su ID alfanumérico (pedido_id)
-          const pedidosRelacionados = await db.query.pedidos.findMany({
-            where: eq(pedidos.pedidoId, pedidoIdStr)
-          });
+          const pedidosRelacionados = await db
+            .select()
+            .from(pedidos)
+            .where(eq(pedidos.pedidoId, pedidoIdStr));
           
           if (pedidosRelacionados.length > 0) {
             const pedido = pedidosRelacionados[0];
@@ -789,7 +793,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
             if (pedido.estado === 'armado-pendiente-stock' && estado === 'realizado') {
               console.log(`Actualizando estado del pedido ${pedido.pedidoId} de "armado-pendiente-stock" a "armado"`);
               
-              await db.update(pedidos)
+              await db
+                .update(pedidos)
                 .set({ estado: 'armado' })
                 .where(eq(pedidos.id, pedido.id));
             }
@@ -800,6 +805,64 @@ export async function registerRoutes(app: Application): Promise<Server> {
       res.json(solicitudActualizada);
     } catch (error) {
       console.error("Error al actualizar solicitud de stock:", error);
+      next(error);
+    }
+  });
+
+  // API para obtener solicitudes de stock activas
+  app.get("/api/stock/activas", requireAuth, requireAccess('stock'), async (req, res, next) => {
+    try {
+      // Obtener todas las solicitudes
+      const solicitudes = await storage.getStockSolicitudes({});
+      
+      // Filtrar para incluir solo solicitudes pendientes
+      const solicitudesPendientes = solicitudes.filter(
+        solicitud => solicitud.estado === 'pendiente'
+      );
+      
+      // Enriquecer las solicitudes con información de usuario
+      const solicitudesEnriquecidas = await Promise.all(
+        solicitudesPendientes.map(async (solicitud) => {
+          const solicitante = solicitud.solicitadoPor 
+            ? await storage.getUser(solicitud.solicitadoPor) 
+            : undefined;
+          
+          // Extraer información de pedidos relacionados si corresponde
+          let pedidoRelacionado = null;
+          if (solicitud.motivo && solicitud.motivo.includes('Pedido ID')) {
+            const match = solicitud.motivo.match(/Pedido ID (\w+)/);
+            if (match && match[1]) {
+              const pedidoId = match[1];
+              const pedido = await storage.getPedidoByPedidoId(pedidoId);
+              if (pedido) {
+                pedidoRelacionado = {
+                  id: pedido.id,
+                  pedidoId: pedido.pedidoId,
+                  clienteId: pedido.clienteId,
+                  estado: pedido.estado
+                };
+              }
+            }
+          }
+          
+          return {
+            ...solicitud,
+            solicitante,
+            pedidoRelacionado
+          };
+        })
+      );
+      
+      // Ordenar por fecha ascendente (más antigua primero - FIFO)
+      const solicitudesFinales = solicitudesEnriquecidas.sort((a, b) => {
+        if (!a || !b || !a.fecha || !b.fecha) return 0;
+        return new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
+      });
+      
+      console.log(`Se encontraron ${solicitudesFinales.length} solicitudes de stock pendientes`);
+      res.json(solicitudesFinales);
+    } catch (error) {
+      console.error("Error al obtener solicitudes de stock activas:", error);
       next(error);
     }
   });
