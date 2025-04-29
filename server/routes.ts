@@ -769,17 +769,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       const pausaId = parseInt(req.params.id);
       if (isNaN(pausaId)) {
+        console.log("Error: ID de pausa inválido:", req.params.id);
         return res.status(400).json({ message: "ID de pausa inválido" });
       }
       
       // Verificar que la pausa existe
+      console.log("Buscando pausa con ID:", pausaId);
       const pausa = await storage.getPausaById(pausaId);
+      console.log("Pausa encontrada:", pausa);
+      
       if (!pausa) {
+        console.log("Error: Pausa no encontrada con ID:", pausaId);
         return res.status(404).json({ message: "Pausa no encontrada" });
       }
       
       // Verificar que la pausa no esté ya finalizada
       if (pausa.fin) {
+        console.log("Error: La pausa ya está finalizada:", pausa);
         return res.status(400).json({ message: "Esta pausa ya está finalizada" });
       }
       
@@ -794,13 +800,28 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const minutos = duracionMinutos % 60;
       const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
       
+      console.log("Calculada duración de pausa:", {
+        inicio: inicio.toISOString(),
+        fin: fin.toISOString(),
+        duracionMs,
+        duracionMinutos,
+        duracionFormateada
+      });
+      
       // Actualizar la pausa
       try {
+        console.log("Ejecutando SQL para finalizar pausa:", {
+          pausaId,
+          duracionFormateada
+        });
+        
         await db.execute(sql`
           UPDATE pausas
           SET fin = NOW(), duracion = ${duracionFormateada}
           WHERE id = ${pausaId}
         `);
+        
+        console.log("SQL para finalizar pausa ejecutado correctamente");
       } catch (err) {
         console.error("Error al finalizar pausa:", err);
         return res.status(500).json({ message: "Error al finalizar la pausa" });

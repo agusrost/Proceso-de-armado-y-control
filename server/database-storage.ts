@@ -518,11 +518,19 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPausaById(id: number): Promise<Pausa | undefined> {
-    const [pausa] = await db
-      .select()
-      .from(pausas)
-      .where(eq(pausas.id, id));
-    return pausa;
+    console.log("DatabaseStorage.getPausaById: Buscando pausa con ID", id);
+    try {
+      const [pausa] = await db
+        .select()
+        .from(pausas)
+        .where(eq(pausas.id, id));
+      
+      console.log("DatabaseStorage.getPausaById: Resultado de la consulta:", pausa || "No encontrado");
+      return pausa;
+    } catch (error) {
+      console.error("Error en DatabaseStorage.getPausaById:", error);
+      throw error;
+    }
   }
   
   async getPausasByPedidoId(pedidoId: number, esControl: boolean = false): Promise<Pausa[]> {
