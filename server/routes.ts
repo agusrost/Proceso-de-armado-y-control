@@ -141,6 +141,72 @@ export async function registerRoutes(app: Application): Promise<Server> {
   });
 
   // Obtener lista de pedidos
+  // Obtener un pedido específico por ID
+  app.get("/api/pedidos/:id", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      console.log(`Buscando pedido con ID: ${pedidoId}`);
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        console.log(`Pedido con ID ${pedidoId} no encontrado`);
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Obtener información completa incluyendo pausas y productos
+      const pausas = await storage.getPausasByPedidoId(pedido.id);
+      const productos = await storage.getProductosByPedidoId(pedido.id);
+      
+      // Obtener armador si está asignado
+      let armador = null;
+      if (pedido.armadorId) {
+        armador = await storage.getUser(pedido.armadorId);
+        if (armador) {
+          // Eliminar campos sensibles
+          delete armador.password;
+        }
+      }
+      
+      // Obtener controlador si está asignado
+      let controlador = null;
+      if (pedido.controladoId) {
+        controlador = await storage.getUser(pedido.controladoId);
+        if (controlador) {
+          // Eliminar campos sensibles
+          delete controlador.password;
+        }
+      }
+      
+      // Procesar tiempos para mostrarlos correctamente
+      console.log(`Debug tiempos del pedido ${pedidoId}:`, {
+        tiempoBruto: pedido.tiempoBruto,
+        tiempoNeto: pedido.tiempoNeto
+      });
+      
+      // Obtener pausas de control si existen
+      const controlPausas = await storage.getPausasControlByPedidoId(pedido.id);
+      
+      // Devolver el pedido con información relacionada
+      const pedidoCompleto = {
+        ...pedido,
+        armador,
+        controlador,
+        pausas,
+        productos,
+        controlPausas
+      };
+      
+      res.json(pedidoCompleto);
+    } catch (error) {
+      console.error("Error al obtener pedido por ID:", error);
+      next(error);
+    }
+  });
+
   app.get("/api/pedidos", requireAuth, async (req, res, next) => {
     try {
       const { fecha, estado, vendedor, armador, pedidoId } = req.query;
