@@ -38,14 +38,18 @@ export function formatTime(seconds: number): string {
 export function formatTimeHM(time: number | string | null | undefined): string {
   if (time === null || time === undefined) return "--:--:--";
   
-  // Si ya es un string en formato HH:MM:SS o HH:MM, lo usamos directamente
+  // Si ya es un string en formato HH:MM:SS o HH:MM
   if (typeof time === 'string') {
     const parts = time.split(':');
-    if (parts.length === 2 || parts.length === 3) {
-      return time; // Devolvemos el formato que ya tiene
+    if (parts.length === 3) {
+      // Ya está en formato HH:MM:SS, lo devolvemos tal cual
+      return time;
+    } else if (parts.length === 2) {
+      // Está en formato HH:MM, le añadimos los segundos (00)
+      return `${time}:00`;
     }
     
-    // Si es otro formato de string, intentamos parsear a número
+    // Si es otro formato de string, intentamos parsear a número (segundos)
     const secs = parseInt(time);
     if (isNaN(secs)) return "--:--:--";
     
