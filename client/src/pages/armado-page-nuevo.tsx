@@ -186,8 +186,21 @@ export default function ArmadoPage() {
   // Finalizar pausa mutation
   const finalizarPausaMutation = useMutation({
     mutationFn: async (pausaId: number) => {
-      const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
-      return await res.json();
+      try {
+        const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
+        
+        // Verificar que la respuesta es JSON antes de procesarla
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error(`Error: La respuesta no es JSON al finalizar pausa ${pausaId}`, res.status, res.statusText);
+          throw new Error(`Error al finalizar pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
+        }
+        
+        return await res.json();
+      } catch (err: any) {
+        console.error("Error al finalizar pausa:", err);
+        throw new Error(err.message || "No se pudo finalizar la pausa");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
