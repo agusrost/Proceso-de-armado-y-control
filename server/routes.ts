@@ -1,8 +1,10 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'http';
 import { storage } from './storage';
+import { db } from './db';
 import { formatTimeHM } from '../client/src/lib/utils';
 import { WebSocketServer } from 'ws';
+import { sql } from 'drizzle-orm';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
@@ -638,29 +640,37 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(403).json({ message: "Los armadores solo pueden cambiar el estado a 'armado' o 'en-proceso'" });
       }
       
-      // Actualizar el estado del pedido
-      const pedidoActualizado = await storage.updatePedido(pedidoId, {
-        estado: estado
-      });
-      
-      // Si cambia a armado, registrar la fecha de fin de armado usando consulta SQL directa
-      if (estado === 'armado' && !pedido.finArmado) {
-        try {
-          await storage.updatePedidoTimestamp(pedidoId, 'finalizado');
-          console.log(`Tiempo de finalización actualizado correctamente para el pedido ${pedido.pedidoId}`);
-        } catch (err) {
-          console.error("Error al actualizar timestamp de finalización:", err);
+      try {
+        // Si cambia a 'armado', actualizar el estado y guardar la fecha de finalización
+        if (estado === 'armado') {
+          await db.execute(sql`
+            UPDATE pedidos 
+            SET estado = 'armado', finalizado = NOW() 
+            WHERE id = ${pedidoId}
+          `);
+          console.log(`Pedido ${pedido.pedidoId} marcado como armado con timestamp de finalización`);
+        } 
+        // Si cambia a 'controlado', actualizar el estado y guardar la fecha de fin de control
+        else if (estado === 'controlado') {
+          await db.execute(sql`
+            UPDATE pedidos 
+            SET estado = 'controlado', control_fin = NOW() 
+            WHERE id = ${pedidoId}
+          `);
+          console.log(`Pedido ${pedido.pedidoId} marcado como controlado con timestamp de finalización de control`);
         }
-      }
-      
-      // Si cambia a controlado, registrar la fecha de fin de control
-      if (estado === 'controlado' && !pedido.controlFin) {
-        try {
-          await storage.updatePedidoTimestamp(pedidoId, 'controlFin');
-          console.log(`Tiempo de control finalizado actualizado correctamente para el pedido ${pedido.pedidoId}`);
-        } catch (err) {
-          console.error("Error al actualizar timestamp de control:", err);
+        // Para otros estados, solo actualizar el estado
+        else {
+          await db.execute(sql`
+            UPDATE pedidos 
+            SET estado = ${estado}
+            WHERE id = ${pedidoId}
+          `);
+          console.log(`Pedido ${pedido.pedidoId} actualizado a estado ${estado}`);
         }
+      } catch (err) {
+        console.error("Error al actualizar estado del pedido:", err);
+        return res.status(500).json({ message: "Error al actualizar el estado del pedido" });
       }
       
       // Si el estado cambiado es 'armado', actualizar todos los productos sin procesar
@@ -679,7 +689,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Pedido ${pedido.pedidoId} actualizado a estado "${estado}" por ${req.user?.username || 'usuario desconocido'}`);
       
-      // Devolver el pedido actualizado
+      // Obtener y devolver el pedido actualizado
+      const pedidoActualizado = await storage.getPedidoById(pedidoId);
       res.json(pedidoActualizado);
     } catch (error) {
       console.error("Error al actualizar estado del pedido:", error);
@@ -720,17 +731,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Si el pedido está en estado pendiente, actualizarlo a en-proceso y guardar tiempo de inicio
       if (pedido.estado === 'pendiente') {
-        // Actualizar solo el estado primero
-        await storage.updatePedido(pedidoId, { 
-          estado: 'en-proceso'
-        });
-        
-        // Luego ejecutar una consulta SQL directa para actualizar el campo timestamp
         try {
-          await storage.updatePedidoTimestamp(pedidoId, 'inicio');
+          // Ejecutar una consulta SQL directa para actualizar el estado y el timestamp
+          await db.execute(sql`
+            UPDATE pedidos 
+            SET estado = 'en-proceso', inicio = NOW() 
+            WHERE id = ${pedidoId}
+          `);
           console.log(`Tiempo de inicio actualizado correctamente para el pedido ${pedido.pedidoId}`);
         } catch (err) {
-          console.error("Error al actualizar timestamp:", err);
+          console.error("Error al actualizar estado y timestamp:", err);
+          return res.status(500).json({ message: "Error al actualizar el pedido" });
         }
         
         console.log(`Pedido ${pedido.pedidoId} iniciado por el armador ${req.user.username} (${req.user.id})`);
