@@ -12,11 +12,21 @@ app.use(express.urlencoded({ extended: false }));
 app.use('/__api', (req, res, next) => {
   // Reescribir la URL para que apunte a /api
   console.log(`Redirigiendo solicitud de /__api${req.url} a /api${req.url}`);
-  req.url = req.url; // Mantener el resto de la URL igual
-  req.baseUrl = '/api'; // Cambiar el baseUrl para que las rutas se resuelvan correctamente
+  
+  // Almacenamos la URL original antes de modificarla
+  const originalUrl = req.url;
+  
+  // Corregimos para que todas las rutas que contienen /api/ no dupliquen el prefijo
+  if (req.url.startsWith('/api/')) {
+    // Si ya contiene /api/, eliminar el prefijo duplicado
+    req.url = req.url.replace('/api/', '/');
+  }
+  
+  // Establecer la baseUrl correctamente
+  req.baseUrl = '/api';
   
   // Establecer los encabezados para forzar JSON
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   
   // Transferir la solicitud a las rutas API
   app._router.handle(req, res, next);
