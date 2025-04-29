@@ -4,7 +4,8 @@ import { storage } from './storage';
 import { db } from './db';
 import { formatTimeHM } from '../client/src/lib/utils';
 import { WebSocketServer } from 'ws';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
+import { pedidos, StockSolicitud } from '@shared/schema';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
@@ -720,6 +721,85 @@ export async function registerRoutes(app: Application): Promise<Server> {
       res.json(solicitudesFinales);
     } catch (error) {
       console.error("Error al obtener solicitudes activas de stock:", error);
+      next(error);
+    }
+  });
+
+  // API para actualizar el estado de una solicitud de stock
+  app.put("/api/stock/:id/estado", requireAuth, requireAccess('stock'), async (req, res, next) => {
+    try {
+      const solicitudId = parseInt(req.params.id);
+      const { estado } = req.body;
+      
+      if (isNaN(solicitudId)) {
+        return res.status(400).json({ message: "ID de solicitud inválido" });
+      }
+      
+      if (!estado) {
+        return res.status(400).json({ message: "Debe proporcionar un estado" });
+      }
+      
+      // Validar estados permitidos
+      const estadosPermitidos = ['pendiente', 'realizado', 'no-hay'];
+      if (!estadosPermitidos.includes(estado)) {
+        return res.status(400).json({ 
+          message: `Estado no válido. Los estados permitidos son: ${estadosPermitidos.join(', ')}` 
+        });
+      }
+      
+      // Obtener la solicitud actual
+      const solicitud = await storage.getStockSolicitudById(solicitudId);
+      if (!solicitud) {
+        return res.status(404).json({ message: "Solicitud no encontrada" });
+      }
+      
+      // Actualizar la solicitud con el nuevo estado
+      const datosActualizacion: Partial<StockSolicitud> = { 
+        estado,
+        // Si cambia a realizado o no-hay, registrar el usuario que lo realiza
+        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? req.user?.id : null
+      };
+      
+      console.log(`Actualizando solicitud de stock ${solicitudId} a estado: ${estado}, realizadoPor: ${datosActualizacion.realizadoPor}`);
+      
+      const solicitudActualizada = await storage.updateStockSolicitud(solicitudId, datosActualizacion);
+      if (!solicitudActualizada) {
+        return res.status(500).json({ message: "Error al actualizar la solicitud" });
+      }
+      
+      // Actualizar el pedido si corresponde
+      if (solicitud.motivo && solicitud.motivo.includes('Pedido ID')) {
+        // Extraer el ID del pedido desde el motivo (formato: "Faltante en pedido PXXXX - ...")
+        const match = solicitud.motivo.match(/Pedido ID (\w+)/);
+        if (match && match[1]) {
+          const pedidoIdStr = match[1];
+          console.log(`La solicitud está relacionada con el pedido: ${pedidoIdStr}`);
+          
+          // Buscar el pedido por su ID alfanumérico (pedido_id)
+          const pedidosRelacionados = await db.query.pedidos.findMany({
+            where: eq(pedidos.pedidoId, pedidoIdStr)
+          });
+          
+          if (pedidosRelacionados.length > 0) {
+            const pedido = pedidosRelacionados[0];
+            console.log(`Encontrado pedido con ID numérico: ${pedido.id}`);
+            
+            // Si el pedido está en "armado-pendiente-stock" y la solicitud se marca como realizada,
+            // actualizar el pedido a estado "armado"
+            if (pedido.estado === 'armado-pendiente-stock' && estado === 'realizado') {
+              console.log(`Actualizando estado del pedido ${pedido.pedidoId} de "armado-pendiente-stock" a "armado"`);
+              
+              await db.update(pedidos)
+                .set({ estado: 'armado' })
+                .where(eq(pedidos.id, pedido.id));
+            }
+          }
+        }
+      }
+      
+      res.json(solicitudActualizada);
+    } catch (error) {
+      console.error("Error al actualizar solicitud de stock:", error);
       next(error);
     }
   });
