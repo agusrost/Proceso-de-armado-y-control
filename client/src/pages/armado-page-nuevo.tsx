@@ -778,7 +778,7 @@ export default function ArmadoPage() {
                   crearPausaMutation.mutate({
                     pedidoId: currentPedido.id,
                     motivo: motivoPausa,
-                    // @ts-ignore - Ignoramos el error de tipo para la corrección
+                    tipo: "armado", // Agregar explícitamente el tipo
                     inicio: new Date()
                   });
                 }}
