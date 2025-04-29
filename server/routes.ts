@@ -48,6 +48,41 @@ function requireAdminPlus(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Application): Promise<Server> {
+  // Endpoint temporal para corregir el estado del pedido P0090
+  app.get("/api/corregir-pedido-p0090", async (req, res, next) => {
+    try {
+      console.log("Ejecutando corrección específica para pedido P0090...");
+      
+      // Ejecutar SQL directo para actualizar el pedido
+      const resultado = await db.execute(sql`
+        UPDATE pedidos 
+        SET estado = 'armado' 
+        WHERE pedido_id = 'P0090'
+      `);
+      
+      console.log("Resultado de actualización:", resultado);
+      
+      // Verificar si el cambio se realizó
+      const pedidoActualizado = await db
+        .select()
+        .from(pedidos)
+        .where(eq(pedidos.pedidoId, "P0090"));
+      
+      console.log("Estado actualizado:", pedidoActualizado[0]?.estado || "No encontrado");
+      
+      return res.json({
+        success: true,
+        mensaje: "Pedido P0090 actualizado correctamente",
+        pedido: pedidoActualizado[0] || null
+      });
+    } catch (error) {
+      console.error("Error al corregir pedido P0090:", error);
+      return res.status(500).json({ 
+        error: "Error al corregir pedido",
+        mensaje: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
   // Obtener lista de usuarios armadores (para asignación de pedidos)
   app.get("/api/users/armadores", requireAuth, async (req, res, next) => {
     try {
