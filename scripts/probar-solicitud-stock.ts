@@ -287,8 +287,8 @@ async function ejecutarPrueba() {
   // 3. Crear solicitud de stock para el producto con faltante
   const solicitud = await crearSolicitudStock(pedido, productosCreados[1]);
   
-  // 4. Simular respuesta del departamento de stock (cambiar a 'no-hay' para probar el otro caso)
-  await responderSolicitudStock(solicitud.id, 'realizado');
+  // 4. Simular respuesta del departamento de stock (probando el caso 'no-hay')
+  await responderSolicitudStock(solicitud.id, 'no-hay');
   
   // 5. Verificar estado final
   await verificarEstadoFinal(pedido.id, productosCreados[1].id);
