@@ -205,105 +205,95 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string, clienteId?: string }): Promise<Pedido[]> {
-    // Construimos las condiciones de la consulta SQL
-    let conditions = [];
-    let queryParams: any[] = [];
-    
-    if (filters.fecha) {
-      conditions.push(`DATE(fecha) = $${queryParams.length + 1}`);
-      queryParams.push(filters.fecha);
-    }
-    
-    if (filters.estado && filters.estado !== "todos") {
-      conditions.push(`estado = $${queryParams.length + 1}`);
-      queryParams.push(filters.estado);
-    }
-    
-    if (filters.vendedor) {
-      conditions.push(`LOWER(vendedor) LIKE $${queryParams.length + 1}`);
-      queryParams.push(`%${filters.vendedor.toLowerCase()}%`);
-    }
-    
-    if (filters.armadorId && filters.armadorId !== "todos") {
-      const armadorIdNum = typeof filters.armadorId === 'number' 
-        ? filters.armadorId 
-        : parseInt(filters.armadorId.toString());
+    try {
+      // Vamos a construir manualmente la consulta SQL con condiciones
+      let whereConditions = [];
+      let sqlQuery = `
+        SELECT 
+          id, pedido_id, cliente_id, fecha, items, total_productos, 
+          vendedor, estado, puntaje, armador_id, tiempo_bruto, 
+          tiempo_neto, numero_pausas, 
+          to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+          to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+          raw_text, controlado_id, 
+          to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+          to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+          control_comentario, control_tiempo 
+        FROM pedidos
+      `;
       
-      if (!isNaN(armadorIdNum)) {
-        conditions.push(`armador_id = $${queryParams.length + 1}`);
-        queryParams.push(armadorIdNum);
+      // Parámetros para la consulta SQL
+      const params: any[] = [];
+      
+      // Construimos las condiciones WHERE
+      if (filters.fecha) {
+        whereConditions.push(`DATE(fecha) = $${params.length + 1}`);
+        params.push(filters.fecha);
       }
+      
+      if (filters.estado && filters.estado !== "todos") {
+        whereConditions.push(`estado = $${params.length + 1}`);
+        params.push(filters.estado);
+      }
+      
+      if (filters.vendedor) {
+        whereConditions.push(`LOWER(vendedor) LIKE $${params.length + 1}`);
+        params.push(`%${filters.vendedor.toLowerCase()}%`);
+      }
+      
+      if (filters.armadorId && filters.armadorId !== "todos") {
+        const armadorIdNum = typeof filters.armadorId === 'number' 
+          ? filters.armadorId 
+          : parseInt(filters.armadorId.toString());
+        
+        if (!isNaN(armadorIdNum)) {
+          whereConditions.push(`armador_id = $${params.length + 1}`);
+          params.push(armadorIdNum);
+        }
+      }
+  
+      if (filters.pedidoId) {
+        whereConditions.push(`LOWER(pedido_id) LIKE $${params.length + 1}`);
+        params.push(`%${filters.pedidoId.toLowerCase()}%`);
+      }
+      
+      if (filters.clienteId) {
+        whereConditions.push(`LOWER(cliente_id) LIKE $${params.length + 1}`);
+        params.push(`%${filters.clienteId.toLowerCase()}%`);
+      }
+      
+      // Añadimos la cláusula WHERE si hay condiciones
+      if (whereConditions.length > 0) {
+        sqlQuery += ` WHERE ${whereConditions.join(' AND ')}`;
+      }
+      
+      // Añadimos el ORDER BY
+      sqlQuery += ` ORDER BY fecha DESC`;
+      
+      console.log("SQL Query:", sqlQuery);
+      console.log("Params:", params);
+      
+      // Ejecutamos la consulta usando sql.query en lugar de sql.raw
+      const result = await db.query(sqlQuery, params);
+      
+      // Convertir los resultados a objetos Pedido
+      const pedidosList = result.rows.map(row => this.convertPedidoRowToCamelCase(row));
+      
+      if (pedidosList.length > 0) {
+        console.log("Muestra diagnóstica del primer pedido:", {
+          id: pedidosList[0].id,
+          pedidoId: pedidosList[0].pedidoId,
+          estado: pedidosList[0].estado,
+          inicio: pedidosList[0].inicio ? typeof pedidosList[0].inicio : null,
+          finalizado: pedidosList[0].finalizado ? typeof pedidosList[0].finalizado : null
+        });
+      }
+      
+      return pedidosList as Pedido[];
+    } catch (error) {
+      console.error("Error en getPedidos:", error);
+      throw error;
     }
-
-    if (filters.pedidoId) {
-      conditions.push(`LOWER(pedido_id) LIKE $${queryParams.length + 1}`);
-      queryParams.push(`%${filters.pedidoId.toLowerCase()}%`);
-    }
-    
-    // Filtrar por número de cliente
-    if (filters.clienteId) {
-      conditions.push(`LOWER(cliente_id) LIKE $${queryParams.length + 1}`);
-      queryParams.push(`%${filters.clienteId.toLowerCase()}%`);
-    }
-    
-    // Construir la cláusula WHERE
-    const whereClause = conditions.length > 0 
-      ? `WHERE ${conditions.join(' AND ')}` 
-      : '';
-    
-    // Ejecutar la consulta SQL directa para obtener timestamps como strings
-    const result = await db.execute(sql`
-      SELECT 
-        id, pedido_id, cliente_id, fecha, items, total_productos, 
-        vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-        tiempo_neto, numero_pausas, 
-        to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-        to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-        raw_text, controlado_id, 
-        to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-        to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-        control_comentario, control_tiempo 
-      FROM pedidos
-      ${sql.raw(whereClause)}
-      ORDER BY fecha DESC
-    `);
-    
-    // Convertir los resultados a objetos Pedido
-    const pedidosList = result.rows.map(row => ({
-      id: row.id,
-      pedidoId: row.pedido_id,
-      clienteId: row.cliente_id,
-      fecha: row.fecha,
-      items: row.items,
-      totalProductos: row.total_productos,
-      vendedor: row.vendedor,
-      estado: row.estado,
-      puntaje: row.puntaje,
-      armadorId: row.armador_id,
-      tiempoBruto: row.tiempo_bruto,
-      tiempoNeto: row.tiempo_neto,
-      numeroPausas: row.numero_pausas,
-      inicio: row.inicio,
-      finalizado: row.finalizado,
-      rawText: row.raw_text,
-      controladoId: row.controlado_id,
-      controlInicio: row.control_inicio,
-      controlFin: row.control_fin,
-      controlComentario: row.control_comentario,
-      controlTiempo: row.control_tiempo
-    }));
-    
-    if (pedidosList.length > 0) {
-      console.log("Muestra diagnóstica del primer pedido:", {
-        id: pedidosList[0].id,
-        pedidoId: pedidosList[0].pedidoId,
-        estado: pedidosList[0].estado,
-        inicio: pedidosList[0].inicio ? typeof pedidosList[0].inicio : null,
-        finalizado: pedidosList[0].finalizado ? typeof pedidosList[0].finalizado : null
-      });
-    }
-    
-    return pedidosList as Pedido[];
   }
   
   async updatePedido(id: number, pedidoData: Partial<Pedido>): Promise<Pedido | undefined> {
