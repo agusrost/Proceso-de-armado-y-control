@@ -204,10 +204,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
               const tiempoBrutoMs = fin.getTime() - inicio.getTime();
               const tiempoBrutoSegundos = Math.floor(tiempoBrutoMs / 1000);
               
-              // Convertir a formato HH:MM
+              // Convertir a formato HH:MM:SS
               const horas = Math.floor(tiempoBrutoSegundos / 3600);
               const minutos = Math.floor((tiempoBrutoSegundos % 3600) / 60);
-              tiempoBruto = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+              const segundos = tiempoBrutoSegundos % 60;
+              tiempoBruto = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
               
               // Si hay pausas, calcular tiempo neto
               if (pausas.length > 0) {
@@ -228,7 +229,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 const tiempoNetoSegundos = Math.max(0, tiempoBrutoSegundos - tiempoPausasTotalSegundos);
                 const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
                 const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
-                tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}`;
+                const netoSegundos = tiempoNetoSegundos % 60;
+                tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}:${netoSegundos.toString().padStart(2, '0')}`;
               } else {
                 // Si no hay pausas, el tiempo neto es igual al tiempo bruto
                 tiempoNeto = tiempoBruto;
@@ -256,7 +258,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 const tiempoNetoSegundos = Math.max(0, brutoParaCalculo - tiempoPausasTotalSegundos);
                 const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
                 const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
-                tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}`;
+                const netoSegundos = tiempoNetoSegundos % 60;
+                tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}:${netoSegundos.toString().padStart(2, '0')}`;
               } else {
                 // Si no hay pausas, el tiempo neto es igual al tiempo bruto
                 tiempoNeto = tiempoBruto;
@@ -321,7 +324,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 const tiempoNetoControlSegundos = Math.max(0, tiempoControlSegundos - tiempoPausasControlSegundos);
                 const netoHorasControl = Math.floor(tiempoNetoControlSegundos / 3600);
                 const netoMinutosControl = Math.floor((tiempoNetoControlSegundos % 3600) / 60);
-                controlTiempoNeto = `${netoHorasControl.toString().padStart(2, '0')}:${netoMinutosControl.toString().padStart(2, '0')}`;
+                const netoSegundosControl = tiempoNetoControlSegundos % 60;
+                controlTiempoNeto = `${netoHorasControl.toString().padStart(2, '0')}:${netoMinutosControl.toString().padStart(2, '0')}:${netoSegundosControl.toString().padStart(2, '0')}`;
               } else {
                 // Si no hay pausas, el tiempo neto es igual al tiempo bruto
                 controlTiempoNeto = ultimoControl.tiempoTotal;
