@@ -35,21 +35,41 @@ export function formatTime(seconds: number): string {
   ].join(':');
 }
 
-export function formatTimeHM(seconds: number | string | null | undefined): string {
-  if (seconds === null || seconds === undefined) return "--:--";
+export function formatTimeHM(time: number | string | null | undefined): string {
+  if (time === null || time === undefined) return "--:--:--";
   
-  // Si es un string, intentamos parsear a número
-  const secs = typeof seconds === 'string' ? parseInt(seconds) : seconds;
+  // Si ya es un string en formato HH:MM:SS o HH:MM, lo usamos directamente
+  if (typeof time === 'string') {
+    const parts = time.split(':');
+    if (parts.length === 2 || parts.length === 3) {
+      return time; // Devolvemos el formato que ya tiene
+    }
+    
+    // Si es otro formato de string, intentamos parsear a número
+    const secs = parseInt(time);
+    if (isNaN(secs)) return "--:--:--";
+    
+    // Calculamos horas, minutos y segundos
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    
+    return [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      seconds.toString().padStart(2, '0')
+    ].join(':');
+  }
   
-  // Si no es un número válido después de parsear
-  if (isNaN(secs)) return "--:--";
-  
-  const hours = Math.floor(secs / 3600);
-  const minutes = Math.floor((secs % 3600) / 60);
+  // Si es un número, lo tratamos como segundos totales
+  const hours = Math.floor(time / 3600);
+  const minutes = Math.floor((time % 3600) / 60);
+  const seconds = time % 60;
   
   return [
     hours.toString().padStart(2, '0'),
-    minutes.toString().padStart(2, '0')
+    minutes.toString().padStart(2, '0'),
+    seconds.toString().padStart(2, '0')
   ].join(':');
 }
 

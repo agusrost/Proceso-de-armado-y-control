@@ -799,16 +799,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const duracionMs = fin.getTime() - inicio.getTime();
       
       // Convertir ms a formato HH:MM
-      const duracionMinutos = Math.floor(duracionMs / (1000 * 60));
-      const horas = Math.floor(duracionMinutos / 60);
-      const minutos = duracionMinutos % 60;
-      const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+      const duracionSegundos = Math.floor(duracionMs / 1000);
+      const horas = Math.floor(duracionSegundos / 3600);
+      const minutos = Math.floor((duracionSegundos % 3600) / 60);
+      const segundos = duracionSegundos % 60;
+      const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
       
       console.log("Calculada duración de pausa:", {
         inicio: inicio.toISOString(),
         fin: fin.toISOString(),
         duracionMs,
-        duracionMinutos,
+        duracionSegundos,
         duracionFormateada
       });
       
