@@ -788,15 +788,32 @@ export async function registerRoutes(app: Application): Promise<Server> {
             const pedido = pedidosRelacionados[0];
             console.log(`Encontrado pedido con ID numérico: ${pedido.id}`);
             
-            // Si el pedido está en "armado-pendiente-stock" y la solicitud se marca como realizada,
+            // Si el pedido está pendiente de stock y la solicitud se resuelve (realizado o no-hay),
             // actualizar el pedido a estado "armado"
-            if (pedido.estado === 'armado-pendiente-stock' && estado === 'realizado') {
-              console.log(`Actualizando estado del pedido ${pedido.pedidoId} de "armado-pendiente-stock" a "armado"`);
+            const esPendienteStock = 
+              pedido.estado === 'armado-pendiente-stock' || 
+              pedido.estado === 'armado, pendiente stock';
+              
+            const estadoResuelto = estado === 'realizado' || estado === 'no-hay';
+            
+            if (esPendienteStock && estadoResuelto) {
+              console.log(`Actualizando estado del pedido ${pedido.pedidoId} de "${pedido.estado}" a "armado" porque la solicitud de stock fue resuelta como "${estado}"`);
               
               await db
                 .update(pedidos)
                 .set({ estado: 'armado' })
                 .where(eq(pedidos.id, pedido.id));
+                
+              // Registrar el cambio en el historial
+              await db
+                .insert(pedidoHistorial)
+                .values({
+                  pedidoId: pedido.id,
+                  estado: 'armado', 
+                  fecha: new Date(),
+                  usuarioId: (req.user as any).id,
+                  comentario: `Auto-actualizado desde "${pedido.estado}" al resolver solicitud de stock (${estado})`
+                });
             }
           }
         }
