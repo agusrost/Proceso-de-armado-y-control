@@ -239,9 +239,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
             
             // Calcular tiempoNeto si hay tiempoBruto pero no tiempoNeto
             if (tiempoBruto && !tiempoNeto) {
-              // Convertir tiempo bruto (formato HH:MM) a segundos
-              const [horasBruto, minutosBruto] = tiempoBruto.split(':').map(Number);
-              const brutoParaCalculo = (horasBruto * 3600) + (minutosBruto * 60);
+              // Convertir tiempo bruto (formato HH:MM:SS o HH:MM) a segundos
+              const partesTiempo = tiempoBruto.split(':').map(Number);
+              let brutoParaCalculo = 0;
+              
+              if (partesTiempo.length === 3) {
+                // Formato HH:MM:SS
+                brutoParaCalculo = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60) + partesTiempo[2];
+              } else if (partesTiempo.length === 2) {
+                // Formato HH:MM
+                brutoParaCalculo = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60);
+              }
               
               if (pausas.length > 0) {
                 // Calcular tiempo total de pausas en segundos
@@ -249,8 +257,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 
                 for (const pausa of pausas) {
                   if (pausa.duracion) {
-                    const [pausaHoras, pausaMinutos] = pausa.duracion.split(':').map(Number);
-                    tiempoPausasTotalSegundos += (pausaHoras * 3600) + (pausaMinutos * 60);
+                    const partesDuracion = pausa.duracion.split(':').map(Number);
+                    if (partesDuracion.length === 3) {
+                      // Formato HH:MM:SS
+                      tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2];
+                    } else if (partesDuracion.length === 2) {
+                      // Formato HH:MM
+                      tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60);
+                    }
                   }
                 }
                 
@@ -307,15 +321,29 @@ export async function registerRoutes(app: Application): Promise<Server> {
               
               // Si hay tiempoTotal, calcular tiempoNeto (restando pausas)
               if (controlPausas.length > 0 && ultimoControl.tiempoTotal) {
-                // Convertir tiempo bruto (formato HH:MM) a segundos
-                const [horasControl, minutosControl] = ultimoControl.tiempoTotal.split(':').map(Number);
-                const tiempoControlSegundos = (horasControl * 3600) + (minutosControl * 60);
+                // Convertir tiempo bruto (formato HH:MM:SS o HH:MM) a segundos
+                const partesTiempo = ultimoControl.tiempoTotal.split(':').map(Number);
+                let tiempoControlSegundos = 0;
+                
+                if (partesTiempo.length === 3) {
+                  // Formato HH:MM:SS
+                  tiempoControlSegundos = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60) + partesTiempo[2];
+                } else if (partesTiempo.length === 2) {
+                  // Formato HH:MM
+                  tiempoControlSegundos = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60);
+                }
                 
                 // Calcular tiempo total de pausas en segundos
                 const tiempoPausasControlSegundos = controlPausas.reduce((total, pausa) => {
                   if (pausa.duracion) {
-                    const [pausaHoras, pausaMinutos] = pausa.duracion.split(':').map(Number);
-                    return total + ((pausaHoras * 3600) + (pausaMinutos * 60));
+                    const partesDuracion = pausa.duracion.split(':').map(Number);
+                    if (partesDuracion.length === 3) {
+                      // Formato HH:MM:SS
+                      return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2]);
+                    } else if (partesDuracion.length === 2) {
+                      // Formato HH:MM
+                      return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60));
+                    }
                   }
                   return total;
                 }, 0);
@@ -645,14 +673,78 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       try {
-        // Si cambia a 'armado', actualizar el estado y guardar la fecha de finalización
+        // Si cambia a 'armado', actualizar el estado, guardar la fecha de finalización,
+        // y calcular tiempos bruto y neto
         if (estado === 'armado') {
-          await db.execute(sql`
-            UPDATE pedidos 
-            SET estado = 'armado', finalizado = NOW() 
-            WHERE id = ${pedidoId}
-          `);
-          console.log(`Pedido ${pedido.pedidoId} marcado como armado con timestamp de finalización`);
+          // Primero obtenemos la hora actual y calculamos los tiempos
+          const ahora = new Date();
+          
+          if (pedido.inicio) {
+            const inicio = new Date(pedido.inicio);
+            
+            // Cálculo del tiempo bruto en segundos
+            const tiempoBrutoMs = ahora.getTime() - inicio.getTime();
+            const tiempoBrutoSegundos = Math.floor(tiempoBrutoMs / 1000);
+            
+            // Formatear tiempo bruto como HH:MM:SS
+            const horasBruto = Math.floor(tiempoBrutoSegundos / 3600);
+            const minutosBruto = Math.floor((tiempoBrutoSegundos % 3600) / 60);
+            const segundosBruto = tiempoBrutoSegundos % 60;
+            const tiempoBrutoFormateado = `${horasBruto.toString().padStart(2, '0')}:${minutosBruto.toString().padStart(2, '0')}:${segundosBruto.toString().padStart(2, '0')}`;
+            
+            // Obtener las pausas para calcular el tiempo neto
+            const pausas = await storage.getPausasByPedidoId(pedidoId);
+            let tiempoPausasTotalSegundos = 0;
+            
+            for (const pausa of pausas) {
+              if (pausa.duracion) {
+                const partesDuracion = pausa.duracion.split(':').map(Number);
+                if (partesDuracion.length === 3) {
+                  // Formato HH:MM:SS
+                  tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2];
+                } else if (partesDuracion.length === 2) {
+                  // Formato HH:MM
+                  tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60);
+                }
+              } else if (pausa.inicio && pausa.fin) {
+                const pausaInicio = new Date(pausa.inicio);
+                const pausaFin = new Date(pausa.fin);
+                tiempoPausasTotalSegundos += Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
+              }
+            }
+            
+            // Calcular tiempo neto (bruto - pausas)
+            const tiempoNetoSegundos = Math.max(0, tiempoBrutoSegundos - tiempoPausasTotalSegundos);
+            const horasNeto = Math.floor(tiempoNetoSegundos / 3600);
+            const minutosNeto = Math.floor((tiempoNetoSegundos % 3600) / 60);
+            const segundosNeto = tiempoNetoSegundos % 60;
+            const tiempoNetoFormateado = `${horasNeto.toString().padStart(2, '0')}:${minutosNeto.toString().padStart(2, '0')}:${segundosNeto.toString().padStart(2, '0')}`;
+            
+            // Actualizar el pedido con estado, fin, y tiempos
+            await db.execute(sql`
+              UPDATE pedidos 
+              SET estado = 'armado', 
+                  finalizado = NOW(),
+                  tiempo_bruto = ${tiempoBrutoFormateado},
+                  tiempo_neto = ${tiempoNetoFormateado},
+                  numero_pausas = ${pausas.length}
+              WHERE id = ${pedidoId}
+            `);
+            
+            console.log(`Pedido ${pedido.pedidoId} marcado como armado con timestamp de finalización y tiempos calculados:`, {
+              tiempoBruto: tiempoBrutoFormateado,
+              tiempoNeto: tiempoNetoFormateado,
+              numeroPausas: pausas.length
+            });
+          } else {
+            // Si no hay tiempo de inicio, solo actualizamos el estado y el fin
+            await db.execute(sql`
+              UPDATE pedidos 
+              SET estado = 'armado', finalizado = NOW() 
+              WHERE id = ${pedidoId}
+            `);
+            console.log(`Pedido ${pedido.pedidoId} marcado como armado con timestamp de finalización (sin tiempo de inicio disponible)`);
+          }
         } 
         // Si cambia a 'controlado', actualizar el estado y guardar la fecha de fin de control
         else if (estado === 'controlado') {
