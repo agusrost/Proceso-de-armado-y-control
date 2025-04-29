@@ -38,7 +38,7 @@ export default function ProductoRow({ producto, isActive, onComplete }: Producto
         motivo: needsMotivo ? motivo : null
       };
       
-      const res = await apiRequest("PUT", `/api/productos/${producto.id}`, data);
+      const res = await apiRequest("PATCH", `/api/productos/${producto.id}`, data);
       return await res.json();
     },
     onSuccess: () => {

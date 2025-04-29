@@ -813,6 +813,71 @@ export async function registerRoutes(app: Application): Promise<Server> {
       next(error);
     }
   });
+  
+  // Obtener todos los productos asociados a un pedido específico
+  app.get("/api/productos/pedido/:id", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      console.log(`Obteniendo productos para el pedido ID ${pedidoId}`);
+      
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      console.log(`Se encontraron ${productos.length} productos para el pedido ID ${pedidoId}`);
+      
+      // Si no hay productos, esto debería devolver un array vacío, no null
+      return res.json(productos);
+    } catch (error) {
+      console.error(`Error al obtener productos del pedido ID ${req.params.id}:`, error);
+      next(error);
+    }
+  });
+  
+  // Actualizar un producto específico (para marcar como recolectado o faltante)
+  app.patch("/api/productos/:id", requireAuth, async (req, res, next) => {
+    try {
+      const productoId = parseInt(req.params.id);
+      
+      if (isNaN(productoId)) {
+        return res.status(400).json({ message: "ID de producto inválido" });
+      }
+      
+      // Verificar que el producto existe
+      const productoExistente = await storage.getProductoById(productoId);
+      
+      if (!productoExistente) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
+      
+      console.log(`Actualizando producto ID ${productoId}:`, req.body);
+      
+      // Actualizar el producto
+      const productoActualizado = await storage.updateProducto(productoId, req.body);
+      
+      // Verificar si todos los productos del pedido están recolectados o marcados como faltantes
+      const pedidoId = productoExistente.pedidoId;
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Verificar si todos los productos tienen un valor en recolectado (no null)
+      const todosCompletados = productos.every(p => p.recolectado !== null);
+      
+      if (todosCompletados) {
+        console.log(`Todos los productos del pedido ${pedidoId} han sido procesados`);
+        
+        // Podríamos marcar el pedido como "armado-pendiente" automáticamente
+        // await storage.updatePedido(pedidoId, { estado: 'armado-pendiente' });
+      }
+      
+      res.json(productoActualizado);
+    } catch (error) {
+      console.error(`Error al actualizar producto ID ${req.params.id}:`, error);
+      next(error);
+    }
+  });
 
   const httpServer = createServer(app);
   
