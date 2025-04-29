@@ -129,7 +129,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
       
       // Solicitud a la API
       try {
-        const res = await apiRequest("PUT", `/api/productos/${editingProductId}`, {
+        const res = await apiRequest("PATCH", `/api/productos/${editingProductId}`, {
           recolectado: editRecolectado,
           motivo: motivoFinal
         });
