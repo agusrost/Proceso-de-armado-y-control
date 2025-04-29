@@ -571,6 +571,124 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para obtener un control activo de un pedido
+  app.get("/api/control/pedidos/:pedidoId/activo", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const { pedidoId } = req.params;
+      const pedidoNumId = parseInt(pedidoId);
+      
+      if (isNaN(pedidoNumId)) {
+        return res.status(400).json({ error: 'ID de pedido inválido' });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoNumId);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido no encontrado' });
+      }
+      
+      // Verificar si está en estado de control
+      if (pedido.estado !== 'controlando') {
+        return res.status(404).json({ error: 'No hay control activo para este pedido' });
+      }
+      
+      // Obtener el último registro de control para este pedido
+      const controles = await storage.getControlHistoricoByPedidoId(pedidoNumId);
+      const controlActivo = controles.find(c => !c.fin); // Buscar uno sin fecha de fin
+      
+      if (!controlActivo) {
+        return res.status(404).json({ error: 'No se encontró registro de control activo' });
+      }
+      
+      // Obtener detalles del control
+      const detalles = await storage.getControlDetalleByControlId(controlActivo.id);
+      
+      // Obtener productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoNumId);
+      
+      res.status(200).json({
+        control: controlActivo,
+        detalles,
+        productos,
+        pedido
+      });
+      
+    } catch (error) {
+      console.error("Error al obtener control activo:", error);
+      next(error);
+    }
+  });
+
+  // Endpoint para iniciar el control de un pedido
+  app.post("/api/control/pedidos/:pedidoId/iniciar", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const { pedidoId } = req.params;
+      const pedidoNumId = parseInt(pedidoId);
+      
+      if (isNaN(pedidoNumId)) {
+        return res.status(400).json({ error: 'ID de pedido inválido' });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoNumId);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido no encontrado' });
+      }
+      
+      // Verificar si el pedido está en un estado válido para iniciar control
+      // Ahora permitimos tanto 'armado' como 'armado-pendiente-stock'
+      const estadosValidosParaControl = ['armado', 'armado-pendiente-stock'];
+      
+      if (!estadosValidosParaControl.includes(pedido.estado)) {
+        if (pedido.estado === 'controlado') {
+          return res.status(400).json({ 
+            error: 'PEDIDO_YA_CONTROLADO: Este pedido ya ha sido controlado' 
+          });
+        } else if (pedido.estado === 'controlando') {
+          return res.status(400).json({ 
+            error: 'PEDIDO_YA_CONTROLADO: Este pedido ya está siendo controlado' 
+          });
+        } else {
+          return res.status(400).json({ 
+            error: `No se puede iniciar el control de un pedido en estado "${pedido.estado}"` 
+          });
+        }
+      }
+      
+      // Cambiar el estado del pedido a "controlando"
+      await storage.updatePedido(pedidoNumId, {
+        estado: 'controlando',
+        controladorId: req.user.id,
+        controlInicio: new Date()
+      });
+      
+      // Crear un registro en el historial de control
+      const control = await storage.createControlHistorico({
+        pedidoId: pedidoNumId,
+        controladoPor: req.user.id,
+        fecha: new Date(),
+        resultado: null
+      });
+      
+      res.status(200).json({
+        success: true,
+        message: 'Control iniciado correctamente',
+        control,
+        pedido: {
+          id: pedido.id,
+          pedidoId: pedido.pedidoId,
+          estado: 'controlando'
+        }
+      });
+      
+    } catch (error) {
+      console.error("Error al iniciar control de pedido:", error);
+      next(error);
+    }
+  });
+  
   // Endpoint para obtener historial de controles
   app.get("/api/control/historial", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
