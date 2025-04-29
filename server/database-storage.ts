@@ -206,9 +206,12 @@ export class DatabaseStorage implements IStorage {
   
   async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string, clienteId?: string }): Promise<Pedido[]> {
     try {
-      // Vamos a construir manualmente la consulta SQL con condiciones
-      let whereConditions = [];
-      let sqlQuery = `
+      // Crearemos una consulta SQL directa basada en la API de bajo nivel que ofrece el pool
+      const queryParts = [];
+      const params = [];
+      
+      // Comenzamos con la consulta básica
+      queryParts.push(`
         SELECT 
           id, pedido_id, cliente_id, fecha, items, total_productos, 
           vendedor, estado, puntaje, armador_id, tiempo_bruto, 
@@ -220,30 +223,33 @@ export class DatabaseStorage implements IStorage {
           to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
           control_comentario, control_tiempo 
         FROM pedidos
-      `;
+      `);
       
-      // Parámetros para la consulta SQL
-      const params: any[] = [];
+      // Acumulamos las condiciones WHERE
+      const whereConditions = [];
       
-      // Construimos las condiciones WHERE
+      // Filtro por fecha
       if (filters.fecha) {
         whereConditions.push(`DATE(fecha) = $${params.length + 1}`);
         params.push(filters.fecha);
       }
       
+      // Filtro por estado
       if (filters.estado && filters.estado !== "todos") {
         whereConditions.push(`estado = $${params.length + 1}`);
         params.push(filters.estado);
       }
       
+      // Filtro por vendedor
       if (filters.vendedor) {
         whereConditions.push(`LOWER(vendedor) LIKE $${params.length + 1}`);
         params.push(`%${filters.vendedor.toLowerCase()}%`);
       }
       
+      // Filtro por armadorId
       if (filters.armadorId && filters.armadorId !== "todos") {
-        const armadorIdNum = typeof filters.armadorId === 'number' 
-          ? filters.armadorId 
+        const armadorIdNum = typeof filters.armadorId === 'number'
+          ? filters.armadorId
           : parseInt(filters.armadorId.toString());
         
         if (!isNaN(armadorIdNum)) {
@@ -251,30 +257,34 @@ export class DatabaseStorage implements IStorage {
           params.push(armadorIdNum);
         }
       }
-  
+      
+      // Filtro por pedidoId
       if (filters.pedidoId) {
         whereConditions.push(`LOWER(pedido_id) LIKE $${params.length + 1}`);
         params.push(`%${filters.pedidoId.toLowerCase()}%`);
       }
       
+      // Filtro por clienteId
       if (filters.clienteId) {
         whereConditions.push(`LOWER(cliente_id) LIKE $${params.length + 1}`);
         params.push(`%${filters.clienteId.toLowerCase()}%`);
       }
       
-      // Añadimos la cláusula WHERE si hay condiciones
+      // Añadir las condiciones WHERE si existen
       if (whereConditions.length > 0) {
-        sqlQuery += ` WHERE ${whereConditions.join(' AND ')}`;
+        queryParts.push(`WHERE ${whereConditions.join(' AND ')}`);
       }
       
-      // Añadimos el ORDER BY
-      sqlQuery += ` ORDER BY fecha DESC`;
+      // Añadir ORDER BY
+      queryParts.push(`ORDER BY fecha DESC`);
       
-      console.log("SQL Query:", sqlQuery);
-      console.log("Params:", params);
+      // Combinar todas las partes
+      const fullQuery = queryParts.join(' ');
       
-      // Ejecutamos la consulta usando sql.query en lugar de sql.raw
-      const result = await db.query(sqlQuery, params);
+      console.log("Ejecutando consulta con pool.query:", fullQuery, params);
+      
+      // Ejecutar la consulta utilizando el pool directamente
+      const result = await pool.query(fullQuery, params);
       
       // Convertir los resultados a objetos Pedido
       const pedidosList = result.rows.map(row => this.convertPedidoRowToCamelCase(row));
@@ -287,6 +297,8 @@ export class DatabaseStorage implements IStorage {
           inicio: pedidosList[0].inicio ? typeof pedidosList[0].inicio : null,
           finalizado: pedidosList[0].finalizado ? typeof pedidosList[0].finalizado : null
         });
+      } else {
+        console.log("No se encontraron pedidos con los filtros proporcionados:", filters);
       }
       
       return pedidosList as Pedido[];
@@ -335,84 +347,81 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined> {
-    // Preparamos la query para buscar pedidos procesando las fechas como strings
-    let whereClause = "";
-    
-    if (armadorId) {
-      // Primero buscamos pedidos en proceso asignados a este armador
-      const resultProceso = await db.execute(sql`
-        SELECT 
-          id, pedido_id, cliente_id, fecha, items, total_productos, 
-          vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-          tiempo_neto, numero_pausas, 
-          to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-          to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-          raw_text, controlado_id, 
-          to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-          to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-          control_comentario, control_tiempo 
-        FROM pedidos
-        WHERE estado = 'en-proceso' AND armador_id = ${armadorId}
-        ORDER BY fecha ASC
-        LIMIT 1
-      `);
+    try {
+      // Función auxiliar para ejecutar consultas parametrizadas
+      const executeQuery = async (estado: string, armadorCondition: string, params: any[]) => {
+        const query = `
+          SELECT 
+            id, pedido_id, cliente_id, fecha, items, total_productos, 
+            vendedor, estado, puntaje, armador_id, tiempo_bruto, 
+            tiempo_neto, numero_pausas, 
+            to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+            to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+            raw_text, controlado_id, 
+            to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+            to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+            control_comentario, control_tiempo 
+          FROM pedidos
+          WHERE estado = $1 ${armadorCondition}
+          ORDER BY fecha ASC
+          LIMIT 1
+        `;
+        
+        console.log("Ejecutando query:", query, "con params:", params);
+        
+        const result = await pool.query(query, params);
+        
+        if (result.rows.length > 0) {
+          return this.convertPedidoRowToCamelCase(result.rows[0]);
+        }
+        
+        return null;
+      };
       
-      if (resultProceso.rows.length > 0) {
-        // Convertimos el pedido de formato snake_case a camelCase
-        const pedido = this.convertPedidoRowToCamelCase(resultProceso.rows[0]);
-        return pedido as Pedido;
+      if (armadorId) {
+        // Primero buscamos pedidos en proceso asignados a este armador
+        const pedidoEnProceso = await executeQuery(
+          'en-proceso', 
+          'AND armador_id = $2', 
+          ['en-proceso', armadorId]
+        );
+        
+        if (pedidoEnProceso) {
+          console.log("Encontrado pedido en proceso para armador:", armadorId);
+          return pedidoEnProceso as Pedido;
+        }
+        
+        // Si no hay pedidos en proceso, buscamos pedidos pendientes asignados a este armador
+        const pedidoPendiente = await executeQuery(
+          'pendiente', 
+          'AND armador_id = $2', 
+          ['pendiente', armadorId]
+        );
+        
+        if (pedidoPendiente) {
+          console.log("Encontrado pedido pendiente para armador:", armadorId);
+          return pedidoPendiente as Pedido;
+        }
       }
       
-      // Si no hay pedidos en proceso, buscamos pedidos pendientes asignados a este armador
-      const resultPendientes = await db.execute(sql`
-        SELECT 
-          id, pedido_id, cliente_id, fecha, items, total_productos, 
-          vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-          tiempo_neto, numero_pausas, 
-          to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-          to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-          raw_text, controlado_id, 
-          to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-          to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-          control_comentario, control_tiempo 
-        FROM pedidos
-        WHERE estado = 'pendiente' AND armador_id = ${armadorId}
-        ORDER BY fecha ASC
-        LIMIT 1
-      `);
+      // Si no hay pedidos asignados o no se especificó armadorId, buscamos pedidos pendientes sin asignar
+      const pedidoSinAsignar = await executeQuery(
+        'pendiente', 
+        'AND (armador_id IS NULL OR armador_id = 0)', 
+        ['pendiente']
+      );
       
-      if (resultPendientes.rows.length > 0) {
-        // Convertimos el pedido de formato snake_case a camelCase
-        const pedido = this.convertPedidoRowToCamelCase(resultPendientes.rows[0]);
-        return pedido as Pedido;
+      if (pedidoSinAsignar) {
+        console.log("Encontrado pedido pendiente sin asignar");
+        return pedidoSinAsignar as Pedido;
       }
+      
+      console.log("No se encontraron pedidos pendientes");
+      return undefined;
+    } catch (error) {
+      console.error("Error en getNextPendingPedido:", error);
+      throw error;
     }
-    
-    // Si no hay pedidos asignados o no se especificó armadorId, buscamos pedidos pendientes sin asignar
-    const resultSinAsignar = await db.execute(sql`
-      SELECT 
-        id, pedido_id, cliente_id, fecha, items, total_productos, 
-        vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-        tiempo_neto, numero_pausas, 
-        to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-        to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-        raw_text, controlado_id, 
-        to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-        to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-        control_comentario, control_tiempo 
-      FROM pedidos
-      WHERE estado = 'pendiente' AND (armador_id IS NULL OR armador_id = 0)
-      ORDER BY fecha ASC
-      LIMIT 1
-    `);
-    
-    if (resultSinAsignar.rows.length > 0) {
-      // Convertimos el pedido de formato snake_case a camelCase
-      const pedido = this.convertPedidoRowToCamelCase(resultSinAsignar.rows[0]);
-      return pedido as Pedido;
-    }
-    
-    return undefined;
   }
   
   /**
