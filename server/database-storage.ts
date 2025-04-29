@@ -101,6 +101,14 @@ export class DatabaseStorage implements IStorage {
     return pedido;
   }
   
+  async getPedidoByPedidoId(pedidoId: string): Promise<Pedido | undefined> {
+    const [pedido] = await db
+      .select()
+      .from(pedidos)
+      .where(eq(pedidos.pedidoId, pedidoId));
+    return pedido;
+  }
+  
   async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string, clienteId?: string }): Promise<Pedido[]> {
     let query = db.select().from(pedidos);
     

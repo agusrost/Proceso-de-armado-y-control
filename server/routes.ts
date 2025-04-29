@@ -45,6 +45,74 @@ function requireAdminPlus(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function registerRoutes(app: Application): Promise<Server> {
+  // Crear un nuevo pedido
+  app.post("/api/pedidos", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Recibida solicitud para crear pedido:", req.body.pedidoId);
+      
+      // Validar si se proporcionaron todos los campos requeridos
+      if (!req.body.clienteId || !req.body.items || !req.body.totalProductos || !req.body.puntaje || !req.body.rawText) {
+        return res.status(400).json({
+          message: "Faltan campos requeridos para crear el pedido", 
+          error: true
+        });
+      }
+      
+      // Validar que el pedidoId no exista ya
+      if (req.body.pedidoId) {
+        const existePedido = await storage.getPedidoByPedidoId(req.body.pedidoId);
+        if (existePedido) {
+          return res.status(400).json({
+            message: `Ya existe un pedido con ID ${req.body.pedidoId}`, 
+            error: true
+          });
+        }
+      }
+      
+      // Formatear adecuadamente los datos para crear el pedido
+      const insertPedido = {
+        pedidoId: req.body.pedidoId,
+        clienteId: req.body.clienteId,
+        fecha: req.body.fecha || new Date().toISOString(),
+        items: parseInt(req.body.items),
+        totalProductos: parseInt(req.body.totalProductos),
+        vendedor: req.body.vendedor || null,
+        estado: "pendiente",
+        puntaje: parseInt(req.body.puntaje),
+        armadorId: req.body.armadorId ? parseInt(req.body.armadorId) : null,
+        rawText: req.body.rawText
+      };
+      
+      // Crear el pedido
+      const nuevoPedido = await storage.createPedido(insertPedido);
+      console.log(`Pedido creado con ID: ${nuevoPedido.id}, pedidoId: ${nuevoPedido.pedidoId}`);
+      
+      // Si hay productos en el pedido, crearlos también
+      if (req.body.productos && Array.isArray(req.body.productos) && req.body.productos.length > 0) {
+        console.log(`Creando ${req.body.productos.length} productos para el pedido ${nuevoPedido.pedidoId}`);
+        
+        for (const producto of req.body.productos) {
+          const insertProducto = {
+            pedidoId: nuevoPedido.id,
+            codigo: producto.codigo,
+            cantidad: producto.cantidad,
+            ubicacion: producto.ubicacion || null,
+            descripcion: producto.descripcion,
+            recolectado: 0, // 0 = false, 1 = true para booleanos en BD
+            reportado: 0 // 0 = false, 1 = true para booleanos en BD
+          };
+          
+          await storage.createProducto(insertProducto);
+        }
+      }
+      
+      res.status(201).json(nuevoPedido);
+    } catch (error) {
+      console.error("Error al crear pedido:", error);
+      next(error);
+    }
+  });
+
   // Obtener lista de pedidos
   app.get("/api/pedidos", requireAuth, async (req, res, next) => {
     try {
