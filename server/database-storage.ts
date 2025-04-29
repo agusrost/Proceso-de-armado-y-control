@@ -94,60 +94,65 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPedidoById(id: number): Promise<Pedido | undefined> {
-    // Utilizamos sql directo para obtener los campos de timestamp como strings
-    const result = await db.execute(sql`
-      SELECT 
-        id, pedido_id, cliente_id, fecha, items, total_productos, 
-        vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-        tiempo_neto, numero_pausas, 
-        to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-        to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-        raw_text, controlado_id, 
-        to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-        to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-        control_comentario, control_tiempo 
-      FROM pedidos
-      WHERE id = ${id}
-    `);
-    
-    if (result.rows.length === 0) {
-      return undefined;
+    try {
+      // Utilizamos sql directo para obtener los campos de timestamp como strings
+      const result = await db.execute(sql`
+        SELECT 
+          id, pedido_id, cliente_id, fecha, items, total_productos, 
+          vendedor, estado, puntaje, armador_id, tiempo_bruto, 
+          tiempo_neto, numero_pausas, 
+          to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+          to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+          raw_text, controlado_id, 
+          to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+          to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+          control_comentario, control_tiempo 
+        FROM pedidos
+        WHERE id = ${id}
+      `);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      // Convertimos las claves snake_case a camelCase para mantener compatibilidad
+      const pedido = {
+        id: result.rows[0].id,
+        pedidoId: result.rows[0].pedido_id,
+        clienteId: result.rows[0].cliente_id,
+        fecha: result.rows[0].fecha,
+        items: result.rows[0].items,
+        totalProductos: result.rows[0].total_productos,
+        vendedor: result.rows[0].vendedor,
+        estado: result.rows[0].estado,
+        puntaje: result.rows[0].puntaje,
+        armadorId: result.rows[0].armador_id,
+        tiempoBruto: result.rows[0].tiempo_bruto,
+        tiempoNeto: result.rows[0].tiempo_neto,
+        numeroPausas: result.rows[0].numero_pausas,
+        inicio: result.rows[0].inicio,
+        finalizado: result.rows[0].finalizado,
+        rawText: result.rows[0].raw_text,
+        controladoId: result.rows[0].controlado_id,
+        controlInicio: result.rows[0].control_inicio,
+        controlFin: result.rows[0].control_fin,
+        controlComentario: result.rows[0].control_comentario,
+        controlTiempo: result.rows[0].control_tiempo
+      };
+      
+      console.log("Pedido obtenido con timestamps como strings:", {
+        id: pedido.id,
+        pedidoId: pedido.pedidoId,
+        estado: pedido.estado,
+        inicio: pedido.inicio,
+        finalizado: pedido.finalizado
+      });
+      
+      return pedido as Pedido;
+    } catch (error) {
+      console.error("Error en getPedidoById:", error);
+      throw error;
     }
-    
-    // Convertimos las claves snake_case a camelCase para mantener compatibilidad
-    const pedido = {
-      id: result.rows[0].id,
-      pedidoId: result.rows[0].pedido_id,
-      clienteId: result.rows[0].cliente_id,
-      fecha: result.rows[0].fecha,
-      items: result.rows[0].items,
-      totalProductos: result.rows[0].total_productos,
-      vendedor: result.rows[0].vendedor,
-      estado: result.rows[0].estado,
-      puntaje: result.rows[0].puntaje,
-      armadorId: result.rows[0].armador_id,
-      tiempoBruto: result.rows[0].tiempo_bruto,
-      tiempoNeto: result.rows[0].tiempo_neto,
-      numeroPausas: result.rows[0].numero_pausas,
-      inicio: result.rows[0].inicio,
-      finalizado: result.rows[0].finalizado,
-      rawText: result.rows[0].raw_text,
-      controladoId: result.rows[0].controlado_id,
-      controlInicio: result.rows[0].control_inicio,
-      controlFin: result.rows[0].control_fin,
-      controlComentario: result.rows[0].control_comentario,
-      controlTiempo: result.rows[0].control_tiempo
-    };
-    
-    console.log("Pedido obtenido con timestamps como strings:", {
-      id: pedido.id,
-      pedidoId: pedido.pedidoId,
-      estado: pedido.estado,
-      inicio: pedido.inicio,
-      finalizado: pedido.finalizado
-    });
-    
-    return pedido as Pedido;
   }
   
   async getPedidoByPedidoId(pedidoId: string): Promise<Pedido | undefined> {
@@ -420,7 +425,11 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
   
-  // Método auxiliar para convertir filas de pedidos a formato camelCase
+  /**
+   * Método auxiliar para convertir filas de pedidos en formato snake_case a objetos Pedido en camelCase
+   * @param row Fila de resultado de la base de datos
+   * @returns Objeto Pedido con propiedades en formato camelCase
+   */
   private convertPedidoRowToCamelCase(row: any): Pedido {
     return {
       id: row.id,
