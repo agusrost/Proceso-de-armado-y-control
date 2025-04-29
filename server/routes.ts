@@ -799,21 +799,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
             if (esPendienteStock && estadoResuelto) {
               console.log(`Actualizando estado del pedido ${pedido.pedidoId} de "${pedido.estado}" a "armado" porque la solicitud de stock fue resuelta como "${estado}"`);
               
-              await db
-                .update(pedidos)
-                .set({ estado: 'armado' })
-                .where(eq(pedidos.id, pedido.id));
-                
-              // Registrar el cambio en el historial
-              await db
-                .insert(pedidoHistorial)
-                .values({
-                  pedidoId: pedido.id,
-                  estado: 'armado', 
-                  fecha: new Date(),
-                  usuarioId: (req.user as any).id,
-                  comentario: `Auto-actualizado desde "${pedido.estado}" al resolver solicitud de stock (${estado})`
-                });
+              // Actualizar el estado del pedido directamente con SQL para mayor seguridad
+              await db.execute(sql`
+                UPDATE pedidos 
+                SET estado = 'armado' 
+                WHERE id = ${pedido.id}
+              `);
+              
+              console.log(`Pedido ${pedido.pedidoId} actualizado a estado "armado" después de resolver solicitud de stock.`);
             }
           }
         }
