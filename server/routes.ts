@@ -696,22 +696,38 @@ export async function registerRoutes(app: Application): Promise<Server> {
             const pausas = await storage.getPausasByPedidoId(pedidoId);
             let tiempoPausasTotalSegundos = 0;
             
+            console.log(`Calculando tiempos para pedido ${pedido.pedidoId} (id: ${pedidoId}):`);
+            console.log(`- Inicio: ${inicio.toISOString()}`);
+            console.log(`- Fin: ${ahora.toISOString()}`);
+            console.log(`- Tiempo bruto: ${tiempoBrutoFormateado} (${tiempoBrutoSegundos} segundos)`);
+            console.log(`- ${pausas.length} pausas encontradas`);
+            
             for (const pausa of pausas) {
+              console.log(`  - Pausa ID ${pausa.id}, motivo: ${pausa.motivo}, duración: ${pausa.duracion}`);
               if (pausa.duracion) {
                 const partesDuracion = pausa.duracion.split(':').map(Number);
+                let segundosPausa = 0;
+                
                 if (partesDuracion.length === 3) {
                   // Formato HH:MM:SS
-                  tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2];
+                  segundosPausa = (partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2];
                 } else if (partesDuracion.length === 2) {
                   // Formato HH:MM
-                  tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60);
+                  segundosPausa = (partesDuracion[0] * 3600) + (partesDuracion[1] * 60);
                 }
+                
+                tiempoPausasTotalSegundos += segundosPausa;
+                console.log(`    - Duración en segundos: ${segundosPausa}`);
               } else if (pausa.inicio && pausa.fin) {
                 const pausaInicio = new Date(pausa.inicio);
                 const pausaFin = new Date(pausa.fin);
-                tiempoPausasTotalSegundos += Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
+                const segundosPausa = Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
+                tiempoPausasTotalSegundos += segundosPausa;
+                console.log(`    - Calculado de timestamps: ${segundosPausa} segundos`);
               }
             }
+            
+            console.log(`- Total tiempo de pausas: ${tiempoPausasTotalSegundos} segundos`);
             
             // Calcular tiempo neto (bruto - pausas)
             const tiempoNetoSegundos = Math.max(0, tiempoBrutoSegundos - tiempoPausasTotalSegundos);
@@ -719,6 +735,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
             const minutosNeto = Math.floor((tiempoNetoSegundos % 3600) / 60);
             const segundosNeto = tiempoNetoSegundos % 60;
             const tiempoNetoFormateado = `${horasNeto.toString().padStart(2, '0')}:${minutosNeto.toString().padStart(2, '0')}:${segundosNeto.toString().padStart(2, '0')}`;
+            
+            console.log(`- Tiempo neto calculado: ${tiempoNetoFormateado} (${tiempoNetoSegundos} segundos)`);
             
             // Actualizar el pedido con estado, fin, y tiempos
             await db.execute(sql`
