@@ -198,28 +198,30 @@ async function responderSolicitudStock(solicitudId: number, estado: 'realizado' 
                 const unidadesTransferidas = solicitud.cantidad;
                 
                 // Actualizar el producto con unidades transferidas y marcarlo como completamente recolectado
+                // Actualizar primero los valores principales
                 await db.execute(sql`
                   UPDATE productos 
                   SET 
                     unidades_transferidas = ${unidadesTransferidas},
-                    recolectado = cantidad,
-                    motivo = CASE 
-                              WHEN motivo LIKE '%[Stock: Transferencia completada%' THEN motivo 
-                              ELSE CONCAT(COALESCE(motivo, ''), ' [Stock: Transferencia completada - ${unidadesTransferidas} unidades]') 
-                            END
+                    recolectado = cantidad
+                  WHERE id = ${producto.id}
+                `);
+                
+                // Luego actualizar el campo motivo por separado
+                const nuevoMotivo = `Faltante en ubicación [Stock: Transferencia completada - ${unidadesTransferidas} unidades]`;
+                await db.execute(sql`
+                  UPDATE productos 
+                  SET motivo = ${nuevoMotivo}
                   WHERE id = ${producto.id}
                 `);
                 
                 console.log(`Producto ${producto.codigo} actualizado: ${unidadesTransferidas} unidades transferidas por stock, marcado como completamente recolectado`);
               } else if (estado === 'no-hay') {
                 // Registrar que no se pudo completar la transferencia
+                const nuevoMotivoNoHay = `Faltante en ubicación [Stock: No disponible para transferencia]`;
                 await db.execute(sql`
                   UPDATE productos 
-                  SET 
-                    motivo = CASE 
-                              WHEN motivo LIKE '%[Stock: No disponible%' THEN motivo 
-                              ELSE CONCAT(COALESCE(motivo, ''), ' [Stock: No disponible para transferencia]') 
-                            END
+                  SET motivo = ${nuevoMotivoNoHay}
                   WHERE id = ${producto.id}
                 `);
                 
