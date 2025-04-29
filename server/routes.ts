@@ -642,9 +642,9 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const pedidoActualizado = await storage.updatePedido(pedidoId, {
         estado: estado,
         // Si cambia a armado, registrar la fecha de fin de armado
-        ...(estado === 'armado' && !pedido.finArmado ? { finArmado: new Date().toISOString() } : {}),
+        ...(estado === 'armado' && !pedido.finArmado ? { finArmado: new Date() } : {}),
         // Si cambia a controlado, registrar la fecha de fin de control
-        ...(estado === 'controlado' && !pedido.controlFin ? { controlFin: new Date().toISOString() } : {})
+        ...(estado === 'controlado' && !pedido.controlFin ? { controlFin: new Date() } : {})
       });
       
       // Si el estado cambiado es 'armado', actualizar todos los productos sin procesar
@@ -706,7 +706,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (pedido.estado === 'pendiente') {
         await storage.updatePedido(pedidoId, { 
           estado: 'en-proceso',
-          inicio: new Date().toISOString()
+          inicio: new Date() // Enviar el objeto Date directamente, no como string
         });
         
         console.log(`Pedido ${pedido.pedidoId} iniciado por el armador ${req.user.username} (${req.user.id})`);
