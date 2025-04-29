@@ -698,6 +698,123 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // Crear una nueva pausa
+  app.post("/api/pausas", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Recibida solicitud para crear pausa:", req.body);
+      
+      // Validar los datos enviados
+      if (!req.body.pedidoId) {
+        return res.status(400).json({ message: "Se requiere pedidoId para crear una pausa" });
+      }
+      
+      if (!req.body.motivo) {
+        return res.status(400).json({ message: "Se requiere un motivo para la pausa" });
+      }
+      
+      // Verificar que el pedido existe
+      const pedidoId = parseInt(req.body.pedidoId);
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado 'en-proceso'
+      if (pedido.estado !== 'en-proceso') {
+        return res.status(400).json({ 
+          message: `Solo se pueden pausar pedidos en proceso. Estado actual: ${pedido.estado}` 
+        });
+      }
+      
+      // Crear la pausa
+      const pausaData = {
+        pedidoId: pedidoId,
+        motivo: req.body.motivo,
+        inicio: new Date(),
+        tipo: req.body.tipo || 'armado' // Por defecto es una pausa de armado
+      };
+      
+      console.log("Datos de pausa a insertar:", pausaData);
+      
+      const pausa = await storage.createPausa(pausaData);
+      
+      // Actualizar el contador de pausas del pedido
+      try {
+        await db.execute(sql`
+          UPDATE pedidos
+          SET numero_pausas = COALESCE(numero_pausas, 0) + 1
+          WHERE id = ${pedidoId}
+        `);
+      } catch (err) {
+        console.error("Error al actualizar contador de pausas:", err);
+        // No devolvemos error aquí, continuamos igualmente
+      }
+      
+      // Devolver la pausa creada
+      res.status(201).json(pausa);
+    } catch (error) {
+      console.error("Error al crear pausa:", error);
+      next(error);
+    }
+  });
+  
+  // Finalizar una pausa existente
+  app.put("/api/pausas/:id/fin", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Recibida solicitud para finalizar pausa:", req.params.id);
+      
+      const pausaId = parseInt(req.params.id);
+      if (isNaN(pausaId)) {
+        return res.status(400).json({ message: "ID de pausa inválido" });
+      }
+      
+      // Verificar que la pausa existe
+      const pausa = await storage.getPausaById(pausaId);
+      if (!pausa) {
+        return res.status(404).json({ message: "Pausa no encontrada" });
+      }
+      
+      // Verificar que la pausa no esté ya finalizada
+      if (pausa.fin) {
+        return res.status(400).json({ message: "Esta pausa ya está finalizada" });
+      }
+      
+      // Calcular la duración de la pausa
+      const inicio = new Date(pausa.inicio);
+      const fin = new Date();
+      const duracionMs = fin.getTime() - inicio.getTime();
+      
+      // Convertir ms a formato HH:MM
+      const duracionMinutos = Math.floor(duracionMs / (1000 * 60));
+      const horas = Math.floor(duracionMinutos / 60);
+      const minutos = duracionMinutos % 60;
+      const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+      
+      // Actualizar la pausa
+      try {
+        await db.execute(sql`
+          UPDATE pausas
+          SET fin = NOW(), duracion = ${duracionFormateada}
+          WHERE id = ${pausaId}
+        `);
+      } catch (err) {
+        console.error("Error al finalizar pausa:", err);
+        return res.status(500).json({ message: "Error al finalizar la pausa" });
+      }
+      
+      // Obtener la pausa actualizada
+      const pausaActualizada = await storage.getPausaById(pausaId);
+      res.json(pausaActualizada);
+    } catch (error) {
+      console.error("Error al finalizar pausa:", error);
+      next(error);
+    }
+  });
+
   // Iniciar un pedido (para armadores)
   app.post("/api/pedidos/:id/iniciar", requireAuth, async (req, res, next) => {
     try {
