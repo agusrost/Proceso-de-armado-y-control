@@ -5,6 +5,7 @@ import { db } from './db';
 import { formatTimeHM } from '../client/src/lib/utils';
 import { WebSocketServer } from 'ws';
 import { sql, eq } from 'drizzle-orm';
+import * as schema from '@shared/schema';
 import { pedidos, StockSolicitud } from '@shared/schema';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
@@ -843,11 +844,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
               
               // También actualizar el producto para marcarlo como recolectado y registrar las unidades transferidas
               // Primero, encontrar el producto del pedido que corresponde a esta solicitud
-              const productos = await db
-                .select()
-                .from(schema.productos)
-                .where(eq(schema.productos.pedidoId, pedido.id))
-                .where(eq(schema.productos.codigo, solicitud.codigo));
+              const productos = await db.execute(sql`
+                SELECT * FROM productos 
+                WHERE pedido_id = ${pedido.id} 
+                AND codigo = ${solicitud.codigo}
+              `);
               
               if (productos.length > 0) {
                 const producto = productos[0];

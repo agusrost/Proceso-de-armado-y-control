@@ -21,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Edit, Check, CheckCircle2, Trash2 } from "lucide-react";
+import { Loader2, Edit, Check, CheckCircle2, Trash2, Truck as TruckIcon, AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -386,13 +386,31 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   }`}>
                                     {producto.recolectado}/{producto.cantidad}
                                   </span>
+                                  
+                                  {/* Mostrar unidades transferidas si hay */}
+                                  {producto.unidadesTransferidas > 0 && (
+                                    <div className="mt-1 flex items-center gap-1 bg-blue-50 border border-blue-200 rounded p-1 text-xs">
+                                      <TruckIcon className="h-3 w-3 text-blue-600" />
+                                      <span className="font-medium text-blue-600">
+                                        {producto.unidadesTransferidas} {producto.unidadesTransferidas === 1 ? 'unidad transferida' : 'unidades transferidas'} por Stock
+                                      </span>
+                                    </div>
+                                  )}
+                                  
                                   {producto.motivo && (
-                                    <div className={`mt-1 text-xs ${producto.motivo.includes('Completado por stock') ? 'text-green-600' : 'text-red-600'}`}>
-                                      {producto.motivo.includes('Completado por stock') ? (
+                                    <div className={`mt-1 text-xs ${producto.motivo.includes('[Stock: Transferencia completada') ? 'text-green-600' : 'text-red-600'}`}>
+                                      {producto.motivo.includes('[Stock: Transferencia completada') ? (
                                         <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded p-1">
                                           <CheckCircle2 className="h-3 w-3 text-green-600" />
                                           <span className="font-medium">
-                                            {producto.motivo}
+                                            Completado con transferencia de stock
+                                          </span>
+                                        </div>
+                                      ) : producto.motivo.includes('[Stock: No disponible') ? (
+                                        <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded p-1">
+                                          <AlertCircle className="h-3 w-3 text-red-600" />
+                                          <span className="font-medium">
+                                            Stock no disponible para transferencia
                                           </span>
                                         </div>
                                       ) : (
