@@ -31,7 +31,7 @@ export default function ArmadoSimplePage() {
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
     mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
-      const res = await apiRequest("PUT", `/api/productos/${params.id}`, {
+      const res = await apiRequest("PATCH", `/api/productos/${params.id}`, {
         recolectado: params.recolectado,
         motivo: params.motivo
       });
