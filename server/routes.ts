@@ -161,6 +161,9 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const pausas = await storage.getPausasByPedidoId(pedido.id);
       const productos = await storage.getProductosByPedidoId(pedido.id);
       
+      // Obtener pausas de control
+      const pausasControl = await storage.getPausasByPedidoId(pedido.id, true);
+      
       // Obtener armador si está asignado
       let armador = null;
       if (pedido.armadorId) {
@@ -187,9 +190,6 @@ export async function registerRoutes(app: Application): Promise<Server> {
         tiempoNeto: pedido.tiempoNeto
       });
       
-      // Obtener pausas de control si existen
-      const controlPausas = await storage.getPausasControlByPedidoId(pedido.id);
-      
       // Devolver el pedido con información relacionada
       const pedidoCompleto = {
         ...pedido,
@@ -197,7 +197,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         controlador,
         pausas,
         productos,
-        controlPausas
+        controlPausas: pausasControl
       };
       
       res.json(pedidoCompleto);

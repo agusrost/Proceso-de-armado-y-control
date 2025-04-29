@@ -49,9 +49,15 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   const [editMotivo, setEditMotivo] = useState<string>("");
   
   // Fetch pedido details
-  const { data: pedido, isLoading } = useQuery<PedidoWithDetails>({
+  const { data: pedido, isLoading, error } = useQuery<PedidoWithDetails>({
     queryKey: [`/api/pedidos/${pedidoId}`],
-    enabled: isOpen && !!pedidoId
+    enabled: isOpen && !!pedidoId,
+    onSuccess: (data) => {
+      console.log('Datos del pedido recibidos:', data);
+    },
+    onError: (err) => {
+      console.error('Error al cargar pedido:', err);
+    }
   });
   
   // Fetch armadores (for admin)
@@ -189,6 +195,11 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p>Error al cargar la información del pedido:</p>
+            <p className="text-red-500">{(error as Error).message}</p>
           </div>
         ) : !pedido ? (
           <div className="text-center py-8">
