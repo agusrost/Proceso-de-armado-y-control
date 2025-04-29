@@ -24,8 +24,8 @@ export const pedidos = pgTable("pedidos", {
   estado: text("estado").notNull().default("pendiente"), // pendiente, en-proceso, completado
   puntaje: integer("puntaje").notNull(),
   armadorId: integer("armador_id").references(() => users.id),
-  tiempoBruto: text("tiempo_bruto"), // formato HH:MM
-  tiempoNeto: text("tiempo_neto"), // formato HH:MM
+  tiempoBruto: text("tiempo_bruto"), // formato HH:MM:SS
+  tiempoNeto: text("tiempo_neto"), // formato HH:MM:SS
   numeroPausas: integer("numero_pausas").default(0),
   inicio: timestamp("inicio"),
   finalizado: timestamp("finalizado"),
@@ -34,7 +34,7 @@ export const pedidos = pgTable("pedidos", {
   controlInicio: timestamp("control_inicio"),
   controlFin: timestamp("control_fin"),
   controlComentario: text("control_comentario"),
-  controlTiempo: text("control_tiempo"), // formato HH:MM
+  controlTiempo: text("control_tiempo"), // formato HH:MM:SS
 });
 
 export const pausas = pgTable("pausas", {
@@ -43,7 +43,7 @@ export const pausas = pgTable("pausas", {
   inicio: timestamp("inicio").notNull(),
   fin: timestamp("fin"),
   motivo: text("motivo").notNull(),
-  duracion: text("duracion"), // formato HH:MM
+  duracion: text("duracion"), // formato HH:MM:SS
   tipo: text("tipo").default("armado"), // armado o control
 });
 
@@ -85,7 +85,7 @@ export const controlHistorico = pgTable("control_historico", {
   fecha: date("fecha").notNull(),
   inicio: timestamp("inicio").notNull(),
   fin: timestamp("fin"),
-  tiempoTotal: text("tiempo_total"), // formato HH:MM
+  tiempoTotal: text("tiempo_total"), // formato HH:MM:SS
   comentarios: text("comentarios"),
   resultado: text("resultado").notNull(), // completo, faltantes, excedentes
 });
