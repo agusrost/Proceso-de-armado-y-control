@@ -56,6 +56,7 @@ export const productos = pgTable("productos", {
   ubicacion: text("ubicacion").default(""),
   recolectado: integer("recolectado").default(0),
   motivo: text("motivo"),
+  unidadesTransferidas: integer("unidades_transferidas").default(0), // Unidades transferidas por stock
   controlado: integer("controlado").default(0), // Cantidad controlada
   controlEstado: text("control_estado"), // Estado de control: faltante, correcto, excedente
 }, (table) => {

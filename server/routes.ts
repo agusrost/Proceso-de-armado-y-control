@@ -841,6 +841,48 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 WHERE id = ${pedido.id}
               `);
               
+              // También actualizar el producto para marcarlo como recolectado y registrar las unidades transferidas
+              // Primero, encontrar el producto del pedido que corresponde a esta solicitud
+              const productos = await db
+                .select()
+                .from(schema.productos)
+                .where(eq(schema.productos.pedidoId, pedido.id))
+                .where(eq(schema.productos.codigo, solicitud.codigo));
+              
+              if (productos.length > 0) {
+                const producto = productos[0];
+                console.log(`Producto encontrado: ID ${producto.id}, código ${producto.codigo}, cantidad ${producto.cantidad}, recolectado ${producto.recolectado}`);
+                
+                if (estado === 'realizado') {
+                  // Calcular las unidades que fueron transferidas por stock
+                  const unidadesTransferidas = solicitud.cantidad;
+                  
+                  // Actualizar el producto con unidades transferidas y marcarlo como completamente recolectado
+                  await db.execute(sql`
+                    UPDATE productos 
+                    SET 
+                      unidades_transferidas = ${unidadesTransferidas},
+                      recolectado = cantidad,
+                      motivo = CONCAT(motivo, ' [Stock: Transferencia completada - ${unidadesTransferidas} unidades]')
+                    WHERE id = ${producto.id}
+                  `);
+                  
+                  console.log(`Producto ${producto.codigo} actualizado: ${unidadesTransferidas} unidades transferidas por stock, marcado como completamente recolectado`);
+                } else if (estado === 'no-hay') {
+                  // Registrar que no se pudo completar la transferencia
+                  await db.execute(sql`
+                    UPDATE productos 
+                    SET 
+                      motivo = CONCAT(motivo, ' [Stock: No disponible para transferencia]')
+                    WHERE id = ${producto.id}
+                  `);
+                  
+                  console.log(`Producto ${producto.codigo} actualizado: no disponible para transferencia`);
+                }
+              } else {
+                console.log(`No se encontró un producto con código ${solicitud.codigo} en el pedido ${pedido.id}`);
+              }
+              
               console.log(`Pedido ${pedido.pedidoId} actualizado a estado "armado" después de resolver solicitud de stock.`);
             }
           }
