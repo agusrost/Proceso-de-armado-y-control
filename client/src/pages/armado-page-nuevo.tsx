@@ -187,16 +187,34 @@ export default function ArmadoPage() {
   const finalizarPausaMutation = useMutation({
     mutationFn: async (pausaId: number) => {
       try {
+        console.log("Enviando solicitud para finalizar pausa ID:", pausaId);
         const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
+        
+        console.log("Respuesta recibida para finalización de pausa:", {
+          status: res.status,
+          statusText: res.statusText
+        });
+        
+        // Verificar si la respuesta indica un error
+        if (!res.ok) {
+          console.error(`Error en la respuesta HTTP: ${res.status} ${res.statusText}`);
+          const errorText = await res.text();
+          console.error("Detalle del error:", errorText);
+          throw new Error(`Error del servidor: ${res.status} ${res.statusText}`);
+        }
         
         // Verificar que la respuesta es JSON antes de procesarla
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
           console.error(`Error: La respuesta no es JSON al finalizar pausa ${pausaId}`, res.status, res.statusText);
+          const responseText = await res.text();
+          console.error("Respuesta no-JSON recibida:", responseText);
           throw new Error(`Error al finalizar pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
         }
         
-        return await res.json();
+        const data = await res.json();
+        console.log("Datos de pausa finalizada:", data);
+        return data;
       } catch (err: any) {
         console.error("Error al finalizar pausa:", err);
         throw new Error(err.message || "No se pudo finalizar la pausa");
