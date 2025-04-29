@@ -783,52 +783,30 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const armadorId = req.user.id;
       console.log(`Buscando pedido pendiente para armador con ID ${armadorId}`);
       
-      // Buscar pedidos en proceso asignados al armador
-      const pedidosEnProceso = await storage.getPedidos({
-        estado: 'en-proceso',
-        armadorId: armadorId
-      });
+      // Utilizar el método especializado para obtener el siguiente pedido
+      // Este método primero busca pedidos en proceso, luego pendientes asignados al armador,
+      // y finalmente pedidos pendientes sin asignar
+      const pedido = await storage.getNextPendingPedido(armadorId);
       
-      if (pedidosEnProceso.length > 0) {
-        console.log(`Se encontró un pedido en proceso para el armador ${armadorId}: ${pedidosEnProceso[0].pedidoId}`);
-        const pedido = pedidosEnProceso[0];
+      if (pedido) {
+        console.log(`Se encontró un pedido para el armador ${armadorId}: ${pedido.pedidoId} (Estado: ${pedido.estado})`);
         
-        console.log("DIAGNÓSTICO DE TIPOS -> Pedido en proceso:", {
+        console.log("DIAGNÓSTICO DE TIPOS -> Pedido encontrado:", {
           id: pedido.id,
           pedidoId: pedido.pedidoId,
           estado: pedido.estado,
           inicio: pedido.inicio ? typeof pedido.inicio + " - " + JSON.stringify(pedido.inicio) : null,
           finalizado: pedido.finalizado ? typeof pedido.finalizado + " - " + JSON.stringify(pedido.finalizado) : null,
-          armadorId: pedido.armadorId
+          armadorId: pedido.armadorId,
+          tiempoBruto: pedido.tiempoBruto,
+          tiempoNeto: pedido.tiempoNeto
         });
         
         return res.json(pedido);
       }
       
-      // Si no hay pedidos en proceso, buscar pedidos pendientes
-      const pedidosPendientes = await storage.getPedidos({
-        estado: 'pendiente',
-        armadorId: armadorId
-      });
-      
-      if (pedidosPendientes.length > 0) {
-        console.log(`Se encontró un pedido pendiente para el armador ${armadorId}: ${pedidosPendientes[0].pedidoId}`);
-        const pedido = pedidosPendientes[0];
-        
-        console.log("DIAGNÓSTICO DE TIPOS -> Pedido pendiente:", {
-          id: pedido.id,
-          pedidoId: pedido.pedidoId,
-          estado: pedido.estado,
-          inicio: pedido.inicio ? typeof pedido.inicio + " - " + JSON.stringify(pedido.inicio) : null,
-          finalizado: pedido.finalizado ? typeof pedido.finalizado + " - " + JSON.stringify(pedido.finalizado) : null,
-          armadorId: pedido.armadorId
-        });
-        
-        return res.json(pedido);
-      }
-      
-      // Si no hay pedidos asignados, devolver respuesta vacía
-      console.log(`No se encontraron pedidos asignados al armador ${armadorId}`);
+      // Si no hay pedidos disponibles para este armador
+      console.log(`No se encontraron pedidos para el armador ${armadorId}`);
       return res.json(null);
     } catch (error) {
       console.error("Error al obtener pedido para armador:", error);
