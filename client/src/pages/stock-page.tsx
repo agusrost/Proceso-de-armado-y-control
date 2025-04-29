@@ -31,7 +31,7 @@ export default function StockPage() {
   // Fetch stock solicitudes with filters for active tab
   const { data: solicitudes = [], isLoading } = useQuery<StockSolicitudWithDetails[]>({
     queryKey: [
-      "/api/stock", 
+      "/api/stock/activas", 
       { 
         fecha: filterFecha, 
         estado: filterEstado === "todos" ? "" : filterEstado, 
@@ -44,7 +44,7 @@ export default function StockPage() {
   
   // Fetch stock historial
   const { data: historialSolicitudes = [], isLoading: isLoadingHistorial } = useQuery<StockSolicitudWithDetails[]>({
-    queryKey: ["/__api/api/stock/historial"],
+    queryKey: ["/api/stock/historial"],
     enabled: activeTab === "historial",
   });
 
@@ -59,7 +59,12 @@ export default function StockPage() {
         title: "Estado actualizado",
         description: "El estado de la solicitud ha sido actualizado correctamente",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/stock"] });
+      // Invalidar ambos endpoints para asegurar que los datos se actualicen
+      queryClient.invalidateQueries({ queryKey: ["/api/stock/activas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stock/historial"] });
+      
+      // También invalidar pedidos por si un pedido cambió de estado
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
     },
     onError: (error: Error) => {
       toast({
