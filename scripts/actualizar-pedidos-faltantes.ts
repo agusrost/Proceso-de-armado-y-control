@@ -27,18 +27,16 @@ async function main() {
     for (const pedido of pedidosArmados) {
       console.log(`Analizando pedido ${pedido.id} (${pedido.pedidoId})...`);
       
-      // Obtener productos del pedido que estén marcados como faltantes
-      const productosFaltantes = await db
+      // Obtener todos los productos del pedido
+      const todosProductos = await db
         .select()
         .from(productos)
-        .where(
-          and(
-            eq(productos.pedidoId, pedido.id),
-            isNotNull(productos.motivo),
-            // Si hay un motivo y la cantidad recolectada es menor que la solicitada, consideramos que hay faltante
-            // O si recolectado = 0 directamente
-          )
-        );
+        .where(eq(productos.pedidoId, pedido.id));
+        
+      // Filtrar los productos que tienen motivo de faltante (consideramos faltantes los que tienen motivo)
+      const productosFaltantes = todosProductos.filter(
+        producto => producto.motivo && producto.motivo.trim() !== ''
+      );
       
       if (productosFaltantes.length > 0) {
         console.log(`El pedido ${pedido.id} (${pedido.pedidoId}) tiene ${productosFaltantes.length} productos faltantes:`);

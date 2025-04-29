@@ -1187,8 +1187,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (todosCompletados) {
         console.log(`Todos los productos del pedido ${pedidoId} han sido procesados`);
         
-        // Verificar si hay productos faltantes
-        const productosFaltantes = productos.filter(p => p.recolectado === 0 && p.motivo);
+        // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
+        const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
         
         if (productosFaltantes.length > 0) {
           console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
@@ -1201,7 +1201,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             try {
               // Crear solicitud de stock
               const solicitudData = {
-                fecha: new Date(),
+                fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
                 horario: new Date(),
                 codigo: producto.codigo,
                 cantidad: producto.cantidad,
