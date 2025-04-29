@@ -663,6 +663,67 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // API para obtener solicitudes activas de stock
+  app.get("/api/stock", requireAuth, requireAccess('stock'), async (req, res, next) => {
+    try {
+      // Obtener filtros de la URL
+      const { fecha, estado, motivo, solicitadoPor } = req.query;
+      
+      console.log("Obteniendo solicitudes activas de stock con filtros:", { fecha, estado, motivo, solicitadoPor });
+      
+      // Crear filtros para la consulta
+      const filters: any = {};
+      if (fecha) filters.fecha = fecha as string;
+      if (estado && estado !== 'todos') filters.estado = estado as string;
+      if (motivo) filters.motivo = motivo as string;
+      if (solicitadoPor) filters.solicitadoPor = parseInt(solicitadoPor as string);
+      
+      // Obtener solicitudes con los filtros aplicados
+      const solicitudes = await storage.getStockSolicitudes(filters);
+      
+      // Para solicitudes activas, filtramos para incluir solo las que están pendientes
+      // Si no hay filtro de estado explícito
+      const solicitudesActivas = estado ? solicitudes : solicitudes.filter(
+        solicitud => solicitud.estado === 'pendiente'
+      );
+      
+      // Enriquecer las solicitudes con información de usuario
+      const solicitudesEnriquecidas = await Promise.all(
+        solicitudesActivas.map(async (solicitud) => {
+          // Obtener información del solicitante si existe
+          let solicitante = undefined;
+          if (solicitud.solicitadoPor) {
+            solicitante = await storage.getUser(solicitud.solicitadoPor);
+          }
+          
+          // Obtener información del realizador si existe
+          let realizador = undefined;
+          if (solicitud.realizadoPor) {
+            realizador = await storage.getUser(solicitud.realizadoPor);
+          }
+          
+          return {
+            ...solicitud,
+            solicitante,
+            realizador
+          };
+        })
+      );
+      
+      // Ordenar por fecha descendente (más reciente primero)
+      const solicitudesFinales = solicitudesEnriquecidas.sort((a, b) => {
+        if (!a || !b || !a.fecha || !b.fecha) return 0;
+        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
+      });
+      
+      console.log(`Se encontraron ${solicitudesFinales.length} solicitudes activas de stock`);
+      res.json(solicitudesFinales);
+    } catch (error) {
+      console.error("Error al obtener solicitudes activas de stock:", error);
+      next(error);
+    }
+  });
+
   // API para obtener historial de solicitudes de stock
   app.get("/api/stock/historial", requireAuth, requireAccess('stock'), async (req, res, next) => {
     try {
