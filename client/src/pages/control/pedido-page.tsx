@@ -1219,6 +1219,10 @@ export default function ControlPedidoPage() {
         });
       });
       
+      // Activar la bandera para evitar actualizaciones automáticas mientras se gestionan excedentes
+      setEstaRetirandoExcedentes(true);
+      console.log("⚠️ MODO RETIRADA EXCEDENTES ACTIVADO - Deshabilitando actualizaciones automáticas");
+      
       // Actualizar estado con excedentes
       setProductosExcedentes(excedentesOrdenados);
       
