@@ -192,13 +192,18 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
             <div className="px-2 py-1 text-sm rounded-full border mr-2 flex flex-col items-center">
               <div className="flex items-center">
                 <span className={`font-medium ${
+                  producto.accion === 'excedente_retirado' ? 'text-emerald-600' :
                   producto.controlado < producto.cantidad ? 'text-amber-600' : 
                   producto.controlado > producto.cantidad ? 'text-blue-600' : 'text-emerald-600'
                 }`}>
-                  {producto.accion === 'excedente_retirado' 
-                    ? `${producto.cantidad} / ${producto.cantidad}`  // Si es un registro de excedente retirado, mostrar cantidad/cantidad
-                    : `${typeof producto.controlado === 'number' ? producto.controlado : 0} / ${producto.cantidad || 0}`
-                  }
+                  {/* SOLUCIÓN FORZADA PARA PRODUCTOS CON EXCEDENTES RETIRADOS */}
+                  {producto.accion === 'excedente_retirado' ? (
+                    // Mostrar FORZOSAMENTE cantidad/cantidad para productos con excedentes retirados
+                    `${producto.cantidad} / ${producto.cantidad}`
+                  ) : (
+                    // Comportamiento normal para otros productos
+                    `${typeof producto.controlado === 'number' ? producto.controlado : 0} / ${producto.cantidad || 0}`
+                  )}
                 </span>
               </div>
               <div className="text-[9px] text-neutral-400">
