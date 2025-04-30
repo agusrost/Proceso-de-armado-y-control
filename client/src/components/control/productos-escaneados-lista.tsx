@@ -96,6 +96,10 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       // Si es un excedente_retirado, priorizamos este sobre otros registros
       if (producto.accion === 'excedente_retirado' || productoExistente.accion === 'excedente_retirado') {
         console.log(`${codigo}: Detectado registro de excedente_retirado - Mostrando cantidad exacta`);
+        // Importante: cuando hay un excedente retirado, la cantidad controlada debe ser exactamente
+        // igual a la cantidad solicitada, sin importar lo que venga del backend
+        controlado = cantidad;
+        estado = "correcto";
       }
       
       productosMap.set(codigo, {
@@ -118,6 +122,9 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       // Verificar si tiene acción (especialmente 'excedente_retirado')
       if (producto.accion === 'excedente_retirado') {
         console.log(`${codigo}: Nuevo producto con acción excedente_retirado - Mostrando cantidad exacta`);
+        // Forzar a que la cantidad controlada sea exactamente igual a la solicitada
+        controlado = cantidad;
+        producto.estado = "correcto";
       }
       
       productosMap.set(codigo, {
@@ -125,6 +132,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
         codigo,
         controlado,
         cantidad,
+        estado: producto.accion === 'excedente_retirado' ? 'correcto' : producto.estado, // Si es excedente retirado, forzar a correcto
         accion: producto.accion, // Asegurar que la acción se conserve
         escaneado: true // Aseguramos que se muestre como escaneado
       });
