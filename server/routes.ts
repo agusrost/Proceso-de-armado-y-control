@@ -1012,6 +1012,178 @@ export async function registerRoutes(app: Application): Promise<Server> {
       });
     }
   });
+  
+  // Endpoint para actualizar productos durante control (usado para retirar excedentes)
+  app.post("/api/control/pedidos/:pedidoId/actualizar", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { codigoProducto, cantidadControlada, accion, detalles } = req.body;
+      
+      console.log(`Recibida actualización para pedido ${pedidoId}:`, { 
+        codigoProducto, 
+        cantidadControlada, 
+        accion, 
+        detalles 
+      });
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      if (!codigoProducto) {
+        return res.status(400).json({ message: "El código de producto es requerido" });
+      }
+      
+      // Verificar que el pedido existe
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado de control ("controlando")
+      if (pedido.estado !== "controlando") {
+        return res.status(400).json({ 
+          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
+        });
+      }
+      
+      // Obtener el registro de control activo para este pedido
+      const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+      if (!controlActivo) {
+        return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+      
+      // Obtener productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      console.log(`Se encontraron ${productos.length} productos para el pedido ID ${pedidoId}`);
+      
+      // Buscar si el código corresponde a algún producto del pedido
+      const productoEncontrado = productos.find(p => 
+        p.codigo && (p.codigo.toString().trim().toLowerCase() === codigoProducto.toString().trim().toLowerCase())
+      );
+      
+      if (!productoEncontrado) {
+        console.log(`Producto con código ${codigoProducto} no encontrado en el pedido ${pedidoId}`);
+        return res.status(404).json({ 
+          message: "Producto no encontrado en este pedido",
+          codigo: codigoProducto,
+          tipo: "productoNoEncontrado"
+        });
+      }
+      
+      // Obtener detalles existentes (para no perder el historial)
+      const detallesExistentes = await storage.getControlDetallesByProductoId(controlActivo.id, productoEncontrado.id);
+      
+      // Determinar tipo de acción y tipo de detalle
+      let tipo = "normal";
+      if (accion === "excedente_retirado") {
+        tipo = "excedente_retirado";
+        console.log(`Procesando retiro de excedente para ${codigoProducto}`);
+      }
+      
+      // Crear un nuevo detalle que establece directamente la cantidad solicitada
+      // Esta entrada representa el ajuste manual después de retirar excedentes
+      const cantidadNum = parseInt(cantidadControlada.toString()) || productoEncontrado.cantidad;
+      
+      // Determinar el estado basado en la cantidad
+      let estado = "correcto";
+      if (cantidadNum < productoEncontrado.cantidad) {
+        estado = "faltante";
+      } else if (cantidadNum > productoEncontrado.cantidad) {
+        estado = "excedente";
+      }
+      
+      // Si es retiro de excedente, la cantidad debe ser exactamente la esperada
+      // (ajuste manual para que coincida con la cantidad solicitada)
+      const detalleControl = {
+        controlId: controlActivo.id,
+        productoId: productoEncontrado.id,
+        codigo: productoEncontrado.codigo,
+        cantidadEsperada: productoEncontrado.cantidad,
+        cantidadControlada: productoEncontrado.cantidad, // Establecer a la cantidad esperada exacta
+        estado: "correcto", // Ahora es correcto porque debe coincidir exactamente
+        tipo: tipo,
+        timestamp: new Date(),
+        detallesAdicionales: JSON.stringify(detalles || {})
+      };
+      
+      console.log(`Creando detalle de control para actualización:`, detalleControl);
+      
+      // Guardar el detalle de control
+      const detalle = await storage.createControlDetalle(detalleControl);
+      
+      // Obtener todos los detalles de control para este producto en este control
+      const detallesProducto = await storage.getControlDetallesByProductoId(controlActivo.id, productoEncontrado.id);
+      
+      // Calcular la cantidad total controlada actualizada
+      let cantidadTotalControlada;
+      
+      // Si es retiro de excedente, la cantidad total controlada debe ser igual a la esperada
+      if (tipo === "excedente_retirado") {
+        cantidadTotalControlada = productoEncontrado.cantidad; // Igualar exactamente a la esperada
+      } else {
+        // En otros casos, calcular la suma de todos los registros
+        cantidadTotalControlada = detallesProducto.reduce((total, d) => 
+          total + (d.cantidadControlada || 0), 0
+        );
+      }
+      
+      console.log(`Cantidad total controlada actualizada para ${productoEncontrado.codigo}: ${cantidadTotalControlada} / ${productoEncontrado.cantidad}`);
+      
+      // Verificar si todos los productos están controlados ahora
+      const todosProductos = await storage.getProductosByPedidoId(pedidoId);
+      const detallesControl = await storage.getControlDetalleByControlId(controlActivo.id);
+      
+      // Recalcular todas las cantidades por producto
+      const cantidadesPorProducto = new Map();
+      
+      // Inicializar con todos los productos
+      todosProductos.forEach(p => {
+        cantidadesPorProducto.set(p.codigo, { 
+          controlado: 0, 
+          esperado: p.cantidad 
+        });
+      });
+      
+      // Acumular las cantidades controladas
+      detallesControl.forEach(d => {
+        const producto = cantidadesPorProducto.get(d.codigo);
+        if (producto) {
+          producto.controlado += (d.cantidadControlada || 0);
+        }
+      });
+      
+      // Verificar si todos los productos están correctamente controlados
+      const todosProductosControlados = Array.from(cantidadesPorProducto.values())
+        .every(p => p.controlado >= p.esperado);
+      
+      const hayProductosSinEscanear = Array.from(cantidadesPorProducto.values())
+        .some(p => p.controlado === 0);
+      
+      console.log(`Estado de control: todosProductosControlados=${todosProductosControlados}, hayProductosSinEscanear=${hayProductosSinEscanear}`);
+      
+      // Devolver la respuesta con datos enriquecidos
+      res.status(200).json({
+        message: accion === "excedente_retirado" 
+          ? "Excedente retirado correctamente" 
+          : "Producto actualizado correctamente",
+        detalle,
+        producto: productoEncontrado,
+        cantidadTotalControlada,
+        controlEstado: estado,
+        accion,
+        tipo,
+        todosProductosControlados,
+        hayProductosSinEscanear
+      });
+    } catch (error) {
+      console.error("Error al actualizar producto:", error);
+      res.status(500).json({ 
+        message: "Error al procesar la actualización del producto",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   // API para obtener todos los usuarios (para administración)
   app.get("/api/users", requireAuth, async (req, res, next) => {
