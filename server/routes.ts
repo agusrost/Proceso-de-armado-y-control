@@ -845,6 +845,119 @@ export async function registerRoutes(app: Application): Promise<Server> {
   });
   
   // Endpoint para escanear productos durante el control
+  // Endpoint para retirar excedentes de un producto
+  app.post("/api/control/pedidos/:pedidoId/productos/:codigo/retirar-excedente", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const codigoProducto = req.params.codigo;
+      const { cantidad } = req.body;
+      
+      console.log(`Recibido retirada de excedente: pedido=${pedidoId}, código=${codigoProducto}, cantidad=${cantidad}`);
+      
+      if (!cantidad || isNaN(parseInt(cantidad)) || parseInt(cantidad) <= 0) {
+        return res.status(400).json({ error: "Cantidad de excedente inválida" });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ error: "Pedido no encontrado" });
+      }
+      
+      // Verificar si está en estado de control
+      if (pedido.estado !== 'controlando') {
+        return res.status(400).json({ error: "El pedido no está en estado de control" });
+      }
+      
+      // Obtener el control activo
+      const controles = await storage.getControlHistoricoByPedidoId(pedidoId);
+      const controlActivo = controles.find(c => !c.fin);
+      
+      if (!controlActivo) {
+        return res.status(404).json({ error: "No hay un control activo para este pedido" });
+      }
+      
+      // Obtener el producto del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      const productoEncontrado = productos.find(p => p.codigo === codigoProducto);
+      
+      if (!productoEncontrado) {
+        return res.status(404).json({ error: "Producto no encontrado en este pedido" });
+      }
+      
+      // Obtener detalles previos de este producto
+      const detallesProducto = await storage.getControlDetallesByProductoId(controlActivo.id, productoEncontrado.id);
+      
+      // Calcular la cantidad total controlada para este producto
+      const cantidadControlada = detallesProducto.reduce((total, d) => 
+        total + (d.cantidadControlada || 0), 0
+      );
+      
+      const cantidadRequerida = productoEncontrado.cantidad;
+      const excedente = cantidadControlada - cantidadRequerida;
+      
+      // Validar que hay suficiente excedente y que no quede por debajo de la cantidad requerida
+      if (excedente <= 0) {
+        return res.status(400).json({
+          error: "Este producto no tiene excedente",
+          cantidadControlada,
+          cantidadRequerida
+        });
+      }
+      
+      if (parseInt(cantidad) > excedente) {
+        return res.status(400).json({
+          error: "La cantidad a retirar excede el excedente disponible",
+          cantidadControlada,
+          cantidadRequerida,
+          excedente,
+          cantidadSolicitada: parseInt(cantidad)
+        });
+      }
+      
+      // Crear un detalle de control con cantidad negativa para registrar la retirada
+      const detalleControl = {
+        controlId: controlActivo.id,
+        productoId: productoEncontrado.id,
+        codigo: productoEncontrado.codigo,
+        cantidadEsperada: productoEncontrado.cantidad,
+        cantidadControlada: -parseInt(cantidad), // Cantidad negativa para representar retirada
+        estado: "correcto", // Después de la retirada, debería quedar correcto
+        tipo: "retirada-excedente",
+        timestamp: new Date(),
+        observaciones: `Retirada de excedente: ${cantidad} unidad(es) retirada(s) por ${req.user.username}`
+      };
+      
+      // Guardar el detalle de control
+      const detalle = await storage.createControlDetalle(detalleControl);
+      
+      // Recalcular la cantidad total después de la retirada
+      const nuevaCantidadTotal = cantidadControlada - parseInt(cantidad);
+      
+      console.log(`Excedente retirado para producto ${codigoProducto}. Cantidad anterior: ${cantidadControlada}, Nueva cantidad: ${nuevaCantidadTotal}, Requerida: ${cantidadRequerida}`);
+      
+      // Enviar respuesta
+      res.status(200).json({
+        success: true,
+        message: "Excedente retirado correctamente",
+        excedente: {
+          retirado: parseInt(cantidad),
+          anterior: excedente,
+          nuevo: excedente - parseInt(cantidad)
+        },
+        cantidades: {
+          anterior: cantidadControlada,
+          nueva: nuevaCantidadTotal,
+          requerida: cantidadRequerida
+        },
+        detalle
+      });
+    } catch (error) {
+      console.error("Error al retirar excedente:", error);
+      res.status(500).json({ error: "Error al retirar excedente" });
+    }
+  });
+  
   app.post("/api/control/pedidos/:pedidoId/escanear", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
       const pedidoId = parseInt(req.params.pedidoId);

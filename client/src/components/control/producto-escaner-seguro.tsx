@@ -1,169 +1,184 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Barcode, Loader2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { Loader2, Barcode, ScanLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProductoEscanerSeguroProps {
   pedidoId: number;
-  onEscanearSuccess?: (data: any) => void;
-  onEscanearError?: (error: any) => void;
-  disabled?: boolean;
+  className?: string;
+  onEscaneoSuccess?: (result: any) => void;
+  onEscaneoError?: (error: Error) => void;
 }
 
-export function ProductoEscanerSeguro({ 
+export function ProductoEscanerSeguro({
   pedidoId,
-  onEscanearSuccess,
-  onEscanearError,
-  disabled = false
+  className = "",
+  onEscaneoSuccess,
+  onEscaneoError
 }: ProductoEscanerSeguroProps) {
   const [codigo, setCodigo] = useState("");
   const [cantidad, setCantidad] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Escanear producto
-  const escanearMutation = useMutation({
-    mutationFn: async () => {
-      if (!codigo) {
-        throw new Error("Código de producto requerido");
-      }
-      
-      const response = await apiRequest(
-        "POST", 
-        `/api/control/pedidos/${pedidoId}/escanear`, 
-        {
-          codigo: codigo.trim(),
-          cantidad
-        }
-      );
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Producto no encontrado en este pedido");
-        }
-        throw new Error("Error al escanear el producto");
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data) => {
-      console.log("Escaneo exitoso:", data);
-      
-      // Limpiar campos después de éxito
-      setCodigo("");
-      setCantidad(1);
-      
-      // Enfocar el campo de código para el siguiente escaneo
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-      
-      // Llamar al callback de éxito si existe
-      if (onEscanearSuccess) {
-        onEscanearSuccess(data);
-      }
-    },
-    onError: (error: any) => {
-      console.error("Error al escanear:", error);
-      
-      // Si no es "Producto no encontrado", mostrar toast
-      if (error.message !== "Producto no encontrado en este pedido") {
-        toast({
-          title: "Error",
-          description: error.message || "No se pudo escanear el producto",
-          variant: "destructive"
-        });
-      }
-      
-      // Enfocar el campo de código para intentar de nuevo
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
-      
-      // Llamar al callback de error si existe
-      if (onEscanearError) {
-        onEscanearError(error);
-      }
-    }
-  });
-
-  // Auto focus en montar
+  // Focus en el input al montar el componente
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
   }, []);
 
-  // Manejar envío del formulario
+  // Mutación para enviar el escaneo al servidor
+  const escanearMutation = useMutation({
+    mutationFn: async () => {
+      if (!codigo.trim()) {
+        throw new Error("Debe ingresar un código de producto");
+      }
+
+      if (isNaN(cantidad) || cantidad <= 0) {
+        throw new Error("La cantidad debe ser un número mayor a 0");
+      }
+
+      const response = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          codigo: codigo.trim(),
+          cantidad
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al escanear producto");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Limpiar formulario
+      setCodigo("");
+      setCantidad(1);
+      
+      // Foco en input de código
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      
+      // Callback de éxito
+      if (onEscaneoSuccess) {
+        onEscaneoSuccess(data);
+      }
+    },
+    onError: (error: Error) => {
+      // Mostrar error
+      toast({
+        title: "Error al escanear",
+        description: error.message,
+        variant: "destructive"
+      });
+      
+      // Seleccionar todo el texto para facilitar reescaneo
+      if (inputRef.current) {
+        inputRef.current.select();
+      }
+      
+      // Callback de error
+      if (onEscaneoError) {
+        onEscaneoError(error);
+      }
+    }
+  });
+
+  // Manejar envío de formulario
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (disabled || escanearMutation.isPending) return;
-    
     escanearMutation.mutate();
   };
 
-  // Manejar cambio en código
+  // Manejar cambio en el código (y envío automático si se escanea con lector)
   const handleCodigoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCodigo(e.target.value);
-  };
-
-  // Manejar cambio en cantidad
-  const handleCantidadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    setCantidad(isNaN(value) || value < 1 ? 1 : value);
+    
+    // Si el cambio termina con un salto de línea o retorno de carro, enviar automáticamente
+    // Esto ocurre generalmente cuando se usa un lector de códigos de barras 
+    if (e.target.value.includes('\n') || e.target.value.includes('\r')) {
+      const limpioCodigo = e.target.value.replace(/[\n\r]/g, '');
+      setCodigo(limpioCodigo);
+      setCantidad(1);
+      setTimeout(() => {
+        escanearMutation.mutate();
+      }, 0);
+    }
   };
 
   return (
-    <Card className={`${disabled ? 'opacity-60' : ''}`}>
-      <CardHeader className="pb-3">
-        <CardTitle>Escanear Producto</CardTitle>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+    <Card className={`shadow-md ${className}`}>
+      <CardContent className="p-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label htmlFor="codigo" className="text-sm text-gray-500 block mb-2">
-              Código de Producto
-            </label>
-            <div className="flex">
-              <div className="flex-shrink-0 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md p-2">
-                <Barcode className="h-5 w-5 text-gray-500" />
-              </div>
-              <Input 
-                id="codigo" 
+            <div className="flex items-center mb-1">
+              <Barcode className="h-4 w-4 mr-1" />
+              <label className="text-sm font-medium">Código de producto</label>
+            </div>
+            <div className="relative">
+              <Input
                 ref={inputRef}
-                placeholder="Escanee o ingrese el código"
                 value={codigo}
                 onChange={handleCodigoChange}
-                className="rounded-l-none focus:ring-2 focus:ring-primary"
-                disabled={disabled || escanearMutation.isPending}
+                placeholder="Escanea o ingresa el código"
+                className="pr-10"
+                disabled={escanearMutation.isPending}
+              />
+              <ScanLine 
+                className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
               />
             </div>
           </div>
           
           <div>
-            <label htmlFor="cantidad" className="text-sm text-gray-500 block mb-2">
-              Cantidad
-            </label>
-            <Input 
-              id="cantidad"
-              type="number"
-              min="1"
-              value={cantidad}
-              onChange={handleCantidadChange}
-              className="focus:ring-2 focus:ring-primary"
-              disabled={disabled || escanearMutation.isPending}
-            />
+            <label className="text-sm font-medium mb-1 block">Cantidad</label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCantidad(prev => Math.max(1, prev - 1))}
+                disabled={escanearMutation.isPending || cantidad <= 1}
+                className="h-9 w-9 p-0"
+              >
+                -
+              </Button>
+              <Input
+                type="number"
+                min={1}
+                value={cantidad}
+                onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
+                className="text-center"
+                disabled={escanearMutation.isPending}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCantidad(prev => prev + 1)}
+                disabled={escanearMutation.isPending}
+                className="h-9 w-9 p-0"
+              >
+                +
+              </Button>
+            </div>
           </div>
-        </CardContent>
-        <CardFooter>
+          
           <Button 
             type="submit" 
             className="w-full"
-            disabled={disabled || escanearMutation.isPending || !codigo}
+            disabled={!codigo.trim() || escanearMutation.isPending}
           >
             {escanearMutation.isPending ? (
               <>
@@ -171,14 +186,11 @@ export function ProductoEscanerSeguro({
                 Procesando...
               </>
             ) : (
-              <>
-                <Barcode className="mr-2 h-4 w-4" />
-                Registrar Producto
-              </>
+              "Registrar"
             )}
           </Button>
-        </CardFooter>
-      </form>
+        </form>
+      </CardContent>
     </Card>
   );
 }

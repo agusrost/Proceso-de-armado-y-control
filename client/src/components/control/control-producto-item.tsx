@@ -1,8 +1,17 @@
-import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle, Package } from 'lucide-react';
-import { ProductoControlado } from '@shared/types';
+import React from "react";
+import { ProductoControlado } from "@shared/types";
+import { 
+  Card, 
+  CardContent 
+} from "@/components/ui/card";
+import { 
+  CheckCircle2, 
+  XCircle, 
+  AlertTriangle,
+  ShoppingBag,
+  MapPin
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ControlProductoItemProps {
   producto: ProductoControlado;
@@ -11,79 +20,102 @@ interface ControlProductoItemProps {
 }
 
 export function ControlProductoItem({ 
-  producto, 
-  className = "",
+  producto,
+  className,
   onClick
 }: ControlProductoItemProps) {
-  // Determinar estado visual
-  const isFaltante = producto.controlado < producto.cantidad;
-  const isExcedente = producto.controlado > producto.cantidad;
-  const isCompleto = producto.controlado === producto.cantidad;
+  // Determinar estilos según el estado
+  const getStatusStyles = () => {
+    if (producto.estado === 'excedente') {
+      return { 
+        bgColor: 'bg-red-50 hover:bg-red-100', 
+        borderColor: 'border-red-200',
+        textColor: 'text-red-700',
+        icon: <AlertTriangle className="h-5 w-5 text-red-500" />,
+        clickable: true // Los excedentes siempre son clickeables para retirarlos
+      };
+    } else if (producto.estado === 'faltante') {
+      return { 
+        bgColor: 'bg-yellow-50 hover:bg-yellow-100', 
+        borderColor: 'border-yellow-200',
+        textColor: 'text-yellow-700',
+        icon: <AlertTriangle className="h-5 w-5 text-yellow-500" />,
+        clickable: false
+      };
+    } else if (producto.estado === 'correcto') {
+      return { 
+        bgColor: 'bg-green-50 hover:bg-green-100', 
+        borderColor: 'border-green-200',
+        textColor: 'text-green-700',
+        icon: <CheckCircle2 className="h-5 w-5 text-green-500" />,
+        clickable: false
+      };
+    } else {
+      return { 
+        bgColor: 'bg-gray-50 hover:bg-gray-100', 
+        borderColor: 'border-gray-200',
+        textColor: 'text-gray-700',
+        icon: <XCircle className="h-5 w-5 text-gray-400" />,
+        clickable: false
+      };
+    }
+  };
+
+  const { bgColor, borderColor, textColor, icon, clickable } = getStatusStyles();
   
-  // Determinar colores basados en estado
-  let statusColor = "bg-green-100 text-green-800 border-green-300";
-  let statusIcon = <CheckCircle className="h-4 w-4 mr-2" />;
-  
-  if (isFaltante) {
-    statusColor = "bg-yellow-100 text-yellow-800 border-yellow-300";
-    statusIcon = <AlertTriangle className="h-4 w-4 mr-2" />;
-  } else if (isExcedente) {
-    statusColor = "bg-red-100 text-red-800 border-red-300";
-    statusIcon = <AlertTriangle className="h-4 w-4 mr-2" />;
-  }
-  
-  // Obtener mensaje de estado
-  let statusMessage = "Completo";
-  
-  if (isFaltante) {
-    statusMessage = "Faltante";
-  } else if (isExcedente) {
-    statusMessage = "Excedente";
-  }
+  // Si el producto tiene excedente, mostrar un mensaje informativo
+  const hasExcess = producto.controlado > producto.cantidad;
+  const hasDeficit = producto.controlado < producto.cantidad;
   
   return (
     <Card 
-      className={`cursor-pointer border hover:border-primary hover:shadow transition-all ${className}`}
-      onClick={onClick}
+      className={cn(
+        `${bgColor} border ${borderColor} transition-colors`, 
+        clickable ? 'cursor-pointer' : '',
+        className
+      )}
+      onClick={clickable ? onClick : undefined}
     >
-      <CardContent className="p-3">
-        <div className="flex justify-between items-center">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="font-medium flex items-center">
-              <Package className="h-4 w-4 mr-2 text-gray-500" />
-              {producto.codigo}
+            <div className="flex items-center">
+              <ShoppingBag className="h-4 w-4 mr-2 text-gray-500" />
+              <h4 className="font-medium">{producto.codigo}</h4>
             </div>
-            <div className="text-sm text-gray-600 truncate max-w-[200px]">
-              {producto.descripcion}
-            </div>
+            <p className="text-sm text-gray-600 mt-1">{producto.descripcion}</p>
+            
+            {producto.ubicacion && (
+              <div className="flex items-center mt-1 text-xs text-gray-500">
+                <MapPin className="h-3 w-3 mr-1" />
+                <span>{producto.ubicacion}</span>
+              </div>
+            )}
+            
+            {hasExcess && (
+              <div className="mt-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-sm">
+                Excedente: {producto.controlado - producto.cantidad} unidad(es)
+                {clickable && (
+                  <span className="block font-medium">Click para retirar excedente</span>
+                )}
+              </div>
+            )}
+            
+            {hasDeficit && (
+              <div className="mt-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-sm">
+                Faltante: {producto.cantidad - producto.controlado} unidad(es)
+              </div>
+            )}
           </div>
           
-          <div className="flex items-center min-w-[90px]">
-            <div className="text-right mr-3">
-              <div className="text-sm font-medium text-gray-500">
-                Cantidad
-              </div>
-              <div className={`text-lg font-bold ${isCompleto ? 'text-green-600' : isFaltante ? 'text-yellow-600' : 'text-red-600'}`}>
+          <div className="flex flex-col items-end space-y-1">
+            <div className="flex items-center">
+              {icon}
+              <span className={`ml-1 font-bold text-lg ${textColor}`}>
                 {producto.controlado}/{producto.cantidad}
-              </div>
+              </span>
             </div>
           </div>
-        </div>
-        
-        <div className="flex justify-between items-center mt-2">
-          {producto.ubicacion && (
-            <div className="text-xs text-gray-500">
-              Ubicación: {producto.ubicacion}
-            </div>
-          )}
-          
-          <Badge 
-            variant="outline" 
-            className={`ml-auto flex items-center ${statusColor}`}
-          >
-            {statusIcon}
-            {statusMessage}
-          </Badge>
         </div>
       </CardContent>
     </Card>
