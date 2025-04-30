@@ -740,14 +740,14 @@ export default function ControlPedidoPage() {
               return p;
             });
             
-            // Crear nuevo escaneo para el historial
+            // Crear nuevo escaneo para el historial usando el timestamp del servidor
             const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
               id: data.detalle?.id || 0,
               codigo: data.producto?.codigo || "",
               cantidad: data.producto?.cantidad || 0,
               controlado: data.cantidadTotalControlada || 0,
               descripcion: data.producto?.descripcion || "",
-              timestamp: new Date(),
+              timestamp: data.detalle?.timestamp ? new Date(data.detalle.timestamp) : new Date(),
               escaneado: true,
               ubicacion: data.producto?.ubicacion || "",
               estado: data.controlEstado || "pendiente"
@@ -1643,8 +1643,8 @@ export default function ControlPedidoPage() {
                 <ProductosEscaneadosLista 
                   productos={controlState.productosControlados.map(p => ({
                     ...p,
-                    escaneado: p.controlado > 0,
-                    timestamp: new Date() // Usar fecha actual para ordenar
+                    escaneado: p.controlado > 0
+                    // No enviar timestamp aquí, usará el timestamp original del producto
                   }))}
                   showEmpty={true}
                 />
