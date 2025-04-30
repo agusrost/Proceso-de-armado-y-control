@@ -809,6 +809,117 @@ export async function registerRoutes(app: Application): Promise<Server> {
       next(error);
     }
   });
+  
+  // Endpoint para escanear productos durante el control
+  app.post("/api/control/pedidos/:pedidoId/escanear", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { codigo, cantidad } = req.body;
+      
+      console.log(`Recibido escaneo para pedido ${pedidoId}: código=${codigo}, cantidad=${cantidad}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      if (!codigo) {
+        return res.status(400).json({ message: "El código de producto es requerido" });
+      }
+      
+      // Verificar que el pedido existe
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado de control ("controlando")
+      if (pedido.estado !== "controlando") {
+        return res.status(400).json({ 
+          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
+        });
+      }
+      
+      // Obtener el registro de control activo para este pedido
+      const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+      if (!controlActivo) {
+        return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+      
+      // Obtener productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      console.log(`Se encontraron ${productos.length} productos para el pedido ID ${pedidoId}`);
+      
+      console.log("Verificando código:", codigo);
+      console.log("Buscando entre los productos:", productos.map(p => ({id: p.id, codigo: p.codigo})));
+      
+      // Buscar si el código escaneado corresponde a algún producto del pedido
+      const productoEncontrado = productos.find(p => 
+        p.codigo && (p.codigo.toString().trim().toLowerCase() === codigo.toString().trim().toLowerCase())
+      );
+      
+      if (!productoEncontrado) {
+        console.log(`Producto con código ${codigo} no encontrado en el pedido ${pedidoId}`);
+        return res.status(404).json({ 
+          message: "Producto no encontrado en este pedido",
+          codigo,
+          tipo: "productoNoEncontrado"
+        });
+      }
+      
+      console.log(`Producto encontrado: ID ${productoEncontrado.id}, Código ${productoEncontrado.codigo}`);
+      
+      // Crear un nuevo detalle de control
+      const cantidadNum = parseInt(cantidad.toString()) || 1;
+      const detalleControl = {
+        controlId: controlActivo.id,
+        productoId: productoEncontrado.id,
+        codigo: productoEncontrado.codigo,
+        descripcion: productoEncontrado.descripcion,
+        ubicacion: productoEncontrado.ubicacion,
+        cantidadEsperada: productoEncontrado.cantidad,
+        cantidadControlada: cantidadNum,
+        timestamp: new Date(),
+        resultado: "OK",
+        observaciones: null
+      };
+      
+      console.log(`Creando detalle de control:`, detalleControl);
+      
+      // Guardar el detalle de control
+      const detalle = await storage.createControlDetalle(detalleControl);
+      
+      // Obtener todos los detalles de control para este producto en este control
+      const detallesProducto = await storage.getControlDetallesByProductoId(controlActivo.id, productoEncontrado.id);
+      
+      // Calcular la cantidad total controlada para este producto
+      const cantidadTotalControlada = detallesProducto.reduce((total, d) => 
+        total + (d.cantidadControlada || 0), 0
+      );
+      
+      console.log(`Cantidad total controlada para producto ${productoEncontrado.codigo}: ${cantidadTotalControlada} / ${productoEncontrado.cantidad}`);
+      
+      // Determinar si hay excedentes
+      let tipoRespuesta = "ok";
+      if (cantidadTotalControlada > productoEncontrado.cantidad) {
+        tipoRespuesta = "excedente";
+      }
+      
+      // Devolver la respuesta
+      res.status(201).json({
+        message: "Producto escaneado correctamente",
+        detalle,
+        producto: productoEncontrado,
+        cantidadTotalControlada,
+        tipo: tipoRespuesta
+      });
+    } catch (error) {
+      console.error("Error al escanear producto:", error);
+      res.status(500).json({ 
+        message: "Error al procesar el escaneo del producto",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   // API para obtener todos los usuarios (para administración)
   app.get("/api/users", requireAuth, async (req, res, next) => {
