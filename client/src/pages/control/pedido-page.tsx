@@ -1270,20 +1270,34 @@ export default function ControlPedidoPage() {
       const productosConExcedentes = controlState.productosControlados.filter(p => p.controlado > p.cantidad);
       console.log(`Hay ${productosConExcedentes.length} productos con excedentes que ajustar`, productosConExcedentes);
       
-      // Primero realizar la actualización local para que el usuario vea el cambio inmediatamente
+      // SOLUCIÓN MEGA AGRESIVA: Actualizar local e interrumpir actualización continua
+      // Para prevenir que la API siga obteniendo valores antiguos, forzar los valores correctos
+      
+      // 1. DESREGISTRAR LOS INTERVALOS PARA QUE NO SE ACTUALICEN LOS DATOS MIENTRAS PROCESAMOS
+      if (intervalRef.current) {
+        console.log("⚠️ DETENIENDO INTERVALO DE ACTUALIZACIÓN PARA GARANTIZAR VISUALIZACIÓN CORRECTA");
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      
+      // 2. REALIZAR LA ACTUALIZACIÓN LOCAL RADICAL PARA QUE EL USUARIO VEA EL CAMBIO INMEDIATAMENTE
       setControlState(prevState => {
-        // Crear una copia de los productos con las cantidades actualizadas
+        // Crear una copia de los productos con las cantidades MEGA FORZADAS
         const productosActualizados = prevState.productosControlados.map(p => {
-          // Si el producto tenía excedente, ajustar su cantidad controlada
+          // Si el producto tenía excedente, ajustar su cantidad controlada de forma definitiva
           if (p.controlado > p.cantidad) {
-            console.log(`Ajustando en UI: producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
+            console.log(`⚠️ AJUSTE RADICAL: Forzando producto ${p.codigo} de ${p.controlado} a ${p.cantidad}`);
             
+            // OVERRIDE COMPLETO Y RADICAL para evitar cualquier problema de UI
             return {
               ...p,
-              controlado: p.cantidad, // Igualar exactamente a la cantidad solicitada
-              estado: 'correcto',     // Cambiar estado a correcto
-              accion: 'excedente_retirado', // Marcar como excedente retirado para que se muestre correctamente
-              _forzarVisualizacion: true // Indicador especial para forzar visualización correcta
+              controlado: p.cantidad, // Forzar exactamente a la cantidad solicitada
+              estado: 'correcto',     // Forzar estado correcto
+              accion: 'excedente_retirado', // Marcar como excedente retirado 
+              _forzarVisualizacion: true, // Indicador especial para forzar visualización
+              cantidadRequerida: p.cantidad, // Duplicar información para diferentes componentes
+              cantidadActual: p.cantidad,    // Duplicar información para diferentes componentes
+              cantidadControlada: p.cantidad // Duplicar información para diferentes componentes
             };
           }
           return p;

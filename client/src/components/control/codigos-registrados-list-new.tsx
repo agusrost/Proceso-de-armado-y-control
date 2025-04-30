@@ -117,7 +117,22 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
   
   // Calcular el estado basado en las cantidades después de agrupar
   productosMap.forEach((producto, codigo) => {
-    // Determinar el estado basado en cantidades
+    // VERIFICACIÓN CRÍTICA: Si tiene accion=excedente_retirado o _forzarVisualizacion, FORZAR valores
+    if (producto.accion === 'excedente_retirado' || producto._forzarVisualizacion) {
+      console.log(`FORZANDO VISUALIZACIÓN para ${codigo}: Mostrando ${producto.cantidad}/${producto.cantidad}`);
+      
+      // Forzar valores a cantidad exacta para mostrar
+      productosMap.set(codigo, {
+        ...producto,
+        controlado: producto.cantidad, // Forzar cantidad controlada igual a la solicitada
+        estado: 'correcto', // Forzar estado correcto
+        accion: 'excedente_retirado', // Preservar acción
+        _forzarVisualizacion: true // Preservar indicador especial
+      });
+      return; // Salir para este producto
+    }
+    
+    // Para productos normales (sin excedentes retirados), calcular estado normal
     let estado;
     if (producto.cantidad === 0) {
       estado = 'correcto'; // Si no hay cantidad esperada, marcar como correcto
