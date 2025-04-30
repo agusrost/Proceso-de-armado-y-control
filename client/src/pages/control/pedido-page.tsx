@@ -1401,23 +1401,42 @@ export default function ControlPedidoPage() {
         variant: "default",
       });
       
-      // Pequeña pausa antes de iniciar el proceso de finalización
+      // Verificar si todos los productos tienen ahora la cantidad exacta
+      // Esto debe ejecutarse después de aplicar las actualizaciones al estado local
       setTimeout(() => {
         try {
-          // Mostrar alerta de finalización
-          toast({
-            title: "Control Completado",
-            description: "¡Todos los productos tienen ahora la cantidad correcta! Finalizando control...",
-            variant: "default",
+          // Verificar si ahora todos los productos tienen cantidad correcta
+          const todosProductosCorrectos = controlState.productosControlados.every(p => {
+            const esCantidadExacta = p.controlado === p.cantidad;
+            console.log(`Verificando producto ${p.codigo}: controlado=${p.controlado}, cantidad=${p.cantidad}, correcto=${esCantidadExacta}`);
+            return esCantidadExacta;
           });
-        
-          // Finalizar el control con estado completo
-          finalizarControlMutation.mutate({
-            resultado: 'completo' as any, // Tipo temporal para resolver error
-            comentarios: (comentarios ? comentarios + ' - ' : '') + 'Excedentes retirados correctamente'
-          });
+          
+          console.log("¿Todos los productos tienen cantidades correctas?", todosProductosCorrectos);
+          
+          if (todosProductosCorrectos) {
+            // Todos los productos tienen cantidades correctas, finalizar automáticamente
+            toast({
+              title: "Control Completado",
+              description: "¡Todos los productos tienen ahora la cantidad correcta! Finalizando control...",
+              variant: "default",
+            });
+            
+            // Finalizar el control con estado completo
+            finalizarControlMutation.mutate({
+              resultado: 'completo' as any, // Tipo temporal para resolver error
+              comentarios: (comentarios ? comentarios + ' - ' : '') + 'Control completado correctamente - Todas las cantidades coinciden'
+            });
+          } else {
+            // Algunos productos todavía no tienen cantidades correctas
+            toast({
+              title: "Excedentes procesados",
+              description: "Se han retirado los excedentes, pero algunos productos aún requieren atención para finalizar el control.",
+              variant: "default",
+            });
+          }
         } catch (error) {
-          console.error("Error al ejecutar finalización del control:", error);
+          console.error("Error al verificar estado final del control:", error);
           toast({
             title: "Error al finalizar",
             description: "Ocurrió un error al finalizar el control.",
@@ -1445,6 +1464,11 @@ export default function ControlPedidoPage() {
   // Verificar si hay productos faltantes
   const hasFaltantes = controlState.productosControlados.some(p => 
     p.controlado < p.cantidad
+  );
+  
+  // Verificar si todos los productos tienen cantidad exacta (ni más ni menos)
+  const todosCantidadCorrecta = controlState.productosControlados.every(p => 
+    p.controlado === p.cantidad
   );
   
   // Actualizar temporizador cada segundo

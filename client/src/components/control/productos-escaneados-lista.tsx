@@ -94,19 +94,22 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       const accion = producto.accion || productoExistente.accion;
       
       // Si es un excedente_retirado, priorizamos este sobre otros registros
+      let controlAdoFinal = controlado; // Nueva variable para guardar el valor final
+      let estadoFinal = estado; // Nueva variable para guardar el estado final
+      
       if (producto.accion === 'excedente_retirado' || productoExistente.accion === 'excedente_retirado') {
         console.log(`${codigo}: Detectado registro de excedente_retirado - Mostrando cantidad exacta`);
         // Importante: cuando hay un excedente retirado, la cantidad controlada debe ser exactamente
         // igual a la cantidad solicitada, sin importar lo que venga del backend
-        controlado = cantidad;
-        estado = "correcto";
+        controlAdoFinal = cantidad;
+        estadoFinal = "correcto";
       }
       
       productosMap.set(codigo, {
         ...productoExistente,
-        controlado,
+        controlado: controlAdoFinal,
         cantidad,
-        estado,
+        estado: estadoFinal,
         timestamp,
         descripcion: producto.descripcion || productoExistente.descripcion,
         accion, // Conservar la acción del registro
@@ -120,17 +123,19 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       console.log(`${codigo}: Agregando nuevo producto ${controlado}/${cantidad} (${producto.estado || "pendiente"})`);
       
       // Verificar si tiene acción (especialmente 'excedente_retirado')
+      let controlAdoFinal = controlado;
+      
       if (producto.accion === 'excedente_retirado') {
         console.log(`${codigo}: Nuevo producto con acción excedente_retirado - Mostrando cantidad exacta`);
         // Forzar a que la cantidad controlada sea exactamente igual a la solicitada
-        controlado = cantidad;
-        producto.estado = "correcto";
+        controlAdoFinal = cantidad;
+        // No modificar directamente producto.estado, usaremos una variable local
       }
       
       productosMap.set(codigo, {
         ...producto,
         codigo,
-        controlado,
+        controlado: controlAdoFinal,
         cantidad,
         estado: producto.accion === 'excedente_retirado' ? 'correcto' : producto.estado, // Si es excedente retirado, forzar a correcto
         accion: producto.accion, // Asegurar que la acción se conserve
