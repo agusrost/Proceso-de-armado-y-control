@@ -367,7 +367,7 @@ export class DatabaseStorage implements IStorage {
           LIMIT 1
         `;
         
-        console.log("Ejecutando query:", query, "con params:", params);
+        console.log("Ejecutando SQL:", query, "con params:", params);
         
         const result = await pool.query(query, params);
         
@@ -404,7 +404,11 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      // Si no hay pedidos asignados o no se especificó armadorId, buscamos pedidos pendientes sin asignar
+      // IMPORTANTE: Siempre buscamos pedidos pendientes sin asignar
+      // independientemente de si se especificó armadorId o no.
+      // Así cualquier armador puede tomar un pedido aleatorio.
+      console.log("Buscando pedidos pendientes sin asignar para cualquier armador");
+      
       const pedidoSinAsignar = await executeQuery(
         'pendiente', 
         'AND (armador_id IS NULL OR armador_id = 0)', 
@@ -412,7 +416,7 @@ export class DatabaseStorage implements IStorage {
       );
       
       if (pedidoSinAsignar) {
-        console.log("Encontrado pedido pendiente sin asignar");
+        console.log("Encontrado pedido pendiente sin asignar:", pedidoSinAsignar.pedidoId);
         return pedidoSinAsignar as Pedido;
       }
       
