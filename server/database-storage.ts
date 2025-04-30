@@ -753,6 +753,40 @@ export class DatabaseStorage implements IStorage {
     return this.getControlDetalleByControlId(historicoId);
   }
   
+  async getControlActivoByPedidoId(pedidoId: number): Promise<ControlHistorico | undefined> {
+    // Busca un registro de control en estado activo ("controlando") para el pedido
+    const [control] = await db
+      .select()
+      .from(controlHistorico)
+      .where(
+        and(
+          eq(controlHistorico.pedidoId, pedidoId),
+          eq(controlHistorico.estado, "activo")
+        )
+      );
+    return control;
+  }
+  
+  async getControlDetallesByProductoId(controlId: number, productoId: number): Promise<ControlDetalle[]> {
+    return db
+      .select()
+      .from(controlDetalle)
+      .where(
+        and(
+          eq(controlDetalle.controlId, controlId),
+          eq(controlDetalle.productoId, productoId)
+        )
+      );
+  }
+  
+  async createControlDetalle(detalleData: Omit<InsertControlDetalle, "id">): Promise<ControlDetalle> {
+    const [detalle] = await db
+      .insert(controlDetalle)
+      .values(detalleData)
+      .returning();
+    return detalle;
+  }
+  
   async updateControlDetalle(id: number, data: Partial<ControlDetalle>): Promise<ControlDetalle | undefined> {
     const [detalle] = await db
       .update(controlDetalle)

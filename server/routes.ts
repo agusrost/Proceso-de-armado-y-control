@@ -870,17 +870,24 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Crear un nuevo detalle de control
       const cantidadNum = parseInt(cantidad.toString()) || 1;
+      
+      // Determinar el estado basado en la cantidad
+      let estado = "correcto";
+      if (cantidadNum < productoEncontrado.cantidad) {
+        estado = "faltante";
+      } else if (cantidadNum > productoEncontrado.cantidad) {
+        estado = "excedente";
+      }
+      
       const detalleControl = {
         controlId: controlActivo.id,
         productoId: productoEncontrado.id,
         codigo: productoEncontrado.codigo,
-        descripcion: productoEncontrado.descripcion,
-        ubicacion: productoEncontrado.ubicacion,
         cantidadEsperada: productoEncontrado.cantidad,
         cantidadControlada: cantidadNum,
-        timestamp: new Date(),
-        resultado: "OK",
-        observaciones: null
+        estado: estado,
+        tipo: "normal",
+        timestamp: new Date()
       };
       
       console.log(`Creando detalle de control:`, detalleControl);
