@@ -725,11 +725,17 @@ export default function ControlPedidoPage() {
                 console.log(`Producto ${p.codigo}: actualizado de ${p.controlado} a ${nuevaCantidad} (${nuevoEstado})`);
                 console.log(`Datos del servidor: controlEstado=${data.controlEstado}, cantidadTotalControlada=${data.cantidadTotalControlada}`);
                 
-                return {
+                // Crear una copia completa del objeto con valores actualizados
+                const productoActualizado = {
                   ...p,
                   controlado: nuevaCantidad,
-                  estado: nuevoEstado
+                  estado: nuevoEstado,
+                  timestamp: new Date() // Agregar timestamp para que se considere más reciente
                 };
+                
+                console.log("Producto actualizado:", productoActualizado);
+                
+                return productoActualizado;
               }
               return p;
             });

@@ -55,6 +55,16 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
   // Esto asegura que cada código aparezca una sola vez con su información más actualizada
   const productosMap = new Map();
   
+  // Para debug: imprimir valores iniciales
+  if (productos.length > 0) {
+    console.log("AGRUPANDO PRODUCTOS PARA MOSTRAR:");
+    productos.forEach(p => {
+      if (p.codigo) {
+        console.log(`Producto ${p.codigo}: controlado=${p.controlado}, cantidad=${p.cantidad}, estado=${p.estado}`);
+      }
+    });
+  }
+  
   productos.forEach((producto) => {
     const codigo = producto.codigo?.trim();
     if (!codigo) return; // Saltamos productos sin código
@@ -66,22 +76,41 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
         ? (new Date(producto.timestamp) > new Date(productoExistente.timestamp) ? producto.timestamp : productoExistente.timestamp)
         : (producto.timestamp || productoExistente.timestamp);
       
+      // Tomamos siempre los valores más recientes o más altos para controlado
+      const controlado = typeof producto.controlado === 'number' 
+        ? producto.controlado 
+        : (productoExistente.controlado || 0);
+      
+      // La cantidad solicitada nunca debería cambiar, pero por si acaso
+      const cantidad = producto.cantidad || productoExistente.cantidad || 0;
+      
+      // Si el estado es más reciente, lo usamos
+      const estado = producto.estado || productoExistente.estado;
+      
+      // Debug
+      console.log(`${codigo}: Actualizando de ${productoExistente.controlado}/${productoExistente.cantidad} a ${controlado}/${cantidad} (${estado})`);
+      
       productosMap.set(codigo, {
         ...productoExistente,
-        // Usamos siempre los datos más actualizados del producto
-        controlado: producto.controlado || productoExistente.controlado || 0,
-        cantidad: producto.cantidad || productoExistente.cantidad || 0,
-        estado: producto.estado || productoExistente.estado,
-        timestamp: timestamp,
+        controlado,
+        cantidad,
+        estado,
+        timestamp,
+        descripcion: producto.descripcion || productoExistente.descripcion,
         escaneado: true // Aseguramos que se muestre como escaneado
       });
     } else {
       // Si es un código nuevo, lo agregamos al mapa
+      const controlado = typeof producto.controlado === 'number' ? producto.controlado : 0;
+      const cantidad = producto.cantidad || 0;
+      
+      console.log(`${codigo}: Agregando nuevo producto ${controlado}/${cantidad} (${producto.estado || "pendiente"})`);
+      
       productosMap.set(codigo, {
         ...producto,
-        codigo: codigo,
-        controlado: producto.controlado || 0,
-        cantidad: producto.cantidad || 0,
+        codigo,
+        controlado,
+        cantidad,
         escaneado: true // Aseguramos que se muestre como escaneado
       });
     }
@@ -135,7 +164,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
                   producto.controlado < producto.cantidad ? 'text-amber-600' : 
                   producto.controlado > producto.cantidad ? 'text-blue-600' : 'text-emerald-600'
                 }`}>
-                  {producto.controlado || 0} / {producto.cantidad || 0}
+                  {typeof producto.controlado === 'number' ? producto.controlado : 0} / {producto.cantidad || 0}
                 </span>
               </div>
               <div className="text-[9px] text-neutral-400">
