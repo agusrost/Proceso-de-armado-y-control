@@ -2391,9 +2391,9 @@ export async function registerRoutes(app: Application): Promise<Server> {
         armadorId: pedido.armadorId
       });
       
-      // Verificar que el pedido esté asignado al armador
-      if (pedido.armadorId !== req.user.id) {
-        return res.status(403).json({ message: "Este pedido no está asignado a usted" });
+      // Verificar que el pedido esté asignado al armador o no esté asignado a nadie
+      if (pedido.armadorId !== null && pedido.armadorId !== req.user.id) {
+        return res.status(403).json({ message: "Este pedido está asignado a otro armador" });
       }
       
       // Verificar que el pedido esté en estado pendiente o en-proceso
