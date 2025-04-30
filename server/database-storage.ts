@@ -754,7 +754,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getControlActivoByPedidoId(pedidoId: number): Promise<ControlHistorico | undefined> {
-    // Busca un registro de control en estado activo ("controlando") para el pedido
+    // Busca un registro de control en estado activo para el pedido
     const [control] = await db
       .select()
       .from(controlHistorico)
