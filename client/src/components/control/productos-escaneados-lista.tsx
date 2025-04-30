@@ -147,7 +147,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
             ) : producto.estado === 'faltante' ? (
               <X className="h-5 w-5 text-red-500" />
             ) : producto.estado === 'excedente' ? (
-              <div className="text-amber-500 text-sm font-medium">+{(producto.controlado || 0) - (producto.cantidad || 0)}</div>
+              <Check className="h-5 w-5 text-amber-500" />
             ) : (
               <Clock className="h-5 w-5 text-neutral-400" />
             )}
