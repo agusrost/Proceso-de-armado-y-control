@@ -101,10 +101,11 @@ export function ControlProductoItem({ producto, onEscanear }: ControlProductoIte
                   producto.controlado > producto.cantidad ? 'text-amber-600' : 
                   'text-green-600'
                 }`}>
-                  {/* SOLUCIÓN MEGA FORZADA: Múltiples condiciones para asegurar que se muestre la cantidad correcta */}
+                  {/* SOLUCIÓN ULTRA AGRESIVA: Si hay excedente, SIEMPRE mostrar cantidad solicitada para forzar la UI correcta */}
                   {(producto.accion === 'excedente_retirado' || 
                     producto._forzarVisualizacion || 
-                    (producto.estado === 'correcto' && producto.controlado >= producto.cantidad))
+                    producto.estado === 'correcto' ||
+                    producto.estado === 'excedente')
                     ? producto.cantidad // FORZAR LA CANTIDAD SOLICITADA en TODOS los casos mencionados
                     : producto.controlado // Valor normal solo para productos regulares sin excedentes
                   }
