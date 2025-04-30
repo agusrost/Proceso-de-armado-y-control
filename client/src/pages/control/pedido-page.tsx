@@ -1575,9 +1575,13 @@ export default function ControlPedidoPage() {
                 <CardTitle>Productos Escaneados</CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Nuevo componente específico para mostrar productos escaneados */}
+                {/* Mostrar los productos controlados del estado actualizado */}
                 <ProductosEscaneadosLista 
-                  productos={controlState.historialEscaneos}
+                  productos={controlState.productosControlados.map(p => ({
+                    ...p,
+                    escaneado: p.controlado > 0,
+                    timestamp: new Date() // Usar fecha actual para ordenar
+                  }))}
                   showEmpty={true}
                 />
               </CardContent>
