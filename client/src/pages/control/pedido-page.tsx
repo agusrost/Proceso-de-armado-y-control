@@ -1282,7 +1282,8 @@ export default function ControlPedidoPage() {
               ...p,
               controlado: p.cantidad, // Igualar exactamente a la cantidad solicitada
               estado: 'correcto',     // Cambiar estado a correcto
-              accion: 'excedente_retirado' // Marcar como excedente retirado para que se muestre correctamente
+              accion: 'excedente_retirado', // Marcar como excedente retirado para que se muestre correctamente
+              _forzarVisualizacion: true // Indicador especial para forzar visualización correcta
             };
           }
           return p;
@@ -1407,9 +1408,19 @@ export default function ControlPedidoPage() {
         try {
           // Verificar si ahora todos los productos tienen cantidad correcta
           const todosProductosCorrectos = controlState.productosControlados.every(p => {
+            // Un producto se considera correcto si:
+            // 1. Tiene exactamente la cantidad solicitada 
+            // 2. O tiene _forzarVisualizacion = true (producto con excedente retirado)
+            // 3. O tiene accion = 'excedente_retirado'
             const esCantidadExacta = p.controlado === p.cantidad;
-            console.log(`Verificando producto ${p.codigo}: controlado=${p.controlado}, cantidad=${p.cantidad}, correcto=${esCantidadExacta}`);
-            return esCantidadExacta;
+            const tieneExcedenteRetirado = p.accion === 'excedente_retirado';
+            const tieneForzarVisualizacion = p._forzarVisualizacion === true;
+            
+            const esCorrectoFinal = esCantidadExacta || tieneExcedenteRetirado || tieneForzarVisualizacion;
+            
+            console.log(`Verificando producto ${p.codigo}: controlado=${p.controlado}, cantidad=${p.cantidad}, forzado=${!!tieneForzarVisualizacion}, excedente_retirado=${!!tieneExcedenteRetirado}, correcto=${esCorrectoFinal}`);
+            
+            return esCorrectoFinal;
           });
           
           console.log("¿Todos los productos tienen cantidades correctas?", todosProductosCorrectos);
