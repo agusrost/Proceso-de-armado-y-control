@@ -594,7 +594,41 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
-  // Endpoint para obtener un control activo de un pedido
+  // Endpoint para obtener datos de pre-control (necesario para el modal de detalle)
+  app.get("/api/control/pedidos/:pedidoId/pre-control", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ error: 'ID de pedido inválido' });
+      }
+      
+      console.log(`Obteniendo datos de pre-control para pedido ${pedidoId}...`);
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      
+      if (!pedido) {
+        return res.status(404).json({ error: 'Pedido no encontrado' });
+      }
+      
+      // Obtener los productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      console.log(`Pre-control: Se encontraron ${productos.length} productos para el pedido ${pedidoId}`);
+      
+      // Devolver los productos y el pedido
+      res.status(200).json({
+        pedido,
+        productos,
+        mensaje: "Datos de pre-control obtenidos correctamente"
+      });
+    } catch (error) {
+      console.error("Error al obtener datos de pre-control:", error);
+      next(error);
+    }
+  });
+
   app.get("/api/control/pedidos/:pedidoId/activo", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
       const { pedidoId } = req.params;
