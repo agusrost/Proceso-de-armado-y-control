@@ -19,7 +19,7 @@ import ControlIndexPage from "@/pages/control/index-page";
 import ControlConfigPage from "@/pages/control/config-page";
 import ControlHistorialPage from "@/pages/control/historial-page";
 import ControlHistorialDetallePage from "@/pages/control/historial-detalle-page";
-import ControlPedidoPage from "@/pages/control/pedido-page";
+import ControlPedidoPage from "@/pages/control/pedido-page-nuevo";
 import ControlEstadisticasPage from "@/pages/control/estadisticas-page";
 import MiPerfilPage from "@/pages/mi-perfil-page";
 import ImportarExportarPage from "@/pages/importar-exportar-page";
