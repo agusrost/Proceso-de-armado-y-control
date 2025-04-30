@@ -516,6 +516,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
         estado: 'controlando' 
       });
       
+      console.log(`Muestra diagnóstica del primer pedido: ${JSON.stringify({
+        id: pedidosControlando[0]?.id,
+        pedidoId: pedidosControlando[0]?.pedidoId,
+        estado: pedidosControlando[0]?.estado,
+        inicio: typeof pedidosControlando[0]?.inicio,
+        finalizado: typeof pedidosControlando[0]?.finalizado
+      })}`);
+      
       // Enriquecer con datos adicionales
       const pedidosEnriquecidos = await Promise.all(
         pedidosControlando.map(async (pedido) => {
@@ -526,13 +534,25 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Filtrar sólo los controles que están en curso (sin fecha de fin)
             const controlEnCurso = historiales.find(h => h.inicio && !h.fin);
             
-            if (!controlEnCurso) {
-              return null; // No está realmente en control
+            // Incluso si no hay un control activo, seguimos mostrando el pedido si está en estado "controlando"
+            // porque significa que el control se interrumpió y debería poder retomarse
+            
+            // Obtener datos del armador si existe
+            let armador = null;
+            if (pedido.armadorId) {
+              try {
+                armador = await storage.getUser(pedido.armadorId);
+                console.log(`Obtenido armador para pedido ${pedido.id}: ${JSON.stringify(armador)}`);
+              } catch (error) {
+                console.error(`Error al obtener armador con ID ${pedido.armadorId} para pedido ${pedido.id}:`, error);
+              }
+            } else {
+              console.log(`El pedido ${pedido.id} no tiene armadorId asignado`);
             }
             
-            // Obtener datos del controlador
+            // Obtener datos del controlador si hay un control en curso
             let controlador = null;
-            if (controlEnCurso.controladoPor) {
+            if (controlEnCurso?.controladoPor) {
               controlador = await storage.getUser(controlEnCurso.controladoPor);
             }
             
@@ -542,9 +562,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
             
             return {
               ...pedido,
-              controlInicio: controlEnCurso.inicio,
-              controlId: controlEnCurso.id,
-              controladoPor: controlEnCurso.controladoPor,
+              controlInicio: controlEnCurso?.inicio,
+              controlId: controlEnCurso?.id,
+              controladoPor: controlEnCurso?.controladoPor,
+              armadorNombre: armador ? 
+                `${armador.firstName || ''} ${armador.lastName || ''}`.trim() || armador.username : 
+                null,
               controlador: controlador ? {
                 id: controlador.id,
                 username: controlador.username,
@@ -555,13 +578,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
             };
           } catch (err) {
             console.error(`Error al procesar pedido en control ${pedido.id}:`, err);
-            return null;
+            return pedido; // Devolvemos el pedido tal cual para que al menos aparezca en la lista
           }
         })
       );
       
-      // Filtrar los nulos
-      const pedidosFinales = pedidosEnriquecidos.filter(p => p !== null);
+      // Ya no filtramos los nulos, mostramos todos los pedidos en estado "controlando"
+      const pedidosFinales = pedidosEnriquecidos;
       
       console.log(`Se encontraron ${pedidosFinales.length} pedidos en control`);
       res.json(pedidosFinales);
@@ -597,8 +620,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const controles = await storage.getControlHistoricoByPedidoId(pedidoNumId);
       const controlActivo = controles.find(c => !c.fin); // Buscar uno sin fecha de fin
       
+      // Incluso si no hay un control activo, creamos uno nuevo para permitir continuar
       if (!controlActivo) {
-        return res.status(404).json({ error: 'No se encontró registro de control activo' });
+        console.log(`No se encontró control activo para el pedido ${pedidoNumId}, creando uno nuevo`);
+        const nuevoControl = await storage.createControlHistorico({
+          pedidoId: pedidoNumId,
+          controladoPor: req.user.id,
+          fecha: new Date(),
+          resultado: null
+        });
+        
+        // Usar el nuevo control
+        return res.status(200).json({
+          control: nuevoControl,
+          detalles: [],
+          productos: await storage.getProductosByPedidoId(pedidoNumId),
+          pedido
+        });
       }
       
       // Obtener detalles del control
