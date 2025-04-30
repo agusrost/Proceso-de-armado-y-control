@@ -90,6 +90,14 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       // Debug
       console.log(`${codigo}: Actualizando de ${productoExistente.controlado}/${productoExistente.cantidad} a ${controlado}/${cantidad} (${estado})`);
       
+      // Verificar si el producto actual tiene acción definida (especialmente 'excedente_retirado')
+      const accion = producto.accion || productoExistente.accion;
+      
+      // Si es un excedente_retirado, priorizamos este sobre otros registros
+      if (producto.accion === 'excedente_retirado' || productoExistente.accion === 'excedente_retirado') {
+        console.log(`${codigo}: Detectado registro de excedente_retirado - Mostrando cantidad exacta`);
+      }
+      
       productosMap.set(codigo, {
         ...productoExistente,
         controlado,
@@ -97,6 +105,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
         estado,
         timestamp,
         descripcion: producto.descripcion || productoExistente.descripcion,
+        accion, // Conservar la acción del registro
         escaneado: true // Aseguramos que se muestre como escaneado
       });
     } else {
@@ -106,11 +115,17 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       
       console.log(`${codigo}: Agregando nuevo producto ${controlado}/${cantidad} (${producto.estado || "pendiente"})`);
       
+      // Verificar si tiene acción (especialmente 'excedente_retirado')
+      if (producto.accion === 'excedente_retirado') {
+        console.log(`${codigo}: Nuevo producto con acción excedente_retirado - Mostrando cantidad exacta`);
+      }
+      
       productosMap.set(codigo, {
         ...producto,
         codigo,
         controlado,
         cantidad,
+        accion: producto.accion, // Asegurar que la acción se conserve
         escaneado: true // Aseguramos que se muestre como escaneado
       });
     }
@@ -148,12 +163,15 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
                 )}
               </div>
               <div className="text-sm text-neutral-500">
-                {producto.escaneado && producto.timestamp 
-                  ? `Registrado: ${formatTimestamp(producto.timestamp)}` 
-                  : producto.escaneado === false
-                    ? "Pendiente de escanear"
-                    : "Sin fecha"
-                }
+                {producto.accion === 'excedente_retirado' ? (
+                  <span className="text-emerald-600 font-medium">Excedente retirado correctamente</span>
+                ) : (
+                  producto.escaneado && producto.timestamp 
+                    ? `Registrado: ${formatTimestamp(producto.timestamp)}` 
+                    : producto.escaneado === false
+                      ? "Pendiente de escanear"
+                      : "Sin fecha"
+                )}
               </div>
             </div>
           </div>
