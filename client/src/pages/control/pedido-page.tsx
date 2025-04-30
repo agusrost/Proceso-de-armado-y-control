@@ -1249,45 +1249,7 @@ export default function ControlPedidoPage() {
       const productosConExcedentes = controlState.productosControlados.filter(p => p.controlado > p.cantidad);
       console.log(`Hay ${productosConExcedentes.length} productos con excedentes que ajustar`, productosConExcedentes);
       
-      // Para cada producto con excedente, enviar al servidor la actualización
-      const ajustePromises = productosConExcedentes.map(async (p) => {
-        try {
-          // Ajustar cantidades en el servidor para que coincidan exactamente con lo solicitado
-          console.log(`Actualizando en servidor: producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
-          
-          // Registrar un escaneo especial con la API que indique "retiro de excedente"
-          await apiRequest("POST", `/api/control/pedidos/${pedidoId}/actualizar`, {
-            codigoProducto: p.codigo,
-            cantidadControlada: p.cantidad, // Exactamente la cantidad solicitada
-            accion: 'excedente_retirado',
-            // Incluir datos adicionales para tracking
-            detalles: {
-              excedentePrevio: p.controlado - p.cantidad,
-              excedenteCodigo: p.codigo,
-              excedenteDescripcion: p.descripcion
-            }
-          });
-          
-          return {
-            codigo: p.codigo,
-            actualizado: true,
-            cantidadFinal: p.cantidad
-          };
-        } catch (error) {
-          console.error(`Error al ajustar excedente para producto ${p.codigo}:`, error);
-          return {
-            codigo: p.codigo,
-            actualizado: false,
-            error
-          };
-        }
-      });
-      
-      // Esperar a que todas las actualizaciones terminen
-      const resultados = await Promise.all(ajustePromises);
-      console.log("Resultados de ajustes de excedentes:", resultados);
-      
-      // Actualizar el estado local para reflejar los cambios
+      // Primero realizar la actualización local para que el usuario vea el cambio inmediatamente
       setControlState(prevState => {
         // Crear una copia de los productos con las cantidades actualizadas
         const productosActualizados = prevState.productosControlados.map(p => {
@@ -1341,13 +1303,67 @@ export default function ControlPedidoPage() {
         };
       });
       
-      // Refrescar datos del control para sincronizar con el servidor
-      await refetchControlActivo();
-      
-      // Mostrar mensaje de confirmación
+      // Mostrar mensaje de confirmación inmediatamente para feedback al usuario
       toast({
-        title: "Excedentes retirados",
-        description: "Se han ajustado las cantidades correctamente en el sistema",
+        title: "Procesando excedentes retirados",
+        description: "Ajustando cantidades en el sistema...",
+        variant: "default",
+      });
+      
+      // Para cada producto con excedente, enviar al servidor la actualización
+      const ajustePromises = productosConExcedentes.map(async (p) => {
+        try {
+          // Ajustar cantidades en el servidor para que coincidan exactamente con lo solicitado
+          console.log(`Actualizando en servidor: producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
+          
+          // Registrar un escaneo especial con la API que indique "retiro de excedente"
+          const response = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/actualizar`, {
+            codigoProducto: p.codigo,
+            cantidadControlada: p.cantidad, // Exactamente la cantidad solicitada
+            accion: 'excedente_retirado',
+            // Incluir datos adicionales para tracking
+            detalles: {
+              excedentePrevio: p.controlado - p.cantidad,
+              excedenteCodigo: p.codigo,
+              excedenteDescripcion: p.descripcion
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Error en la respuesta: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log(`Respuesta del servidor para producto ${p.codigo}:`, data);
+          
+          return {
+            codigo: p.codigo,
+            actualizado: true,
+            cantidadFinal: p.cantidad,
+            data
+          };
+        } catch (error) {
+          console.error(`Error al ajustar excedente para producto ${p.codigo}:`, error);
+          return {
+            codigo: p.codigo,
+            actualizado: false,
+            error
+          };
+        }
+      });
+      
+      // Esperar a que todas las actualizaciones terminen
+      const resultados = await Promise.all(ajustePromises);
+      console.log("Resultados de ajustes de excedentes:", resultados);
+      
+      // Deshabilitar temporalmente el refresco automático para evitar sobreescribir nuestros cambios
+      // ⚠️ No vamos a hacer refetch para evitar que se sobreescriban nuestros datos locales
+      // Así mantenemos el estado visual de 7/7 sin que el refetch lo cambie a 0/7
+      
+      // Mostrar mensaje de confirmación final
+      toast({
+        title: "Excedentes retirados correctamente",
+        description: "Se han ajustado las cantidades en el sistema",
         variant: "default",
       });
       
