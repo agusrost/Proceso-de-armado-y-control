@@ -809,8 +809,17 @@ export default function ControlPedidoPage() {
           p.controlado > 0
         );
         
+        // Contar productos para mostrar progreso
+        const totalProductos = prevState.productosControlados.length;
+        const productosCompletados = prevState.productosControlados.filter(p => 
+          p.controlado > 0 && p.controlado === p.cantidad
+        ).length;
+        
+        // Mostrar progreso del control
+        console.log(`Progreso de control: ${productosCompletados}/${totalProductos} productos completados`);
+        
         // Verificamos si el servidor nos indica que ya podemos finalizar el control
-        // Esto viene directamente del servidor que tiene la lógica correcta
+        // o si nuestras verificaciones locales indican que todos los productos están controlados
         if (data.todosProductosControlados === true || (todosProductosControlados && todosProductosRegistrados)) {
           console.log("¡Todos los productos están controlados correctamente! Verificando excedentes...");
           
@@ -1158,16 +1167,42 @@ export default function ControlPedidoPage() {
       .map(p => ({
         codigo: p.codigo,
         descripcion: p.descripcion,
-        cantidadExcedente: p.controlado - p.cantidad
+        cantidadExcedente: (p.controlado || 0) - (p.cantidad || 0)
       }));
+    
+    console.log(`Verificando excedentes: ${excedentes.length} productos con excedentes`);
     
     // Si hay excedentes, mostrar alerta
     if (excedentes.length > 0) {
-      setProductosExcedentes(excedentes);
+      // Ordenar excedentes por código para consistencia
+      const excedentesOrdenados = [...excedentes].sort((a, b) => 
+        (a.codigo || "").localeCompare(b.codigo || "")
+      );
+      
+      // Información detallada para depuración
+      excedentesOrdenados.forEach(exc => {
+        console.log(`Producto excedente: ${exc.codigo}, cantidad excedente: ${exc.cantidadExcedente}`);
+      });
+      
+      // Actualizar estado con excedentes
+      setProductosExcedentes(excedentesOrdenados);
+      
+      // Mostrar diálogo de excedentes
       setRetirarExcedenteOpen(true);
+      
+      // Reproducir sonido de alerta
+      try {
+        const audio = new Audio('/sounds/alert.mp3');
+        audio.play();
+      } catch (e) {
+        console.log('Error reproduciendo sonido:', e);
+      }
+      
       return true;
     }
     
+    // No hay excedentes
+    console.log("No se encontraron productos con excedentes");
     return false;
   };
   
@@ -1628,6 +1663,8 @@ export default function ControlPedidoPage() {
         open={finalizadoOpen}
         onOpenChange={setFinalizadoOpen}
         mensaje="El control del pedido ha sido finalizado correctamente"
+        pedidoId={pedidoId}
+        tiempoTranscurrido={controlState.segundos}
       />
       
       {/* Modal simplificado de productos del pedido */}

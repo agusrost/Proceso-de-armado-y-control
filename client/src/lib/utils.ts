@@ -182,3 +182,31 @@ export function normalizeCode(code: string | number | null | undefined): string 
   
   return normalizedCode;
 }
+
+/**
+ * Formatea un tiempo en segundos a una cadena legible formato "Xh Ym Zs"
+ * Ejemplo: 3661 segundos -> "1h 1m 1s"
+ * @param seconds Tiempo en segundos
+ * @returns String formateado
+ */
+export function formatTimeDuration(seconds: number): string {
+  if (!seconds || seconds <= 0) return "0s";
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  let result = "";
+  
+  if (hours > 0) {
+    result += `${hours}h `;
+  }
+  
+  if (minutes > 0 || hours > 0) {
+    result += `${minutes}m `;
+  }
+  
+  result += `${secs}s`;
+  
+  return result;
+}
