@@ -1278,6 +1278,10 @@ export default function ControlPedidoPage() {
       const productosConExcedentes = controlState.productosControlados.filter(p => p.controlado > p.cantidad);
       console.log(`Hay ${productosConExcedentes.length} productos con excedentes que ajustar`, productosConExcedentes);
       
+      // IMPORTANTE: Mantenemos el estado de retirada de excedentes mientras procesamos los cambios
+      // para evitar que las actualizaciones automáticas interfieran
+      console.log("⚠️ MODO RETIRADA EXCEDENTES ACTIVO - Manteniendo deshabilitadas actualizaciones automáticas durante proceso");
+      
       // SOLUCIÓN MEGA AGRESIVA: Actualizar local e interrumpir actualización continua
       // Para prevenir que la API siga obteniendo valores antiguos, forzar los valores correctos
       
@@ -1477,6 +1481,12 @@ export default function ControlPedidoPage() {
           });
         }
       }, 1000);
+      
+      // Finalmente, reactivar las actualizaciones automáticas
+      setTimeout(() => {
+        console.log("✅ MODO RETIRADA EXCEDENTES DESACTIVADO - Reactivando actualizaciones automáticas");
+        setEstaRetirandoExcedentes(false);
+      }, 2000);
     } catch (error) {
       console.error("Error en completarFinalizacion:", error);
       toast({
@@ -1484,6 +1494,10 @@ export default function ControlPedidoPage() {
         description: "Se produjo un error inesperado al procesar la finalización.",
         variant: "destructive"
       });
+      
+      // En caso de error, asegurarnos de reactivar las actualizaciones automáticas
+      console.log("⚠️ MODO RETIRADA EXCEDENTES DESACTIVADO POR ERROR - Reactivando actualizaciones automáticas");
+      setEstaRetirandoExcedentes(false);
     }
   };
   
