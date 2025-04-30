@@ -902,14 +902,28 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Producto encontrado: ID ${productoEncontrado.id}, Código ${productoEncontrado.codigo}`);
       
-      // Crear un nuevo detalle de control
+      // Obtener todos los detalles de control existentes para este producto
+      const detallesExistentes = await storage.getControlDetallesByProductoId(controlActivo.id, productoEncontrado.id);
+      console.log(`Detalles existentes para ${productoEncontrado.codigo}:`, detallesExistentes.length);
+      
+      // Calcular cantidad ya controlada previamente
+      const cantidadPrevia = detallesExistentes.reduce((total, d) => 
+        total + (d.cantidadControlada || 0), 0
+      );
+      console.log(`Cantidad previa para ${productoEncontrado.codigo}: ${cantidadPrevia}`);
+      
+      // Crear un nuevo detalle de control con la nueva cantidad ADICIONAL
       const cantidadNum = parseInt(cantidad.toString()) || 1;
       
-      // Determinar el estado basado en la cantidad
+      // Calcular el total después de registrar este nuevo escaneo
+      const cantidadTotalNueva = cantidadPrevia + cantidadNum;
+      console.log(`NUEVA cantidad total para ${productoEncontrado.codigo}: ${cantidadTotalNueva}`);
+      
+      // Determinar el estado basado en la cantidad TOTAL
       let estado = "correcto";
-      if (cantidadNum < productoEncontrado.cantidad) {
+      if (cantidadTotalNueva < productoEncontrado.cantidad) {
         estado = "faltante";
-      } else if (cantidadNum > productoEncontrado.cantidad) {
+      } else if (cantidadTotalNueva > productoEncontrado.cantidad) {
         estado = "excedente";
       }
       
@@ -918,8 +932,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
         productoId: productoEncontrado.id,
         codigo: productoEncontrado.codigo,
         cantidadEsperada: productoEncontrado.cantidad,
-        cantidadControlada: cantidadNum,
-        estado: estado,
+        cantidadControlada: cantidadNum, // Solo esta cantidad adicional en este registro
+        estado: estado, // El estado basado en el total
         tipo: "normal",
         timestamp: new Date()
       };
