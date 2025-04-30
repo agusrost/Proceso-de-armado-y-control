@@ -1198,9 +1198,17 @@ export default function ControlPedidoPage() {
         (a.codigo || "").localeCompare(b.codigo || "")
       );
       
-      // Información detallada para depuración
+      // Información detallada para depuración y notificaciones
       excedentesOrdenados.forEach(exc => {
         console.log(`Producto excedente: ${exc.codigo}, cantidad excedente: ${exc.cantidadExcedente}`);
+        
+        // Mostrar notificación para cada excedente
+        toast({
+          title: `¡Excedente en ${exc.codigo}!`,
+          description: `Este producto tiene ${exc.cantidadExcedente} unidad(es) extra que deben ser retiradas.`,
+          variant: "destructive",
+          duration: 5000
+        });
       });
       
       // Actualizar estado con excedentes
@@ -1321,6 +1329,18 @@ export default function ControlPedidoPage() {
         title: "Procesando excedentes retirados",
         description: "Ajustando cantidades en el sistema...",
         variant: "default",
+        duration: 2000
+      });
+      
+      // Mostrar notificación de éxito para cada producto ajustado
+      productosConExcedentes.forEach(p => {
+        const excedente = p.controlado - p.cantidad;
+        toast({
+          title: `Excedente retirado: ${p.codigo}`,
+          description: `Se han retirado ${excedente} unidad(es) correctamente`,
+          variant: "success",
+          duration: 3000
+        });
       });
       
       // Para cada producto con excedente, enviar al servidor la actualización

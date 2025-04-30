@@ -164,7 +164,10 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
                   producto.controlado < producto.cantidad ? 'text-amber-600' : 
                   producto.controlado > producto.cantidad ? 'text-blue-600' : 'text-emerald-600'
                 }`}>
-                  {typeof producto.controlado === 'number' ? producto.controlado : 0} / {producto.cantidad || 0}
+                  {producto.accion === 'excedente_retirado' 
+                    ? `${producto.cantidad} / ${producto.cantidad}`  // Si es un registro de excedente retirado, mostrar cantidad/cantidad
+                    : `${typeof producto.controlado === 'number' ? producto.controlado : 0} / ${producto.cantidad || 0}`
+                  }
                 </span>
               </div>
               <div className="text-[9px] text-neutral-400">
