@@ -1245,6 +1245,31 @@ export default function ControlPedidoPage() {
       // Primero cerrar el diálogo de excedentes
       setRetirarExcedenteOpen(false);
       
+      // Actualizar el estado local para igualar las cantidades controladas a las solicitadas
+      setControlState(prevState => {
+        // Crear una copia de los productos con las cantidades actualizadas
+        const productosActualizados = prevState.productosControlados.map(p => {
+          // Si el producto tenía excedente, ajustar su cantidad controlada para que sea exactamente igual a la solicitada
+          if (p.controlado > p.cantidad) {
+            console.log(`Ajustando producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
+            
+            return {
+              ...p,
+              controlado: p.cantidad, // Igualar exactamente a la cantidad solicitada
+              estado: 'correcto',     // Cambiar estado a correcto
+              timestamp: new Date()   // Actualizar timestamp
+            };
+          }
+          return p;
+        });
+        
+        // Retornar el nuevo estado con los productos actualizados
+        return {
+          ...prevState,
+          productosControlados: productosActualizados
+        };
+      });
+      
       // Mostrar mensaje de confirmación
       toast({
         title: "Excedentes confirmados",
@@ -1254,25 +1279,14 @@ export default function ControlPedidoPage() {
       
       // Pequeña pausa antes de iniciar el proceso de finalización
       setTimeout(() => {
-        // Verificar si todos los productos están en cantidad correcta después de retirar excedentes
-        const todosProductosCorrectos = controlState.productosControlados.every(p => {
-          // Asumimos que después de retirar excedentes, las cantidades son correctas
-          // Es decir, controlado === cantidad para todos los productos
-          return p.controlado === p.cantidad;
-        });
-        
-        console.log("¿Todos los productos están correctos después de retirar excedentes?", todosProductosCorrectos);
-        
-        if (todosProductosCorrectos) {
+        try {
           // Mostrar alerta de finalización
           toast({
             title: "Control Completado",
             description: "¡Todos los productos han sido controlados correctamente! Finalizando control...",
             variant: "default",
           });
-        }
         
-        try {
           // Finalizar el control con estado completo
           finalizarControlMutation.mutate({
             resultado: 'completo' as any, // Tipo temporal para resolver error
