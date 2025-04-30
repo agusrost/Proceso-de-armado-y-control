@@ -703,8 +703,9 @@ export default function ControlPedidoPage() {
         // Asegurarnos que estamos aumentando los contadores, no reemplazándolos
         const updatedProductos = prev.productosControlados.map(p => {
           if (p.codigo === data.producto.codigo) {
-            // Usamos la cantidad del servidor (que incluye todos los escaneos)
-            const nuevaControlada = data.cantidadControlada;
+            // Usamos la cantidad TOTAL del servidor (que incluye todos los escaneos)
+            // La clave es usar cantidadTotalControlada, no cantidadControlada
+            const nuevaControlada = data.cantidadTotalControlada;
             
             // Determinar el estado basado en la nueva cantidad
             let nuevoEstado: any = "pendiente";
@@ -737,7 +738,8 @@ export default function ControlPedidoPage() {
           id: data.detalle?.id || 0,
           codigo: data.producto?.codigo || "",
           cantidad: data.producto?.cantidad || 0,
-          controlado: data.cantidadControlada || 0,
+          // Aquí también usamos la cantidad total acumulada del servidor
+          controlado: data.cantidadTotalControlada || 0,
           descripcion: data.producto?.descripcion || productoEncontrado?.descripcion || "",
           timestamp: new Date(),
           escaneado: true,
@@ -755,12 +757,12 @@ export default function ControlPedidoPage() {
         });
         
         // Verificar si hay productos excedentes con verificación de null
-        if (data.controlEstado === 'excedente') {
+        if (data.tipo === 'excedente') {
           setProductoExcedente({
             codigo: data.producto?.codigo || "",
             descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
             cantidadEsperada: data.producto?.cantidad || 0,
-            cantidadActual: data.cantidadControlada || 0
+            cantidadActual: data.cantidadTotalControlada || 0
           });
           setExcedenteAlertOpen(true);
         }
