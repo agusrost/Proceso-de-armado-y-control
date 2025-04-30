@@ -21,6 +21,20 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
       estado: ejemplo.estado,
       timestamp: ejemplo.timestamp
     });
+    
+    // Verificamos si hay productos con códigos específicos para depuración
+    const codigosEspeciales = ['17061', '18001', '18002'];
+    codigosEspeciales.forEach(codigo => {
+      const productoEspecial = productos.find(p => p.codigo === codigo);
+      if (productoEspecial) {
+        console.log(`DETALLE IMPORTANTE - Producto ${codigo}:`, {
+          codigo: productoEspecial.codigo,
+          cantidad: productoEspecial.cantidad,
+          controlado: productoEspecial.controlado,
+          estado: productoEspecial.estado
+        });
+      }
+    });
   }
   
   // Si no hay productos y showEmpty es false, no mostramos nada
@@ -37,9 +51,55 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
     );
   }
 
+  // Usar Map para agrupar los productos por código y quedarnos con la última versión de cada uno
+  // Esto asegura que cada código aparezca una sola vez con su información más actualizada
+  const productosMap = new Map();
+  
+  productos.forEach((producto) => {
+    const codigo = producto.codigo?.trim();
+    if (!codigo) return; // Saltamos productos sin código
+    
+    // Si ya existía el código, actualizamos con la versión más reciente
+    if (productosMap.has(codigo)) {
+      const productoExistente = productosMap.get(codigo);
+      const timestamp = producto.timestamp && productoExistente.timestamp 
+        ? (new Date(producto.timestamp) > new Date(productoExistente.timestamp) ? producto.timestamp : productoExistente.timestamp)
+        : (producto.timestamp || productoExistente.timestamp);
+      
+      productosMap.set(codigo, {
+        ...productoExistente,
+        // Usamos siempre los datos más actualizados del producto
+        controlado: producto.controlado || productoExistente.controlado || 0,
+        cantidad: producto.cantidad || productoExistente.cantidad || 0,
+        estado: producto.estado || productoExistente.estado,
+        timestamp: timestamp,
+        escaneado: true // Aseguramos que se muestre como escaneado
+      });
+    } else {
+      // Si es un código nuevo, lo agregamos al mapa
+      productosMap.set(codigo, {
+        ...producto,
+        codigo: codigo,
+        controlado: producto.controlado || 0,
+        cantidad: producto.cantidad || 0,
+        escaneado: true // Aseguramos que se muestre como escaneado
+      });
+    }
+  });
+  
+  // Convertir el mapa a un arreglo ordenado por timestamp (más reciente primero)
+  const productosAgrupados = Array.from(productosMap.values())
+    .sort((a, b) => {
+      if (!a.timestamp) return 1;
+      if (!b.timestamp) return -1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  
+  console.log(`Productos agrupados para mostrar: ${productosAgrupados.length}`);
+
   return (
     <div className="space-y-2">
-      {productos.map((producto, index) => (
+      {productosAgrupados.map((producto, index) => (
         <div 
           key={`${producto.codigo}-${index}`} 
           className={`flex items-center justify-between border p-3 rounded-md ${!producto.escaneado ? 'opacity-70' : ''}`}
@@ -75,7 +135,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
                   producto.controlado < producto.cantidad ? 'text-amber-600' : 
                   producto.controlado > producto.cantidad ? 'text-blue-600' : 'text-emerald-600'
                 }`}>
-                  {producto.controlado} / {producto.cantidad}
+                  {producto.controlado || 0} / {producto.cantidad || 0}
                 </span>
               </div>
               <div className="text-[9px] text-neutral-400">
@@ -87,7 +147,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
             ) : producto.estado === 'faltante' ? (
               <X className="h-5 w-5 text-red-500" />
             ) : producto.estado === 'excedente' ? (
-              <div className="text-amber-500 text-sm font-medium">+{producto.controlado - producto.cantidad}</div>
+              <div className="text-amber-500 text-sm font-medium">+{(producto.controlado || 0) - (producto.cantidad || 0)}</div>
             ) : (
               <Clock className="h-5 w-5 text-neutral-400" />
             )}

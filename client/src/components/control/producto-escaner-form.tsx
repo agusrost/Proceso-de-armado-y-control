@@ -30,7 +30,7 @@ export function ProductoEscanerForm({
       const codigoTrim = codigo.trim();
       
       // Lista de códigos especiales que sabemos que causan problemas
-      const codigosEspeciales = ['17061', '18001', '17133'];
+      const codigosEspeciales = ['17061', '18001', '17133', '18002'];
       
       // Si el código es uno de los especiales, lo enviamos tal cual sin normalizar
       if (codigosEspeciales.includes(codigoTrim)) {
@@ -60,6 +60,18 @@ export function ProductoEscanerForm({
           codigoTrim.includes('18001')) {
         console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 18001 DETECTADA: ${codigoTrim} - Normalizando a 18001`);
         onEscanear('18001', cantidad);
+        setCodigo("");
+        setCantidad(1); // Reiniciar la cantidad a 1
+        return;
+      }
+      
+      // Caso especial para variantes con espacios o caracteres especiales del código 18002
+      if (codigoTrim.replace(/\s|-|\./, '') === '18002' || 
+          codigoTrim === '1 8002' || 
+          codigoTrim === '1-8002' ||
+          codigoTrim.includes('18002')) {
+        console.log(`⚠️⚠️⚠️ VARIANTE DEL CÓDIGO ESPECIAL 18002 DETECTADA: ${codigoTrim} - Normalizando a 18002`);
+        onEscanear('18002', cantidad);
         setCodigo("");
         setCantidad(1); // Reiniciar la cantidad a 1
         return;
