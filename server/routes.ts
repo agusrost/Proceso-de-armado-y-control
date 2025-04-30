@@ -630,7 +630,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             controladoPor: req.user.id,
             fecha: ahora,
             inicio: ahora, // Añadimos el campo inicio explícitamente
-            resultado: null
+            resultado: 'pendiente' // Establecemos un valor por defecto que no sea null
           });
           
           // Usar el nuevo control
@@ -719,7 +719,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         controladoPor: req.user.id,
         fecha: ahora,
         inicio: ahora, // Añadimos el campo inicio explícitamente 
-        resultado: null
+        resultado: 'pendiente' // Establecemos un valor por defecto que no sea null
       });
       
       res.status(200).json({
