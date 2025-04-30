@@ -1893,7 +1893,19 @@ export default function ControlPedidoPage() {
       
       <RetirarExcedenteAlert
         open={retirarExcedenteOpen}
-        onOpenChange={setRetirarExcedenteOpen}
+        onOpenChange={(open) => {
+          setRetirarExcedenteOpen(open);
+          
+          // Si se está cerrando el diálogo sin confirmar la retirada de excedentes
+          // (el usuario hizo clic en "Cancelar"), asegurarse de desactivar la bandera 
+          // para permitir que las actualizaciones automáticas se reanuden
+          if (!open) {
+            console.log("Cancelando diálogo de excedentes - reactivando actualizaciones automáticas");
+            setTimeout(() => {
+              setEstaRetirandoExcedentes(false);
+            }, 500);
+          }
+        }}
         excedentes={productosExcedentes}
         onRetirarConfirm={completarFinalizacion}
       />
