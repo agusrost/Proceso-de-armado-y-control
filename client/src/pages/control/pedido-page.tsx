@@ -1238,24 +1238,62 @@ export default function ControlPedidoPage() {
   };
   
   // Función para completar finalización después de retirar excedentes
-  const completarFinalizacion = () => {
+  const completarFinalizacion = async () => {
     console.log("Completando finalización después de retirar excedentes");
     
     try {
       // Primero cerrar el diálogo de excedentes
       setRetirarExcedenteOpen(false);
       
-      // Actualizar el estado local para igualar las cantidades controladas a las solicitadas
+      // Obtener productos con excedentes antes de la actualización
+      const productosConExcedentes = controlState.productosControlados.filter(p => p.controlado > p.cantidad);
+      console.log(`Hay ${productosConExcedentes.length} productos con excedentes que ajustar`, productosConExcedentes);
+      
+      // Para cada producto con excedente, enviar al servidor la actualización
+      const ajustePromises = productosConExcedentes.map(async (p) => {
+        try {
+          // Ajustar cantidades en el servidor para que coincidan exactamente con lo solicitado
+          console.log(`Actualizando en servidor: producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
+          
+          // Registrar un escaneo especial con la API que indique "retiro de excedente"
+          await apiRequest("POST", `/api/control/pedidos/${pedidoId}/actualizar`, {
+            codigoProducto: p.codigo,
+            cantidadControlada: p.cantidad, // Exactamente la cantidad solicitada
+            accion: 'excedente_retirado',
+            // Incluir datos adicionales para tracking
+            detalles: {
+              excedentePrevio: p.controlado - p.cantidad,
+              excedenteCodigo: p.codigo,
+              excedenteDescripcion: p.descripcion
+            }
+          });
+          
+          return {
+            codigo: p.codigo,
+            actualizado: true,
+            cantidadFinal: p.cantidad
+          };
+        } catch (error) {
+          console.error(`Error al ajustar excedente para producto ${p.codigo}:`, error);
+          return {
+            codigo: p.codigo,
+            actualizado: false,
+            error
+          };
+        }
+      });
+      
+      // Esperar a que todas las actualizaciones terminen
+      const resultados = await Promise.all(ajustePromises);
+      console.log("Resultados de ajustes de excedentes:", resultados);
+      
+      // Actualizar el estado local para reflejar los cambios
       setControlState(prevState => {
-        // Obtener productos con excedentes
-        const productosConExcedentes = prevState.productosControlados.filter(p => p.controlado > p.cantidad);
-        console.log(`Hay ${productosConExcedentes.length} productos con excedentes que ajustar`);
-        
         // Crear una copia de los productos con las cantidades actualizadas
         const productosActualizados = prevState.productosControlados.map(p => {
-          // Si el producto tenía excedente, ajustar su cantidad controlada para que sea exactamente igual a la solicitada
+          // Si el producto tenía excedente, ajustar su cantidad controlada
           if (p.controlado > p.cantidad) {
-            console.log(`Ajustando producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
+            console.log(`Ajustando en UI: producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
             
             return {
               ...p,
@@ -1271,7 +1309,7 @@ export default function ControlPedidoPage() {
         let historialActualizado = [...prevState.historialEscaneos];
         
         productosConExcedentes.forEach(p => {
-          // Buscar el escaneo más reciente de este producto para tomar su timestamp
+          // Buscar el escaneo más reciente de este producto
           const escaneosDeProducto = prevState.historialEscaneos
             .filter(h => h.codigo === p.codigo)
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -1282,11 +1320,11 @@ export default function ControlPedidoPage() {
           
           // Agregar nuevo registro al historial
           historialActualizado.push({
-            id: Date.now(), // ID temporal
+            id: Date.now() + Math.floor(Math.random() * 1000), // ID temporal único
             codigo: p.codigo,
             cantidad: p.cantidad,
             controlado: p.cantidad, // La cantidad exacta solicitada
-            timestamp: timestamp,   // Mantener el timestamp original
+            timestamp: new Date(),  // Timestamp actual para el retiro
             escaneado: true,
             descripcion: p.descripcion,
             ubicacion: p.ubicacion || "",
@@ -1303,10 +1341,13 @@ export default function ControlPedidoPage() {
         };
       });
       
+      // Refrescar datos del control para sincronizar con el servidor
+      await refetchControlActivo();
+      
       // Mostrar mensaje de confirmación
       toast({
-        title: "Excedentes confirmados",
-        description: "Se ha confirmado que los excedentes han sido retirados del pedido",
+        title: "Excedentes retirados",
+        description: "Se han ajustado las cantidades correctamente en el sistema",
         variant: "default",
       });
       
@@ -1316,7 +1357,7 @@ export default function ControlPedidoPage() {
           // Mostrar alerta de finalización
           toast({
             title: "Control Completado",
-            description: "¡Todos los productos han sido controlados correctamente! Finalizando control...",
+            description: "¡Todos los productos tienen ahora la cantidad correcta! Finalizando control...",
             variant: "default",
           });
         
@@ -1333,7 +1374,7 @@ export default function ControlPedidoPage() {
             variant: "destructive"
           });
         }
-      }, 500);
+      }, 1000);
     } catch (error) {
       console.error("Error en completarFinalizacion:", error);
       toast({
