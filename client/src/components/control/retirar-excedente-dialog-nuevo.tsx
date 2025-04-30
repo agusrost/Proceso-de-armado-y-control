@@ -1,13 +1,13 @@
-import { useState } from "react";
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { ProductoControlado } from "@shared/types";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
-interface RetirarExcedenteDialogProps {
+interface RetirarExcedenteDialogNuevoProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -15,151 +15,146 @@ interface RetirarExcedenteDialogProps {
   pedidoId: number;
 }
 
-export function RetirarExcedenteDialogNuevo({
-  open,
-  onClose,
-  onConfirm,
+export function RetirarExcedenteDialogNuevo({ 
+  open, 
+  onClose, 
+  onConfirm, 
   producto,
   pedidoId
-}: RetirarExcedenteDialogProps) {
-  const { toast } = useToast();
+}: RetirarExcedenteDialogNuevoProps) {
   const [procesando, setProcesando] = useState(false);
-  const [exitoso, setExitoso] = useState(false);
-
-  // Mutación para retirar excedentes usando el endpoint radical
-  const retirarExcedentesMutation = useMutation({
+  const [completado, setCompletado] = useState(false);
+  const { toast } = useToast();
+  
+  // Calcular excedente
+  const excedente = producto.controlado - producto.cantidad;
+  
+  // Retirar excedente mutation
+  const retirarExcedenteMutation = useMutation({
     mutationFn: async () => {
       setProcesando(true);
       
-      try {
-        console.log(`Enviando solicitud al endpoint radical para retirar excedentes del producto ${producto.codigo}`);
-        
-        const response = await apiRequest(
-          "POST", 
-          `/api/control/pedidos/${pedidoId}/retirar-excedentes`, 
-          {
-            codigoProducto: producto.codigo
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error(`Error en la respuesta: ${response.status}`);
+      const response = await apiRequest(
+        "POST", 
+        `/api/control/pedidos/${pedidoId}/retirar-excedente`, 
+        {
+          codigo: producto.codigo,
+          cantidad: excedente
         }
-        
-        const data = await response.json();
-        console.log("Respuesta del servidor para retirada de excedentes:", data);
-        
-        // Marcar como exitoso para mostrar confirmación
-        setExitoso(true);
-        
-        // Esperar 1.5 segundos antes de cerrar el diálogo y refrescar
-        setTimeout(() => {
-          onConfirm();
-        }, 1500);
-        
-        return data;
-      } catch (error) {
-        console.error("Error al retirar excedentes:", error);
-        toast({
-          title: "Error al retirar excedentes",
-          description: "No se pudo completar la operación. Por favor, inténtelo de nuevo.",
-          variant: "destructive"
-        });
-        setProcesando(false);
-        throw error;
+      );
+      
+      if (!response.ok) {
+        throw new Error("Error al retirar excedente");
       }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log("Excedente retirado con éxito:", data);
+      setProcesando(false);
+      setCompletado(true);
+      
+      // Mostrar confirmación
+      toast({
+        title: "Excedente retirado",
+        description: `Se ha ajustado la cantidad del producto ${producto.codigo}`,
+      });
+      
+      // Esperar breve momento para mostrar el estado completado
+      setTimeout(() => {
+        setCompletado(false);
+        onConfirm();
+      }, 1000);
+    },
+    onError: (error) => {
+      console.error("Error al retirar excedente:", error);
+      setProcesando(false);
+      
+      toast({
+        title: "Error",
+        description: "No se pudo retirar el excedente del producto",
+        variant: "destructive"
+      });
     }
   });
-
+  
   const handleConfirmar = () => {
-    retirarExcedentesMutation.mutate();
+    retirarExcedenteMutation.mutate();
   };
-
-  const cantidadExcedente = producto.controlado - producto.cantidad;
-
+  
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen && !procesando) {
-        onClose();
-      }
-    }}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && !procesando && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-red-600 flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            ¡ATENCIÓN! Cantidad excedente detectada
+          <DialogTitle className="flex items-center gap-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            Excedente Detectado
           </DialogTitle>
           <DialogDescription>
-            Se ha registrado un excedente de productos. Por favor retire {cantidadExcedente} unidad(es).
+            Ha escaneado más unidades de las requeridas para este producto.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="p-4 bg-amber-50 rounded-md border border-amber-200">
-          <div className="flex items-center gap-3 text-lg mb-2">
-            <span className="font-semibold">{producto.codigo}</span>
-            <span>{producto.descripcion}</span>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 my-4">
+        
+        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="text-sm text-gray-500 uppercase mb-1">Cantidad Solicitada</div>
-              <div className="text-2xl font-bold text-center p-2 bg-white rounded border">
-                {producto.cantidad}
-              </div>
+              <p className="font-semibold">{producto.codigo}</p>
+              <p className="text-sm text-gray-600">{producto.descripcion}</p>
             </div>
-            
-            <div>
-              <div className="text-sm text-gray-500 uppercase mb-1">Cantidad Registrada</div>
-              <div className="text-2xl font-bold text-center p-2 bg-white rounded border text-orange-600">
-                {producto.controlado}
-              </div>
+            <div className="text-lg font-bold text-red-600">
+              {producto.controlado}/{producto.cantidad}
             </div>
           </div>
           
-          <div className="bg-red-100 border border-red-300 rounded p-3 mt-4">
-            <div className="text-sm text-red-600 uppercase mb-1 text-center">EXCEDENTE A RETIRAR</div>
-            <div className="text-3xl font-bold text-center text-red-600">
-              {cantidadExcedente}
+          <div className="bg-white p-3 rounded border border-red-100">
+            <div className="flex justify-between items-center">
+              <span>Cantidad requerida:</span>
+              <span className="font-bold">{producto.cantidad}</span>
+            </div>
+            <div className="flex justify-between items-center mt-1">
+              <span>Cantidad escaneada:</span>
+              <span className="font-bold">{producto.controlado}</span>
+            </div>
+            <div className="flex justify-between items-center mt-1">
+              <span>Excedente a retirar:</span>
+              <span className="font-bold text-red-600">{excedente}</span>
             </div>
           </div>
+          
+          <p className="mt-3 text-sm text-gray-600">
+            Por favor retire {excedente} unidad(es) del producto y confirme para continuar.
+          </p>
         </div>
-
-        <DialogFooter className="sm:justify-center gap-4 mt-2">
-          {!procesando && !exitoso && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={procesando}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                className="bg-orange-600 hover:bg-orange-700"
-                onClick={handleConfirmar}
-                disabled={procesando}
-              >
-                He retirado el excedente
-              </Button>
-            </>
-          )}
+        
+        <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
+          <Button 
+            variant="outline" 
+            onClick={onClose}
+            disabled={procesando || completado}
+          >
+            Cancelar
+          </Button>
           
-          {procesando && !exitoso && (
-            <div className="flex flex-col items-center justify-center w-full">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
-              <p className="text-sm text-gray-500 mt-2">Procesando la retirada de excedentes...</p>
-            </div>
-          )}
-          
-          {exitoso && (
-            <div className="flex flex-col items-center justify-center w-full">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-              <p className="text-sm text-green-600 font-medium mt-2">¡Retirada de excedentes registrada correctamente!</p>
-            </div>
-          )}
+          <Button 
+            variant={completado ? "default" : "destructive"}
+            onClick={handleConfirmar}
+            disabled={procesando || completado}
+            className={completado ? "bg-green-600 hover:bg-green-700" : ""}
+          >
+            {procesando ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Procesando...
+              </>
+            ) : completado ? (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Completado
+              </>
+            ) : (
+              "Confirmar Retirada"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
