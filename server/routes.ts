@@ -953,19 +953,56 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Cantidad total controlada para producto ${productoEncontrado.codigo}: ${cantidadTotalControlada} / ${productoEncontrado.cantidad}`);
       
-      // Determinar si hay excedentes
-      let tipoRespuesta = "ok";
-      if (cantidadTotalControlada > productoEncontrado.cantidad) {
-        tipoRespuesta = "excedente";
+      // Determinar estado final según cantidades totales
+      let controlEstado = "correcto";
+      if (cantidadTotalControlada < productoEncontrado.cantidad) {
+        controlEstado = "faltante";
+      } else if (cantidadTotalControlada > productoEncontrado.cantidad) {
+        controlEstado = "excedente";
       }
       
-      // Devolver la respuesta
+      // Verificar si todos los productos están controlados
+      const todosProductos = await storage.getProductosByPedidoId(pedidoId);
+      const detallesControl = await storage.getControlDetalleByControlId(controlActivo.id);
+      
+      // Agrupar detalles por código de producto
+      const cantidadesPorProducto = new Map();
+      
+      // Inicializar con todos los productos en 0
+      todosProductos.forEach(p => {
+        cantidadesPorProducto.set(p.codigo, { 
+          controlado: 0, 
+          esperado: p.cantidad 
+        });
+      });
+      
+      // Acumular las cantidades controladas
+      detallesControl.forEach(d => {
+        const producto = cantidadesPorProducto.get(d.codigo);
+        if (producto) {
+          producto.controlado += (d.cantidadControlada || 0);
+        }
+      });
+      
+      // Verificar si todos los productos están correctamente controlados
+      const todosProductosControlados = Array.from(cantidadesPorProducto.values())
+        .every(p => p.controlado >= p.esperado);
+      
+      const hayProductosSinEscanear = Array.from(cantidadesPorProducto.values())
+        .some(p => p.controlado === 0);
+      
+      console.log(`Estado de control: todosProductosControlados=${todosProductosControlados}, hayProductosSinEscanear=${hayProductosSinEscanear}`);
+      
+      // Devolver la respuesta con datos enriquecidos
       res.status(201).json({
         message: "Producto escaneado correctamente",
         detalle,
         producto: productoEncontrado,
         cantidadTotalControlada,
-        tipo: tipoRespuesta
+        controlEstado, // Estado del control basado en el total acumulado
+        tipo: controlEstado === "excedente" ? "excedente" : "ok",
+        todosProductosControlados, // Flag que indica si ya se completó el control
+        hayProductosSinEscanear // Flag que indica si hay productos sin escanear
       });
     } catch (error) {
       console.error("Error al escanear producto:", error);

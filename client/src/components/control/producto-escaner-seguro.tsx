@@ -141,6 +141,16 @@ export function ProductoEscanerSeguro({
           }
         }
         
+        // Verificar si todos los productos han sido controlados
+        if (data.todosProductosControlados) {
+          console.log("[ESCANER SEGURO] ¡TODOS LOS PRODUCTOS CONTROLADOS CORRECTAMENTE!");
+          toast({
+            title: "¡Control completo!",
+            description: "Todos los productos del pedido están controlados correctamente.",
+            duration: 5000
+          });
+        }
+        
         // Mensaje de éxito
         toast({
           title: "Producto registrado",
