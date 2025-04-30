@@ -218,6 +218,10 @@ export default function ControlPedidoPage() {
     retry: false
   });
 
+  // Ref para controlar el intervalo de refetch manualmente
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [estaRetirandoExcedentes, setEstaRetirandoExcedentes] = useState(false);
+
   // Consulta para cargar un control activo si existe
   const { 
     isLoading: isLoadingControlActivo,
@@ -225,11 +229,11 @@ export default function ControlPedidoPage() {
     data: controlActivoData
   } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "activo"],
-    // IMPORTANTE: Siempre refrescar los datos para mantener sincronización
+    // Configuración más controlada de actualizaciones
     refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchInterval: 5000, // Refrescar cada 5 segundos para garantizar datos actualizados
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: !estaRetirandoExcedentes, // No refrescar durante retiro de excedentes
+    refetchInterval: estaRetirandoExcedentes ? false : 5000, // Deshabilitar durante retiro de excedentes
+    refetchOnReconnect: !estaRetirandoExcedentes, // No refrescar durante retiro de excedentes
     queryFn: async () => {
       try {
         const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
@@ -584,6 +588,10 @@ export default function ControlPedidoPage() {
             descripcion: p.descripcion || "",
             cantidadExcedente: p.controlado - p.cantidad
           }));
+          
+          // Marcar que estamos en proceso de retirar excedentes
+          setEstaRetirandoExcedentes(true);
+          console.log("⚠️ MODO RETIRADA EXCEDENTES ACTIVADO - Deshabilitando actualizaciones automáticas");
           
           setProductosExcedentes(excedentes);
           
