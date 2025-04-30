@@ -40,6 +40,7 @@ import { ProductoEscanerSeguro } from "@/components/control/producto-escaner-seg
 import { ControlFinalizarDialog } from "@/components/control/control-finalizar-dialog";
 import { CodigoNoEncontradoAlert } from "@/components/control/codigo-no-encontrado-alert";
 import { CodigosRegistradosList } from "@/components/control/codigos-registrados-list-new";
+import { ProductosEscaneadosLista } from "@/components/control/productos-escaneados-lista";
 import { ProductoExcedenteAlert } from "@/components/control/producto-excedente-alert";
 import { RetirarExcedenteAlert } from "@/components/control/retirar-excedente-alert";
 import { ControlFinalizadoDialog } from "@/components/control/control-finalizado-dialog";
@@ -1532,9 +1533,9 @@ export default function ControlPedidoPage() {
                 <CardTitle>Productos Escaneados</CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Mostramos solo los productos que han sido escaneados */}
-                <CodigosRegistradosList 
-                  registros={controlState.historialEscaneos}
+                {/* Nuevo componente específico para mostrar productos escaneados */}
+                <ProductosEscaneadosLista 
+                  productos={controlState.historialEscaneos}
                   showEmpty={true}
                 />
               </CardContent>

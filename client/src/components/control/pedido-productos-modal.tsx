@@ -29,25 +29,60 @@ interface PedidoProductosModalProps {
 }
 
 export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: PedidoProductosModalProps) {
+  // Log cuando el componente se monta/actualiza para depuración
+  console.log(`PedidoProductosModal: pedidoId=${pedidoId}, isOpen=${isOpen}`);
+  
   // Cargar los productos del pedido usando el endpoint alternativo de pre-control
   // que está diseñado específicamente para resolver problemas de datos
   const { data: preControlData, isLoading: isLoadingPreControl } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "pre-control"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/pre-control`);
-      return res.json();
+      console.log(`Consultando pre-control para pedido ID: ${pedidoId}`);
+      try {
+        const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/pre-control`);
+        if (!res.ok) {
+          console.error(`Error al obtener pre-control: ${res.status}`);
+          throw new Error(`Error ${res.status} al obtener datos de pre-control`);
+        }
+        const data = await res.json();
+        console.log("Datos de pre-control recibidos:", data);
+        return data;
+      } catch (error) {
+        console.error("Error en pre-control query:", error);
+        throw error;
+      }
     },
     enabled: isOpen && !!pedidoId,
+    retry: 1,
   });
   
   // Obtener el estado actual del control para saber qué productos ya han sido escaneados
   const { data: controlData, isLoading: isLoadingControl } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "activo"],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
-      return res.json();
+      console.log(`Consultando datos de control activo para pedido ID: ${pedidoId}`);
+      try {
+        const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
+        if (!res.ok) {
+          // No es un error si no hay control activo, simplemente no hay datos
+          if (res.status === 404) {
+            console.log("No hay control activo para este pedido (404)");
+            return { detalles: [] };
+          }
+          console.error(`Error al obtener control activo: ${res.status}`);
+          throw new Error(`Error ${res.status} al obtener datos de control activo`);
+        }
+        const data = await res.json();
+        console.log("Datos de control activo recibidos:", data);
+        return data;
+      } catch (error) {
+        console.error("Error en control activo query:", error);
+        // En caso de error, devolvemos un objeto vacío para que no falle el renderizado
+        return { detalles: [] };
+      }
     },
     enabled: isOpen && !!pedidoId,
+    retry: 1,
   });
   
   // Determinar si un producto ha sido escaneado
@@ -92,10 +127,23 @@ export default function PedidoProductosModal({ pedidoId, isOpen, onClose }: Pedi
   const { data: pedido } = useQuery({
     queryKey: ["/api/pedidos", pedidoId],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/pedidos/${pedidoId}`);
-      return res.json();
+      console.log(`Consultando datos básicos para pedido ID: ${pedidoId}`);
+      try {
+        const res = await apiRequest("GET", `/api/pedidos/${pedidoId}`);
+        if (!res.ok) {
+          console.error(`Error al obtener datos del pedido: ${res.status}`);
+          throw new Error(`Error ${res.status} al obtener datos del pedido`);
+        }
+        const data = await res.json();
+        console.log("Datos básicos del pedido recibidos:", data);
+        return data;
+      } catch (error) {
+        console.error("Error en datos básicos del pedido query:", error);
+        throw error;
+      }
     },
     enabled: isOpen && !!pedidoId,
+    retry: 1,
   });
 
   return (
