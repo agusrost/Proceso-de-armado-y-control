@@ -1375,23 +1375,18 @@ export default function ControlPedidoPage() {
         });
       });
       
-      // Para cada producto con excedente, enviar al servidor la actualización
+      // Para cada producto con excedente, enviar al servidor la actualización utilizando el
+      // NUEVO ENDPOINT RADICAL que elimina todos los registros previos y crea uno nuevo limpio
       const ajustePromises = productosConExcedentes.map(async (p) => {
         try {
-          // Ajustar cantidades en el servidor para que coincidan exactamente con lo solicitado
-          console.log(`Actualizando en servidor: producto ${p.codigo} de ${p.controlado} a ${p.cantidad} (cantidad solicitada)`);
+          // Ajustar cantidades en el servidor utilizando el endpoint radical
+          console.log(`🔴 USANDO ENDPOINT RADICAL para producto ${p.codigo}: Eliminando todos los registros previos y estableciendo cantidad exacta ${p.cantidad}`);
           
-          // Registrar un escaneo especial con la API que indique "retiro de excedente"
-          const response = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/actualizar`, {
-            codigoProducto: p.codigo,
-            cantidadControlada: p.cantidad, // Exactamente la cantidad solicitada
-            accion: 'excedente_retirado',
-            // Incluir datos adicionales para tracking
-            detalles: {
-              excedentePrevio: p.controlado - p.cantidad,
-              excedenteCodigo: p.codigo,
-              excedenteDescripcion: p.descripcion
-            }
+          // Usar el nuevo endpoint dedicado específicamente para retirada de excedentes
+          // Este endpoint elimina TODOS los registros previos y crea uno nuevo limpio
+          const response = await apiRequest("POST", `/api/control/pedidos/${pedidoId}/retirar-excedentes`, {
+            codigoProducto: p.codigo
+            // No es necesario enviar la cantidad - el endpoint siempre establece exactamente la cantidad solicitada
           });
           
           if (!response.ok) {
