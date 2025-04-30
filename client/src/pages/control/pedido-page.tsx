@@ -250,10 +250,23 @@ export default function ControlPedidoPage() {
               areCodesEquivalent(d.codigo, p.codigo, data.pedido?.pedidoId || "")
             );
             
-            // Calcular cantidad controlada sumando todos los escaneos
-            const cantidadControlada = controlDetalles.reduce((acc: number, d: any) => 
-              acc + (d.cantidad || 0), 0
+            // Verificar si hay registros de excedente retirado
+            const registrosExcedenteRetirado = controlDetalles.filter((d: any) => 
+              d.tipo === "excedente_retirado"
             );
+            
+            let cantidadControlada;
+            
+            if (registrosExcedenteRetirado.length > 0) {
+              // Si hay registros de excedente retirado, usar exactamente la cantidad esperada
+              console.log(`Pedido ${p.codigo}: Se encontró registro de excedente_retirado - estableciendo a cantidad exacta`);
+              cantidadControlada = p.cantidad;
+            } else {
+              // Calcular cantidad controlada sumando todos los escaneos
+              cantidadControlada = controlDetalles.reduce((acc: number, d: any) => 
+                acc + (d.cantidadControlada || 0), 0
+              );
+            }
             
             // Determinar el estado basado en las cantidades
             let estado = "";
