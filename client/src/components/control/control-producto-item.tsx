@@ -93,8 +93,19 @@ export function ControlProductoItem({ producto, onEscanear }: ControlProductoIte
               </div>
               <div className="flex items-center">
                 <span className="text-xs text-neutral-500 mr-2">Controlado:</span>
-                <span className={`font-medium ${producto.controlado < producto.cantidad ? 'text-red-600' : producto.controlado > producto.cantidad ? 'text-amber-600' : 'text-green-600'}`}>
-                  {producto.controlado}
+                <span className={`font-medium ${
+                  // Si es un registro de excedente retirado, siempre usar texto verde
+                  producto.accion === 'excedente_retirado' ? 'text-green-600' :
+                  // De lo contrario, aplicar el color según la proporción
+                  producto.controlado < producto.cantidad ? 'text-red-600' : 
+                  producto.controlado > producto.cantidad ? 'text-amber-600' : 
+                  'text-green-600'
+                }`}>
+                  {/* Si es un registro de excedente retirado, mostrar cantidad/cantidad (iguales) */}
+                  {producto.accion === 'excedente_retirado' 
+                    ? producto.cantidad 
+                    : producto.controlado
+                  }
                 </span>
               </div>
             </div>
