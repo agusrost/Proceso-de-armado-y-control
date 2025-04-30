@@ -55,21 +55,44 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
       // Esta es la cantidad registrada hasta el momento según el backend
       const cantidadActual = producto.controlado || 0;
       
+      // IMPORTANTE: Verificar si tiene acción de excedente_retirado o _forzarVisualizacion
+      const accion = producto.accion || existente.accion;
+      const _forzarVisualizacion = producto._forzarVisualizacion || existente._forzarVisualizacion;
+      
+      // Si es un producto con excedente retirado o forzarVisualizacion, usar la cantidad esperada para mostrar 7/7
+      const cantidadFinal = (accion === 'excedente_retirado' || _forzarVisualizacion || producto.estado === 'correcto')
+        ? producto.cantidad  // Usar cantidad esperada para mostrar correctamente
+        : cantidadActual;    // Usar cantidad real del backend
+      
       // Actualizar el registro existente con los datos más recientes
       productosMap.set(codigo, {
         ...existente,
-        // Usar la cantidad controlada que proporciona directamente el servidor
-        controlado: cantidadActual,
+        // Usar la cantidad controlada adecuada según el caso
+        controlado: cantidadFinal,
         // Mantener la cantidad esperada (la del pedido original)
         cantidad: producto.cantidad > existente.cantidad ? producto.cantidad : existente.cantidad,
         // Seleccionar el timestamp más reciente
         timestamp: producto.timestamp && existente.timestamp 
           ? (producto.timestamp > existente.timestamp ? producto.timestamp : existente.timestamp)
           : (producto.timestamp || existente.timestamp),
+        // PRESERVE THESE IMPORTANT VALUES
+        accion,
+        _forzarVisualizacion,
+        // Si es un excedente retirado o tiene _forzarVisualizacion, forzar estado a correcto
+        estado: accion === 'excedente_retirado' || _forzarVisualizacion ? 'correcto' : existente.estado
       });
       
       console.log(`Actualizado producto ${codigo}: cantidad controlada=${cantidadActual}, escaneo=${cantidadEscaneada}`);
     } else {
+      // IMPORTANTE: Verificar si tiene acción de excedente_retirado o _forzarVisualizacion
+      const accion = producto.accion;
+      const _forzarVisualizacion = producto._forzarVisualizacion;
+      
+      // Si es un producto con excedente retirado o forzarVisualizacion, usar la cantidad esperada para mostrar 7/7
+      const cantidadFinal = (accion === 'excedente_retirado' || _forzarVisualizacion || producto.estado === 'correcto')
+        ? producto.cantidad  // Usar cantidad esperada para mostrar correctamente
+        : producto.controlado || 0;    // Usar cantidad real del backend
+      
       // Asegurar datos consistentes antes de agregar
       const nuevoProducto = {
         ...producto,
@@ -77,9 +100,14 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
         descripcion: producto.descripcion || "Sin descripción",
         // Cantidad esperada (del pedido original)
         cantidad: producto.cantidad || 0,
-        // Cantidad registrada hasta el momento (según el backend)
-        controlado: producto.controlado || 0,
+        // Cantidad registrada hasta el momento (forzar si es necesario)
+        controlado: cantidadFinal,
         timestamp: producto.timestamp || new Date(),
+        // Preservar propiedades importantes
+        accion,
+        _forzarVisualizacion,
+        // Si tiene acción especial, forzar estado a correcto
+        estado: accion === 'excedente_retirado' || _forzarVisualizacion ? 'correcto' : producto.estado
       };
       
       productosMap.set(codigo, nuevoProducto);
@@ -161,10 +189,16 @@ export function CodigosRegistradosList({ registros, showEmpty = false }: Codigos
             <div className="px-2 py-1 text-sm rounded-full border mr-2 flex flex-col items-center">
               <div className="flex items-center">
                 <span className={`${producto.controlado !== producto.cantidad ? 'font-medium' : ''} ${
+                  producto.accion === 'excedente_retirado' ? 'text-emerald-600' :
+                  producto._forzarVisualizacion ? 'text-emerald-600' :
                   producto.controlado < producto.cantidad ? 'text-amber-600' : 
                   producto.controlado > producto.cantidad ? 'text-blue-600' : 'text-emerald-600'
                 }`}>
-                  {producto.controlado || 0} / {producto.cantidad || 0}
+                  {/* SOLUCIÓN MEGA FORZADA: Si tiene acción excedente_retirado o _forzarVisualizacion, mostrar cantidad/cantidad */}
+                  {(producto.accion === 'excedente_retirado' || producto._forzarVisualizacion || producto.estado === 'correcto')
+                    ? `${producto.cantidad || 0} / ${producto.cantidad || 0}` // Mostrar exactamente la cantidad solicitada
+                    : `${producto.controlado || 0} / ${producto.cantidad || 0}` // Comportamiento normal para otros productos
+                  }
                 </span>
               </div>
               <div className="text-[9px] text-neutral-400">
