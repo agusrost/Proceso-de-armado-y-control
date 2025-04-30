@@ -779,6 +779,48 @@ export class DatabaseStorage implements IStorage {
       );
   }
   
+  /**
+   * MÉTODO RADICAL DESTRUCTIVO: Elimina todos los registros de un producto en un control
+   * Este método se utiliza para el proceso de retirada de excedentes cuando la UI no muestra
+   * las cantidades correctas después de retirar excedentes.
+   * ADVERTENCIA: Este método elimina datos permanentemente.
+   */
+  async eliminarDetallesControlPorProducto(controlId: number, productoId: number): Promise<{eliminados: number}> {
+    console.log(`🔴 ELIMINANDO REGISTROS DE DETALLE para controlId=${controlId} y productoId=${productoId}`);
+    
+    try {
+      // Obtener la cantidad de registros que se eliminarán
+      const registrosExistentes = await db
+        .select({ count: count() })
+        .from(controlDetalle)
+        .where(
+          and(
+            eq(controlDetalle.controlId, controlId),
+            eq(controlDetalle.productoId, productoId)
+          )
+        );
+      
+      const cantidadRegistros = registrosExistentes[0]?.count || 0;
+      console.log(`Se eliminarán ${cantidadRegistros} registros de detalle`);
+      
+      // Realizar la eliminación
+      const resultado = await db
+        .delete(controlDetalle)
+        .where(
+          and(
+            eq(controlDetalle.controlId, controlId),
+            eq(controlDetalle.productoId, productoId)
+          )
+        );
+      
+      console.log(`✅ Eliminación completada`);
+      return { eliminados: cantidadRegistros };
+    } catch (error) {
+      console.error("Error al eliminar detalles de control:", error);
+      throw error;
+    }
+  }
+  
   async createControlDetalle(detalleData: Omit<InsertControlDetalle, "id">): Promise<ControlDetalle> {
     const [detalle] = await db
       .insert(controlDetalle)

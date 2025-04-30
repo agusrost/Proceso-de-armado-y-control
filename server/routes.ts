@@ -1013,6 +1013,101 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // NUEVO ENDPOINT DEDICADO EXCLUSIVAMENTE PARA RETIRAR EXCEDENTES
+  // Este endpoint hace una operación destructiva que ELIMINA todos los registros anteriores 
+  // del producto y crea uno nuevo con la cantidad exacta
+  app.post("/api/control/pedidos/:pedidoId/retirar-excedentes", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { codigoProducto } = req.body;
+      
+      console.log(`⚠️ SOLICITUD DE RETIRADA DE EXCEDENTES TOTAL para pedido ${pedidoId}, producto ${codigoProducto}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      if (!codigoProducto) {
+        return res.status(400).json({ message: "El código de producto es requerido" });
+      }
+      
+      // Verificar que el pedido existe
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado de control
+      if (pedido.estado !== "controlando") {
+        return res.status(400).json({ 
+          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
+        });
+      }
+      
+      // Obtener el registro de control activo para este pedido
+      const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+      if (!controlActivo) {
+        return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+      
+      // Obtener productos del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Buscar si el código corresponde a algún producto del pedido
+      const productoEncontrado = productos.find(p => 
+        p.codigo && (p.codigo.toString().trim().toLowerCase() === codigoProducto.toString().trim().toLowerCase())
+      );
+      
+      if (!productoEncontrado) {
+        return res.status(404).json({ 
+          message: "Producto no encontrado en este pedido",
+          codigo: codigoProducto
+        });
+      }
+      
+      // SOLUCIÓN RADICAL: Eliminar TODOS los detalles previos para este producto
+      // Esto es necesario para evitar que la suma histórica siga mostrando excedentes
+      console.log(`🔴 ELIMINANDO TODOS LOS REGISTROS PREVIOS para producto ${codigoProducto} en control ${controlActivo.id}`);
+      await storage.eliminarDetallesControlPorProducto(controlActivo.id, productoEncontrado.id);
+      
+      // Crear un nuevo detalle que establece EXACTAMENTE la cantidad solicitada
+      const detalleControl = {
+        controlId: controlActivo.id,
+        productoId: productoEncontrado.id,
+        codigo: productoEncontrado.codigo,
+        cantidadEsperada: productoEncontrado.cantidad,
+        cantidadControlada: productoEncontrado.cantidad, // EXACTAMENTE la cantidad esperada
+        estado: "correcto",
+        tipo: "excedente_retirado_total", // Tipo especial para indicar retirada total
+        timestamp: new Date(),
+        detallesAdicionales: JSON.stringify({
+          accion: "retirada_total_excedentes",
+          mensaje: "Excedentes retirados completamente - Registro creado por endpoint dedicado"
+        })
+      };
+      
+      console.log(`✅ Creando nuevo detalle único para producto:`, detalleControl);
+      
+      // Guardar el nuevo detalle de control
+      const nuevoDetalle = await storage.createControlDetalle(detalleControl);
+      
+      // Devolver respuesta exitosa con datos actualizados
+      res.json({
+        mensaje: "Excedentes retirados correctamente",
+        producto: {
+          codigo: productoEncontrado.codigo,
+          cantidadEsperada: productoEncontrado.cantidad,
+          cantidadControlada: productoEncontrado.cantidad,
+          estado: "correcto"
+        },
+        detalle: nuevoDetalle
+      });
+    } catch (error) {
+      console.error("Error al retirar excedentes:", error);
+      next(error);
+    }
+  });
+
   // Endpoint para actualizar productos durante control (usado para retirar excedentes)
   app.post("/api/control/pedidos/:pedidoId/actualizar", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
