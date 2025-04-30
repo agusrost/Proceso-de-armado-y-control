@@ -1281,7 +1281,8 @@ export default function ControlPedidoPage() {
             return {
               ...p,
               controlado: p.cantidad, // Igualar exactamente a la cantidad solicitada
-              estado: 'correcto'      // Cambiar estado a correcto
+              estado: 'correcto',     // Cambiar estado a correcto
+              accion: 'excedente_retirado' // Marcar como excedente retirado para que se muestre correctamente
             };
           }
           return p;
