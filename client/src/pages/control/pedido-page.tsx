@@ -56,13 +56,21 @@ export default function ControlPedidoPage() {
   // Mutation para pausar control
   const pausarControlMutation = useMutation({
     mutationFn: async (datos: { pedidoId: number, motivo: string }) => {
+      console.log("Intentando pausar control para pedido:", datos.pedidoId, "con motivo:", datos.motivo);
       const res = await apiRequest("POST", "/api/pausas", {
         ...datos,
         tipo: "control" // Especificar que es una pausa de control
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Error al pausar el control");
+      }
+      
       return await res.json();
     },
     onSuccess: (data) => {
+      console.log("Pausa de control creada correctamente:", data);
       setPausaActiva(true);
       setPausaActualId(data.id);
       toast({
@@ -72,6 +80,7 @@ export default function ControlPedidoPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
     },
     onError: (error: Error) => {
+      console.error("Error al pausar control:", error);
       toast({
         title: "Error al pausar control",
         description: error.message,
@@ -86,10 +95,18 @@ export default function ControlPedidoPage() {
       if (!pausaActualId) {
         throw new Error("No hay pausa activa para reanudar");
       }
+      console.log("Intentando reanudar pausa con ID:", pausaActualId);
       const res = await apiRequest("PUT", `/api/pausas/${pausaActualId}/fin`, {});
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Error al reanudar el control");
+      }
+      
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Control reanudado correctamente:", data);
       setPausaActiva(false);
       setPausaActualId(null);
       toast({
@@ -99,6 +116,7 @@ export default function ControlPedidoPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
     },
     onError: (error: Error) => {
+      console.error("Error al reanudar control:", error);
       toast({
         title: "Error al reanudar control",
         description: error.message,
@@ -477,14 +495,17 @@ export default function ControlPedidoPage() {
       
       // Preparar productos controlados
       const productosControlados = productosParaControl.map((p: any) => {
-        console.log(`Producto con código ${p.codigo} agregado al estado`);
+        console.log(`Producto con código ${p.codigo} agregado al estado, cantidad esperada: ${p.cantidad}`);
         
         // Buscar si ya está controlado (en caso de continuación)
         const detalleExistente = detallesControl.find((d: any) => 
           d.codigo === p.codigo || d.productoId === p.id
         );
         
-        const cantidadControlada = detalleExistente ? detalleExistente.cantidadControlada : 0;
+        // Asegurar que cantidadControlada sea un número válido
+        const cantidadControlada = detalleExistente && typeof detalleExistente.cantidadControlada === 'number' 
+          ? detalleExistente.cantidadControlada 
+          : 0;
         
         // Determinar estado basado en la cantidad
         let estado: ControlEstado = "pendiente";
@@ -1313,7 +1334,10 @@ export default function ControlPedidoPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setDetalleModalOpen(true)}
+                    onClick={() => {
+                      console.log("Abriendo modal de detalle para pedido ID:", pedidoId);
+                      setDetalleModalOpen(true);
+                    }}
                     title="Ver detalle completo del pedido"
                   >
                     <Eye className="h-4 w-4 mr-1" />
