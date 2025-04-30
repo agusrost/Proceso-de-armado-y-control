@@ -623,20 +623,30 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Incluso si no hay un control activo, creamos uno nuevo para permitir continuar
       if (!controlActivo) {
         console.log(`No se encontró control activo para el pedido ${pedidoNumId}, creando uno nuevo`);
-        const nuevoControl = await storage.createControlHistorico({
-          pedidoId: pedidoNumId,
-          controladoPor: req.user.id,
-          fecha: new Date(),
-          resultado: null
-        });
-        
-        // Usar el nuevo control
-        return res.status(200).json({
-          control: nuevoControl,
-          detalles: [],
-          productos: await storage.getProductosByPedidoId(pedidoNumId),
-          pedido
-        });
+        try {
+          const ahora = new Date();
+          const nuevoControl = await storage.createControlHistorico({
+            pedidoId: pedidoNumId,
+            controladoPor: req.user.id,
+            fecha: ahora,
+            inicio: ahora, // Añadimos el campo inicio explícitamente
+            resultado: null
+          });
+          
+          // Usar el nuevo control
+          return res.status(200).json({
+            control: nuevoControl,
+            detalles: [],
+            productos: await storage.getProductosByPedidoId(pedidoNumId),
+            pedido
+          });
+        } catch (error) {
+          console.error("Error al crear nuevo control:", error);
+          return res.status(500).json({ 
+            error: "Error al crear nuevo control", 
+            details: error.message
+          });
+        }
       }
       
       // Obtener detalles del control
@@ -703,10 +713,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
       });
       
       // Crear un registro en el historial de control
+      const ahora = new Date();
       const control = await storage.createControlHistorico({
         pedidoId: pedidoNumId,
         controladoPor: req.user.id,
-        fecha: new Date(),
+        fecha: ahora,
+        inicio: ahora, // Añadimos el campo inicio explícitamente 
         resultado: null
       });
       
