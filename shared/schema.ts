@@ -89,6 +89,7 @@ export const controlHistorico = pgTable("control_historico", {
   tiempoTotal: text("tiempo_total"), // formato HH:MM:SS
   comentarios: text("comentarios"),
   resultado: text("resultado").notNull(), // completo, faltantes, excedentes
+  estado: text("estado").notNull().default("activo"), // activo, pausado, completado
 });
 
 export const controlDetalle = pgTable("control_detalle", {
