@@ -958,6 +958,69 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para finalizar manualmente un control
+  app.post("/api/control/pedidos/:pedidoId/finalizar", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      
+      console.log(`📋 SOLICITUD DE FINALIZACIÓN MANUAL para pedido ${pedidoId}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado de control
+      if (pedido.estado !== 'controlando') {
+        return res.status(400).json({ 
+          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
+        });
+      }
+      
+      // Obtener el control activo
+      const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+      if (!controlActivo) {
+        return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+      
+      // Establecer fecha de fin para el control
+      const ahora = new Date();
+      await storage.updateControlHistorico(controlActivo.id, {
+        fin: ahora,
+        resultado: 'completo'
+      });
+      
+      // Actualizar estado del pedido
+      await storage.updatePedido(pedidoId, {
+        estado: 'controlado',
+        controlFin: ahora
+      });
+      
+      console.log(`✅ CONTROL FINALIZADO MANUALMENTE para pedido ${pedidoId}`);
+      
+      return res.status(200).json({
+        success: true,
+        message: "Control finalizado correctamente",
+        pedido: {
+          id: pedidoId,
+          estado: 'controlado',
+          fin: ahora
+        }
+      });
+    } catch (error) {
+      console.error("Error al finalizar control:", error);
+      return res.status(500).json({ 
+        message: "Error al finalizar el control", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
   app.post("/api/control/pedidos/:pedidoId/escanear", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
       const pedidoId = parseInt(req.params.pedidoId);
