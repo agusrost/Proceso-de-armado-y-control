@@ -221,8 +221,13 @@ export default function ControlPedidoPage() {
   // Consulta para cargar un control activo si existe
   const { 
     isLoading: isLoadingControlActivo,
+    refetch: refetchControlActivo,
+    data: controlActivoData
   } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "activo"],
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async () => {
       try {
         const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
@@ -768,6 +773,10 @@ export default function ControlPedidoPage() {
         title: "Producto registrado",
         description: `Código ${data.producto?.codigo || "[sin código]"} registrado correctamente`,
       });
+      
+      // Forzar actualización de los datos del control activo después de cada escaneo
+      // Esto asegura que todos los clientes vean los datos actualizados
+      refetchControlActivo();
 
       // Verificar si todos los productos están correctamente controlados para finalización automática
       setControlState(prevState => {
@@ -987,8 +996,14 @@ export default function ControlPedidoPage() {
       setPausaActiva(false);
       setPausaActualId(null);
       
-      // Actualizar datos
+      // Actualizar datos: Hay que invalidar TODAS las consultas relacionadas con este pedido
       queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/control/pedidos", pedidoId, "activo"] });
+      
+      // Forzar una recarga inmediata del control activo
+      refetchControlActivo();
+      
+      console.log("Control reanudado, actualizando datos de control...");
     },
     onError: (error: Error) => {
       toast({
