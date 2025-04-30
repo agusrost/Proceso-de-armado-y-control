@@ -1527,10 +1527,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
       
-      // Verificar que el pedido está en estado 'en-proceso'
-      if (pedido.estado !== 'en-proceso') {
+      // Verificar que el pedido está en un estado válido para pausar
+      const estadosPermitidos = ['en-proceso', 'controlando', 'armando'];
+      if (!estadosPermitidos.includes(pedido.estado)) {
         return res.status(400).json({ 
-          message: `Solo se pueden pausar pedidos en proceso. Estado actual: ${pedido.estado}` 
+          message: `Solo se pueden pausar pedidos en proceso (armando o controlando). Estado actual: ${pedido.estado}` 
         });
       }
       

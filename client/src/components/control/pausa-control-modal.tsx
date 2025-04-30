@@ -105,7 +105,7 @@ export default function PausaControlModal({ isOpen, onClose, pedidoId, onPausaCr
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-blue-950 text-white border-blue-800">
+      <DialogContent className="bg-slate-800 text-white border-slate-700">
         <DialogHeader>
           <DialogTitle className="text-xl">Pausar control</DialogTitle>
           <DialogDescription className="text-gray-300">
@@ -146,7 +146,7 @@ export default function PausaControlModal({ isOpen, onClose, pedidoId, onPausaCr
           <Button 
             variant="outline" 
             onClick={onClose}
-            className="border-white text-white hover:bg-blue-800"
+            className="border-red-400 bg-red-900/40 text-white hover:bg-red-800 hover:text-white"
           >
             Cancelar
           </Button>
