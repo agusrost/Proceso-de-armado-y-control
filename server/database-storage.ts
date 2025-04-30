@@ -6,7 +6,7 @@ import {
   ControlHistorico, InsertControlHistorico, ControlDetalle, InsertControlDetalle,
   Configuracion, InsertConfiguracion
 } from '@shared/schema';
-import { asc, eq, desc, and, like, gte, lte, isNull, or, sql } from 'drizzle-orm';
+import { asc, eq, desc, and, like, gte, lte, isNull, or, sql, count } from 'drizzle-orm';
 import { 
   users, pedidos, productos, pausas, stockSolicitudes,
   controlHistorico, controlDetalle, configuracion
