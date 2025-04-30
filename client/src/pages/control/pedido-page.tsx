@@ -225,9 +225,10 @@ export default function ControlPedidoPage() {
     data: controlActivoData
   } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "activo"],
-    // No usar refetchOnMount para evitar sobreescribir los datos existentes
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    // IMPORTANTE: Siempre refrescar los datos para mantener sincronización
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5000, // Refrescar cada 5 segundos para garantizar datos actualizados
     refetchOnReconnect: false,
     queryFn: async () => {
       try {
@@ -698,92 +699,78 @@ export default function ControlPedidoPage() {
     onSuccess: (data) => {
       console.log(`RESPUESTA DEL SERVIDOR - Código: ${data.producto.codigo}, Cantidad total: ${data.cantidadTotalControlada}`);
       
-      // Primero, forzar una recarga completa del estado de control para asegurarnos de tener datos frescos
-      if (controlActivo?.id && pedidoId) {
-        // Obtener datos actualizados del control activo
-        const fetchControlActualizado = async () => {
-          try {
-            const response = await fetch(`/api/control/pedidos/${pedidoId}/activo`);
-            if (response.ok) {
-              const controlData = await response.json();
-              
-              // Actualizar el estado con los datos más recientes
-              setControlState(prev => {
-                // Reconstruir la lista completa de productos controlados con datos actualizados
-                const nuevosProductosControlados = controlData.productos.map((p: any) => {
-                  // Buscar el detalle correspondiente para obtener la cantidad controlada
-                  const detalleActual = controlData.detalles
-                    .filter((d: any) => d.codigo === p.codigo)
-                    .reduce((sum: number, d: any) => sum + (d.cantidadControlada || 0), 0);
-                  
-                  // Determinar estado
-                  let estado: any = "pendiente";
-                  if (detalleActual === 0) {
-                    estado = "pendiente";
-                  } else if (detalleActual < p.cantidad) {
-                    estado = "faltante";
-                  } else if (detalleActual === p.cantidad) {
-                    estado = "correcto";
-                  } else {
-                    estado = "excedente";
-                  }
-                  
-                  console.log(`Producto actualizado: ${p.codigo} - Controlado: ${detalleActual}/${p.cantidad}`);
-                  
-                  return {
-                    id: p.id || 0,
-                    codigo: p.codigo || "",
-                    cantidad: p.cantidad || 0,
-                    controlado: detalleActual,
-                    descripcion: p.descripcion || "",
-                    ubicacion: p.ubicacion || "",
-                    estado: estado
-                  };
-                });
+      // Después de un escaneo exitoso, siempre refrescar la consulta completa
+      // para obtener datos actualizados de la base de datos
+      refetchControlActivo().then(refreshResult => {
+        if (refreshResult.data) {
+          console.log("Datos de control actualizados después del escaneo");
+
+          // También actualizamos directamente el estado con los datos del escaneo actual
+          // para garantizar una UI reactiva y consistente
+          setControlState(prev => {
+            // Actualizamos solo el producto que acabamos de escanear
+            const productosActualizados = prev.productosControlados.map(p => {
+              if (p.codigo === data.producto.codigo) {
+                // IMPORTANTE: Usar la cantidad total del servidor
+                const nuevaCantidad = data.cantidadTotalControlada || 0;
                 
-                // Crear nuevo escaneo para el historial
-                const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
-                  id: data.detalle?.id || 0,
-                  codigo: data.producto?.codigo || "",
-                  cantidad: data.producto?.cantidad || 0,
-                  controlado: data.cantidadTotalControlada || 0,
-                  descripcion: data.producto?.descripcion || "",
-                  timestamp: new Date(),
-                  escaneado: true,
-                  ubicacion: data.producto?.ubicacion || "",
-                  estado: data.controlEstado || "pendiente"
-                };
-                
-                // Verificar excedentes y mostrar alerta si es necesario
-                if (data.controlEstado === 'excedente' || data.tipo === 'excedente') {
-                  const productoEncontrado = nuevosProductosControlados.find(p => p.codigo === data.producto.codigo);
-                  
-                  setProductoExcedente({
-                    codigo: data.producto?.codigo || "",
-                    descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
-                    cantidadEsperada: data.producto?.cantidad || 0,
-                    cantidadActual: data.cantidadTotalControlada || 0
-                  });
-                  setExcedenteAlertOpen(true);
+                // Determinar estado basado en la nueva cantidad
+                let nuevoEstado: any = "pendiente";
+                if (nuevaCantidad === 0) {
+                  nuevoEstado = "pendiente";
+                } else if (nuevaCantidad < p.cantidad) {
+                  nuevoEstado = "faltante";
+                } else if (nuevaCantidad === p.cantidad) {
+                  nuevoEstado = "correcto";
+                } else {
+                  nuevoEstado = "excedente";
                 }
                 
+                console.log(`Producto directo ${p.codigo}: actualizado de ${p.controlado} a ${nuevaCantidad} (${nuevoEstado})`);
+                
                 return {
-                  ...prev,
-                  productosControlados: nuevosProductosControlados,
-                  historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
+                  ...p,
+                  controlado: nuevaCantidad,
+                  estado: nuevoEstado
                 };
+              }
+              return p;
+            });
+            
+            // Crear nuevo escaneo para el historial
+            const nuevoEscaneo: ProductoControlado & { timestamp: Date, escaneado: boolean } = {
+              id: data.detalle?.id || 0,
+              codigo: data.producto?.codigo || "",
+              cantidad: data.producto?.cantidad || 0,
+              controlado: data.cantidadTotalControlada || 0,
+              descripcion: data.producto?.descripcion || "",
+              timestamp: new Date(),
+              escaneado: true,
+              ubicacion: data.producto?.ubicacion || "",
+              estado: data.controlEstado || "pendiente"
+            };
+            
+            // Verificar excedentes y mostrar alerta si es necesario
+            if (data.controlEstado === 'excedente' || data.tipo === 'excedente') {
+              const productoEncontrado = productosActualizados.find(p => p.codigo === data.producto.codigo);
+              
+              setProductoExcedente({
+                codigo: data.producto?.codigo || "",
+                descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
+                cantidadEsperada: data.producto?.cantidad || 0,
+                cantidadActual: data.cantidadTotalControlada || 0
               });
-            } else {
-              console.error("Error al obtener datos actualizados de control");
+              setExcedenteAlertOpen(true);
             }
-          } catch (error) {
-            console.error("Error al actualizar datos de control después de escaneo:", error);
-          }
-        };
-        
-        // Ejecutar la actualización
-        fetchControlActualizado();
-      }
+            
+            return {
+              ...prev,
+              productosControlados: productosActualizados,
+              historialEscaneos: [...prev.historialEscaneos, nuevoEscaneo]
+            };
+          });
+        }
+      });
       
       // Sonido de éxito o alertas
       if (data.controlEstado === 'correcto') {
