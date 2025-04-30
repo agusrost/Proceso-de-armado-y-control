@@ -1247,6 +1247,10 @@ export default function ControlPedidoPage() {
       
       // Actualizar el estado local para igualar las cantidades controladas a las solicitadas
       setControlState(prevState => {
+        // Obtener productos con excedentes
+        const productosConExcedentes = prevState.productosControlados.filter(p => p.controlado > p.cantidad);
+        console.log(`Hay ${productosConExcedentes.length} productos con excedentes que ajustar`);
+        
         // Crear una copia de los productos con las cantidades actualizadas
         const productosActualizados = prevState.productosControlados.map(p => {
           // Si el producto tenía excedente, ajustar su cantidad controlada para que sea exactamente igual a la solicitada
@@ -1256,17 +1260,46 @@ export default function ControlPedidoPage() {
             return {
               ...p,
               controlado: p.cantidad, // Igualar exactamente a la cantidad solicitada
-              estado: 'correcto',     // Cambiar estado a correcto
-              timestamp: new Date()   // Actualizar timestamp
+              estado: 'correcto'      // Cambiar estado a correcto
             };
           }
           return p;
         });
         
+        // Crear nuevos registros en el historial para cada producto ajustado 
+        // para reflejar la acción de "retirado excedente"
+        let historialActualizado = [...prevState.historialEscaneos];
+        
+        productosConExcedentes.forEach(p => {
+          // Buscar el escaneo más reciente de este producto para tomar su timestamp
+          const escaneosDeProducto = prevState.historialEscaneos
+            .filter(h => h.codigo === p.codigo)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          
+          const timestamp = escaneosDeProducto.length > 0 
+            ? escaneosDeProducto[0].timestamp 
+            : new Date();
+          
+          // Agregar nuevo registro al historial
+          historialActualizado.push({
+            id: Date.now(), // ID temporal
+            codigo: p.codigo,
+            cantidad: p.cantidad,
+            controlado: p.cantidad, // La cantidad exacta solicitada
+            timestamp: timestamp,   // Mantener el timestamp original
+            escaneado: true,
+            descripcion: p.descripcion,
+            ubicacion: p.ubicacion || "",
+            estado: 'correcto',
+            accion: 'excedente_retirado' // Registrar que este fue un ajuste por excedente
+          });
+        });
+        
         // Retornar el nuevo estado con los productos actualizados
         return {
           ...prevState,
-          productosControlados: productosActualizados
+          productosControlados: productosActualizados,
+          historialEscaneos: historialActualizado
         };
       });
       
@@ -1641,11 +1674,26 @@ export default function ControlPedidoPage() {
               <CardContent>
                 {/* Mostrar los productos controlados del estado actualizado */}
                 <ProductosEscaneadosLista 
-                  productos={controlState.productosControlados.map(p => ({
-                    ...p,
-                    escaneado: p.controlado > 0
-                    // No enviar timestamp aquí, usará el timestamp original del producto
-                  }))}
+                  productos={controlState.productosControlados.map(p => {
+                    // Buscar el historial de escaneos más reciente para este producto
+                    const historialProducto = controlState.historialEscaneos
+                      .filter(h => h.codigo === p.codigo);
+                    
+                    // Ordenar por timestamp (más reciente primero)
+                    const historiaSorted = [...historialProducto].sort((a, b) => {
+                      if (!a.timestamp) return 1;
+                      if (!b.timestamp) return -1;
+                      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+                    });
+                    
+                    const escaneoMasReciente = historiaSorted.length > 0 ? historiaSorted[0] : null;
+                    
+                    return {
+                      ...p,
+                      escaneado: p.controlado > 0,
+                      timestamp: escaneoMasReciente ? new Date(escaneoMasReciente.timestamp) : new Date(),
+                    };
+                  })}
                   showEmpty={true}
                 />
               </CardContent>

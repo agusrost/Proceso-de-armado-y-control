@@ -150,12 +150,29 @@ export function generatePedidoId(id: number): string {
   return `PED-${id.toString().padStart(3, '0')}`;
 }
 
-export function formatTimestamp(date: Date): string {
-  return date.toLocaleTimeString('es-ES', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    second: '2-digit' 
-  });
+export function formatTimestamp(date: Date | string): string {
+  if (!date) return "Sin fecha";
+  
+  try {
+    const fechaObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Verificar que sea una fecha válida
+    if (isNaN(fechaObj.getTime())) {
+      console.error("Fecha inválida:", date);
+      return "Sin fecha";
+    }
+    
+    // Formatear la fecha y hora
+    return fechaObj.toLocaleString('es-ES', { 
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit', 
+      minute: '2-digit'
+    });
+  } catch (error) {
+    console.error("Error al formatear fecha:", error, date);
+    return "Sin fecha";
+  }
 }
 
 // Normalizar el código de producto para comparaciones
