@@ -225,9 +225,10 @@ export default function ControlPedidoPage() {
     data: controlActivoData
   } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "activo"],
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    // No usar refetchOnMount para evitar sobreescribir los datos existentes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
       try {
         const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
@@ -695,14 +696,34 @@ export default function ControlPedidoPage() {
       }
     },
     onSuccess: (data) => {
-      // Actualizar estado local
+      // Actualizar estado local acumulando los valores correctamente
       setControlState(prev => {
+        console.log(`Actualizando producto código ${data.producto.codigo} - Cantidad controlada en BD: ${data.cantidadControlada}`);
+
+        // Asegurarnos que estamos aumentando los contadores, no reemplazándolos
         const updatedProductos = prev.productosControlados.map(p => {
           if (p.codigo === data.producto.codigo) {
+            // Usamos la cantidad del servidor (que incluye todos los escaneos)
+            const nuevaControlada = data.cantidadControlada;
+            
+            // Determinar el estado basado en la nueva cantidad
+            let nuevoEstado: any = "pendiente";
+            if (nuevaControlada === 0) {
+              nuevoEstado = "pendiente";
+            } else if (nuevaControlada < p.cantidad) {
+              nuevoEstado = "faltante";
+            } else if (nuevaControlada === p.cantidad) {
+              nuevoEstado = "correcto";
+            } else {
+              nuevoEstado = "excedente";
+            }
+            
+            console.log(`Producto ${p.codigo}: cantidad=${p.cantidad}, controlada anterior=${p.controlado}, nueva controlada=${nuevaControlada}, estado=${nuevoEstado}`);
+            
             return {
               ...p,
-              controlado: data.cantidadControlada,
-              estado: data.controlEstado
+              controlado: nuevaControlada,
+              estado: nuevoEstado
             };
           }
           return p;
@@ -774,9 +795,9 @@ export default function ControlPedidoPage() {
         description: `Código ${data.producto?.codigo || "[sin código]"} registrado correctamente`,
       });
       
-      // Forzar actualización de los datos del control activo después de cada escaneo
-      // Esto asegura que todos los clientes vean los datos actualizados
-      refetchControlActivo();
+      // No forzar una actualización completa que podría sobreescribir datos
+      // En su lugar solo actualizamos el pedido base
+      queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
 
       // Verificar si todos los productos están correctamente controlados para finalización automática
       setControlState(prevState => {
@@ -996,14 +1017,20 @@ export default function ControlPedidoPage() {
       setPausaActiva(false);
       setPausaActualId(null);
       
-      // Actualizar datos: Hay que invalidar TODAS las consultas relacionadas con este pedido
+      // NO invalidar las consultas para evitar que se pierdan los datos actuales
+      // En su lugar, solo actualizamos el estado del pedido
       queryClient.invalidateQueries({ queryKey: ["/api/pedidos", pedidoId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/control/pedidos", pedidoId, "activo"] });
       
-      // Forzar una recarga inmediata del control activo
-      refetchControlActivo();
+      // Registrar que el control ha sido reanudado correctamente
+      console.log("Control reanudado correctamente. Manteniendo datos actuales de control");
       
-      console.log("Control reanudado, actualizando datos de control...");
+      // Actualizar el tiempo de inicio para que continue correctamente
+      setControlState(prevState => ({
+        ...prevState,
+        isRunning: true,
+        // Ajustar el startTime para mantener el tiempo transcurrido
+        startTime: Date.now() - (prevState.segundos * 1000)
+      }));
     },
     onError: (error: Error) => {
       toast({
