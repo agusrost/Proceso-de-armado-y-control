@@ -149,7 +149,7 @@ export function ProductosEscaneadosLista({ productos, showEmpty = false }: Produ
               </div>
               <div className="text-sm text-neutral-500">
                 {producto.escaneado && producto.timestamp 
-                  ? formatTimestamp(producto.timestamp) 
+                  ? `Registrado: ${formatTimestamp(producto.timestamp)}` 
                   : producto.escaneado === false
                     ? "Pendiente de escanear"
                     : "Sin fecha"
