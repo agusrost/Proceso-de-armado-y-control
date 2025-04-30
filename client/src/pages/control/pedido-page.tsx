@@ -1535,15 +1535,24 @@ export default function ControlPedidoPage() {
                 <ProductoEscanerSeguro
                   pedidoId={pedidoId}
                   onEscaneoExitoso={(data) => {
+                    console.log("Data recibida en onEscaneoExitoso:", data);
                     // Actualizar estado local
                     setControlState(prev => {
                       const updatedProductos = prev.productosControlados.map(p => {
                         if (p.codigo === data.producto.codigo) {
-                          return {
+                          // Usar cantidadTotalControlada en lugar de cantidadControlada
+                          const nuevaCantidad = data.cantidadTotalControlada || 0;
+                          
+                          // Crear objeto actualizado con timestamp
+                          const productoActualizado = {
                             ...p,
-                            controlado: data.cantidadControlada,
-                            estado: data.controlEstado
+                            controlado: nuevaCantidad,
+                            estado: data.controlEstado,
+                            timestamp: new Date() // Agregar timestamp para que se considere más reciente
                           };
+                          
+                          console.log(`Producto ${p.codigo} actualizado de ${p.controlado} a ${nuevaCantidad}`);
+                          return productoActualizado;
                         }
                         return p;
                       });
@@ -1556,7 +1565,7 @@ export default function ControlPedidoPage() {
                         id: data.detalle?.id || 0,
                         codigo: data.detalle?.codigo || "",
                         cantidad: data.detalle?.cantidad || 0,
-                        controlado: data.cantidadControlada || 0,
+                        controlado: data.cantidadTotalControlada || 0, // Usar cantidadTotalControlada
                         descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
                         timestamp: new Date(),
                         escaneado: true,
@@ -1570,7 +1579,7 @@ export default function ControlPedidoPage() {
                           codigo: data.producto?.codigo || "",
                           descripcion: productoEncontrado?.descripcion || data.producto?.descripcion || "",
                           cantidadEsperada: data.producto?.cantidad || 0,
-                          cantidadActual: data.cantidadControlada || 0
+                          cantidadActual: data.cantidadTotalControlada || 0 // Usar cantidadTotalControlada
                         });
                         setExcedenteAlertOpen(true);
                       }
