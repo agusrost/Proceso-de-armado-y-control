@@ -1106,16 +1106,55 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Estado de control: todosProductosControlados=${todosProductosControlados}, hayProductosSinEscanear=${hayProductosSinEscanear}`);
       
+      // Verificar si todos los productos están correctamente controlados y no hay excedentes
+      const hayExcedentes = Array.from(cantidadesPorProducto.values())
+        .some(p => p.controlado > p.esperado);
+      
+      // Si todos los productos están controlados correctamente y no hay excedentes, finalizar automáticamente
+      let finalizadoAutomaticamente = false;
+      if (todosProductosControlados && !hayExcedentes && !hayProductosSinEscanear) {
+        try {
+          console.log(`🎉 INICIANDO FINALIZACIÓN AUTOMÁTICA DEL CONTROL para pedido ${pedidoId} - Todos los productos están correctamente controlados`);
+          
+          // Establecer fecha de fin para el control
+          const ahora = new Date();
+          await storage.updateControlHistorico(controlActivo.id, {
+            fin: ahora,
+            resultado: 'completo'
+          });
+          
+          // Actualizar estado del pedido
+          await storage.updatePedido(pedidoId, {
+            estado: 'controlado',
+            controlFin: ahora
+          });
+          
+          console.log(`✅ CONTROL FINALIZADO AUTOMÁTICAMENTE para pedido ${pedidoId}`);
+          finalizadoAutomaticamente = true;
+        } catch (finError) {
+          console.error("Error al finalizar automáticamente el control:", finError);
+          // Continuamos sin finalizar automáticamente
+        }
+      }
+      
       // Devolver la respuesta con datos enriquecidos
       res.status(201).json({
-        message: "Producto escaneado correctamente",
+        message: finalizadoAutomaticamente ? 
+          "Control finalizado automáticamente. Todos los productos están controlados correctamente." : 
+          "Producto escaneado correctamente",
         detalle,
         producto: productoEncontrado,
         cantidadTotalControlada,
         controlEstado, // Estado del control basado en el total acumulado
         tipo: controlEstado === "excedente" ? "excedente" : "ok",
         todosProductosControlados, // Flag que indica si ya se completó el control
-        hayProductosSinEscanear // Flag que indica si hay productos sin escanear
+        hayProductosSinEscanear, // Flag que indica si hay productos sin escanear
+        finalizadoAutomaticamente, // Indica si el control se finalizó automáticamente
+        pedidoActualizado: finalizadoAutomaticamente ? {
+          id: pedidoId,
+          estado: 'controlado',
+          fin: new Date()
+        } : null
       });
     } catch (error) {
       console.error("Error al escanear producto:", error);
@@ -1204,16 +1243,83 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Guardar el nuevo detalle de control
       const nuevoDetalle = await storage.createControlDetalle(detalleControl);
       
+      // Verificar si todos los productos están correctamente controlados
+      const todosProductos = await storage.getProductosByPedidoId(pedidoId);
+      const detallesControl = await storage.getControlDetalleByControlId(controlActivo.id);
+      
+      // Agrupar detalles por código de producto
+      const cantidadesPorProducto = new Map();
+      
+      // Inicializar con todos los productos en 0
+      todosProductos.forEach(p => {
+        cantidadesPorProducto.set(p.codigo, { 
+          controlado: 0, 
+          esperado: p.cantidad 
+        });
+      });
+      
+      // Acumular las cantidades controladas
+      detallesControl.forEach(d => {
+        const producto = cantidadesPorProducto.get(d.codigo);
+        if (producto) {
+          producto.controlado += (d.cantidadControlada || 0);
+        }
+      });
+      
+      // Verificar si todos los productos están correctamente controlados
+      const todosProductosControlados = Array.from(cantidadesPorProducto.values())
+        .every(p => p.controlado === p.esperado); // Exactamente igual (no mayor o igual)
+      
+      const hayProductosSinEscanear = Array.from(cantidadesPorProducto.values())
+        .some(p => p.controlado === 0);
+      
+      console.log(`Estado de control después de retirar excedentes: todosProductosControlados=${todosProductosControlados}, hayProductosSinEscanear=${hayProductosSinEscanear}`);
+      
+      // Si todos los productos están controlados correctamente, finalizar automáticamente
+      let finalizadoAutomaticamente = false;
+      if (todosProductosControlados && !hayProductosSinEscanear) {
+        try {
+          console.log(`🎉 INICIANDO FINALIZACIÓN AUTOMÁTICA DEL CONTROL para pedido ${pedidoId} después de retirar excedentes - Todos los productos están correctamente controlados`);
+          
+          // Establecer fecha de fin para el control
+          const ahora = new Date();
+          await storage.updateControlHistorico(controlActivo.id, {
+            fin: ahora,
+            resultado: 'completo'
+          });
+          
+          // Actualizar estado del pedido
+          await storage.updatePedido(pedidoId, {
+            estado: 'controlado',
+            controlFin: ahora
+          });
+          
+          console.log(`✅ CONTROL FINALIZADO AUTOMÁTICAMENTE para pedido ${pedidoId} después de retirar excedentes`);
+          finalizadoAutomaticamente = true;
+        } catch (finError) {
+          console.error("Error al finalizar automáticamente el control después de retirar excedentes:", finError);
+          // Continuamos sin finalizar automáticamente
+        }
+      }
+      
       // Devolver respuesta exitosa con datos actualizados
       res.json({
-        mensaje: "Excedentes retirados correctamente",
+        mensaje: finalizadoAutomaticamente ? 
+          "Control finalizado automáticamente. Todos los productos están controlados correctamente." : 
+          "Excedentes retirados correctamente",
         producto: {
           codigo: productoEncontrado.codigo,
           cantidadEsperada: productoEncontrado.cantidad,
           cantidadControlada: productoEncontrado.cantidad,
           estado: "correcto"
         },
-        detalle: nuevoDetalle
+        detalle: nuevoDetalle,
+        finalizadoAutomaticamente,
+        pedidoActualizado: finalizadoAutomaticamente ? {
+          id: pedidoId,
+          estado: 'controlado',
+          fin: new Date()
+        } : null
       });
     } catch (error) {
       console.error("Error al retirar excedentes:", error);
