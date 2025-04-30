@@ -2406,10 +2406,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
         try {
           console.log("Ejecutando consulta SQL directa para actualizar inicio del pedido");
           
-          // Ejecutar una consulta SQL directa para actualizar el estado y el timestamp
+          // Ejecutar una consulta SQL directa para actualizar el estado, el timestamp y asignar el armador
           await db.execute(sql`
             UPDATE pedidos 
-            SET estado = 'en-proceso', inicio = NOW() 
+            SET estado = 'en-proceso', inicio = NOW(), armador_id = ${req.user.id}
             WHERE id = ${pedidoId}
           `);
           console.log(`Tiempo de inicio actualizado correctamente para el pedido ${pedido.pedidoId}`);
