@@ -391,6 +391,40 @@ export class DatabaseStorage implements IStorage {
           return pedidoEnProceso as Pedido;
         }
         
+        // Nuevo: Buscamos pedidos en proceso sin armador asignado
+        // Este es el caso del pedido P0312 que está en-proceso pero sin armador
+        console.log("Buscando pedidos en-proceso sin armador asignado (caso especial)");
+        
+        const pedidoEnProcesoSinAsignar = await executeQuery(
+          'en-proceso', 
+          'AND (armador_id IS NULL OR armador_id = 0)', 
+          ['en-proceso']
+        );
+        
+        if (pedidoEnProcesoSinAsignar) {
+          console.log(`Encontrado pedido en-proceso sin armador: ${pedidoEnProcesoSinAsignar.pedidoId}`);
+          
+          // Asignamos automáticamente este armador al pedido para corregir la inconsistencia
+          try {
+            console.log(`Asignando automáticamente el armador ${armadorId} al pedido ${pedidoEnProcesoSinAsignar.id} (${pedidoEnProcesoSinAsignar.pedidoId})`);
+            
+            await pool.query(`
+              UPDATE pedidos 
+              SET armador_id = $1
+              WHERE id = $2
+            `, [armadorId, pedidoEnProcesoSinAsignar.id]);
+            
+            // Actualizar el objeto pedido con el nuevo armadorId
+            pedidoEnProcesoSinAsignar.armadorId = armadorId;
+            
+            console.log(`Armador asignado correctamente al pedido ${pedidoEnProcesoSinAsignar.pedidoId}`);
+          } catch (error) {
+            console.error(`Error al asignar armador al pedido ${pedidoEnProcesoSinAsignar.pedidoId}:`, error);
+          }
+          
+          return pedidoEnProcesoSinAsignar as Pedido;
+        }
+        
         // Si no hay pedidos en proceso, buscamos pedidos pendientes asignados a este armador
         const pedidoPendiente = await executeQuery(
           'pendiente', 
