@@ -714,19 +714,16 @@ export default function ControlPedidoPage() {
                 // IMPORTANTE: Usar la cantidad total del servidor
                 const nuevaCantidad = data.cantidadTotalControlada || 0;
                 
-                // Determinar estado basado en la nueva cantidad
-                let nuevoEstado: any = "pendiente";
-                if (nuevaCantidad === 0) {
-                  nuevoEstado = "pendiente";
-                } else if (nuevaCantidad < p.cantidad) {
-                  nuevoEstado = "faltante";
-                } else if (nuevaCantidad === p.cantidad) {
-                  nuevoEstado = "correcto";
-                } else {
-                  nuevoEstado = "excedente";
-                }
+                // Usar el estado proporcionado por el servidor directamente
+                // El servidor ya calculó esto correctamente basado en la suma de cantidades
+                const nuevoEstado = data.controlEstado || (
+                  nuevaCantidad === 0 ? "pendiente" :
+                  nuevaCantidad < p.cantidad ? "faltante" :
+                  nuevaCantidad === p.cantidad ? "correcto" : "excedente"
+                );
                 
-                console.log(`Producto directo ${p.codigo}: actualizado de ${p.controlado} a ${nuevaCantidad} (${nuevoEstado})`);
+                console.log(`Producto ${p.codigo}: actualizado de ${p.controlado} a ${nuevaCantidad} (${nuevoEstado})`);
+                console.log(`Datos del servidor: controlEstado=${data.controlEstado}, cantidadTotalControlada=${data.cantidadTotalControlada}`);
                 
                 return {
                   ...p,
@@ -801,17 +798,20 @@ export default function ControlPedidoPage() {
 
       // Verificar si todos los productos están correctamente controlados para finalización automática
       setControlState(prevState => {
-        // Verificar si todos los productos están controlados correctamente o han sido ajustados
+        // Verificar si todos los productos están controlados correctamente
         const todosProductosControlados = prevState.productosControlados.every(p => 
           p.estado === 'correcto' || 
-          (p.controlado === p.cantidad && p.estado !== 'pendiente')
+          (p.controlado > 0 && p.controlado === p.cantidad)
         );
         
+        // Verificar que ningún producto tenga cantidad 0
         const todosProductosRegistrados = prevState.productosControlados.every(p => 
-          p.controlado !== 0
+          p.controlado > 0
         );
-
-        if (todosProductosControlados && todosProductosRegistrados) {
+        
+        // Verificamos si el servidor nos indica que ya podemos finalizar el control
+        // Esto viene directamente del servidor que tiene la lógica correcta
+        if (data.todosProductosControlados === true || (todosProductosControlados && todosProductosRegistrados)) {
           console.log("¡Todos los productos están controlados correctamente! Verificando excedentes...");
           
           // Verificar si hay excedentes que necesitan ser retirados
