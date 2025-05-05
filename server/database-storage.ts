@@ -792,16 +792,25 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getControlActivoByPedidoId(pedidoId: number): Promise<ControlHistorico | undefined> {
-    // Busca un registro de control en estado activo para el pedido
+    // Busca un registro de control en estado activo para el pedido que no tenga fecha de fin
+    console.log(`Buscando control activo para pedido ${pedidoId} sin fecha de fin`);
     const [control] = await db
       .select()
       .from(controlHistorico)
       .where(
         and(
           eq(controlHistorico.pedidoId, pedidoId),
-          eq(controlHistorico.estado, "activo")
+          eq(controlHistorico.estado, "activo"),
+          isNull(controlHistorico.fin) // Importante: solo considerar controles sin fecha fin
         )
       );
+    
+    if (control) {
+      console.log(`Encontrado control activo ID ${control.id} para pedido ${pedidoId}`);
+    } else {
+      console.log(`No se encontró control activo sin fecha fin para pedido ${pedidoId}`);
+    }
+    
     return control;
   }
   
