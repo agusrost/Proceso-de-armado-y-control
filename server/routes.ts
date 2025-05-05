@@ -547,12 +547,20 @@ export async function registerRoutes(app: Application): Promise<Server> {
   // Endpoint para obtener pedidos en control (en curso)
   app.get("/api/control/en-curso", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
-      console.log("Obteniendo pedidos en control (en curso)...");
+      console.log("Obteniendo pedidos en control (en curso) y pedidos disponibles para control...");
       
       // Obtener pedidos que están en estado 'controlando'
       const pedidosControlando = await storage.getPedidos({ 
         estado: 'controlando' 
       });
+      
+      // Obtener también pedidos en estado 'armado' que están listos para control
+      const pedidosArmados = await storage.getPedidos({
+        estado: 'armado'
+      });
+      
+      // Combinar ambos conjuntos de pedidos
+      const todosPedidos = [...pedidosControlando, ...pedidosArmados];
       
       console.log(`Muestra diagnóstica del primer pedido: ${JSON.stringify({
         id: pedidosControlando[0]?.id,
@@ -564,7 +572,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Enriquecer con datos adicionales
       const pedidosEnriquecidos = await Promise.all(
-        pedidosControlando.map(async (pedido) => {
+        todosPedidos.map(async (pedido) => {
           try {
             // Obtener historial de control para este pedido
             const historiales = await storage.getControlHistoricoByPedidoId(pedido.id);
@@ -620,10 +628,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
         })
       );
       
-      // Ya no filtramos los nulos, mostramos todos los pedidos en estado "controlando"
+      // Ya no filtramos los nulos, mostramos todos los pedidos tanto en estado "controlando" como "armado"
       const pedidosFinales = pedidosEnriquecidos;
       
-      console.log(`Se encontraron ${pedidosFinales.length} pedidos en control`);
+      console.log(`Se encontraron ${pedidosFinales.length} pedidos disponibles para control, combinando los pedidos en estado 'controlando' (${pedidosControlando.length}) y los pedidos en estado 'armado' (${pedidosArmados.length})`);
       res.json(pedidosFinales);
     } catch (error) {
       console.error("Error al obtener pedidos en control:", error);
