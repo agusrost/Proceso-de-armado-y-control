@@ -3069,45 +3069,65 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const pedidoId = productoExistente.pedidoId;
       const productos = await storage.getProductosByPedidoId(pedidoId);
       
-      // Verificar si todos los productos tienen un valor en recolectado (no null)
-      const todosCompletados = productos.every(p => p.recolectado !== null);
+      // Verificar si el pedido tiene pausas activas
+      const pausas = await storage.getPausasActivasByPedidoId(pedidoId);
+      const tienePausasActivas = pausas && pausas.length > 0;
       
-      if (todosCompletados) {
-        console.log(`Todos los productos del pedido ${pedidoId} han sido procesados`);
+      if (tienePausasActivas) {
+        console.log(`El pedido ${pedidoId} tiene pausas activas, no se finalizará automáticamente`);
+        // Obtener la pausa activa
+        const pausaActiva = pausas[0];
+        console.log(`Pausa activa: ${pausaActiva.id}, motivo: ${pausaActiva.motivo}`);
         
-        // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
-        const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
+        // Si la actualización automática viene de nuestra lógica de reanudar con un producto parcialmente completado,
+        // vamos a actualizar el último producto procesado en la pausa
+        if (req.body.actualizacionAutomatica) {
+          console.log(`Actualizando último producto procesado en la pausa: ${productoId}`);
+          await storage.updatePausa(pausaActiva.id, {
+            ultimo_producto_id: productoId
+          });
+        }
+      } else {
+        // Verificar si todos los productos tienen un valor en recolectado (no null)
+        const todosCompletados = productos.every(p => p.recolectado !== null);
         
-        if (productosFaltantes.length > 0) {
-          console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
+        if (todosCompletados) {
+          console.log(`Todos los productos del pedido ${pedidoId} han sido procesados y no hay pausas activas`);
           
-          // Actualizar estado a "armado-pendiente-stock"
-          await storage.updatePedido(pedidoId, { estado: 'armado-pendiente-stock' });
+          // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
+          const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
           
-          // Crear solicitudes de transferencia para cada producto faltante
-          for (const producto of productosFaltantes) {
-            try {
-              // Crear solicitud de stock
-              const solicitudData = {
-                fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
-                horario: new Date(),
-                codigo: producto.codigo,
-                cantidad: producto.cantidad,
-                motivo: `Faltante en pedido ${pedidoId} - ${producto.motivo || 'Sin stock'}`,
-                estado: 'pendiente',
-                solicitadoPor: req.user?.id,
-                solicitante: req.user?.username
-              };
-              
-              console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
-              await storage.createStockSolicitud(solicitudData);
-            } catch (error) {
-              console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+          if (productosFaltantes.length > 0) {
+            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
+            
+            // Actualizar estado a "armado-pendiente-stock"
+            await storage.updatePedido(pedidoId, { estado: 'armado-pendiente-stock' });
+            
+            // Crear solicitudes de transferencia para cada producto faltante
+            for (const producto of productosFaltantes) {
+              try {
+                // Crear solicitud de stock
+                const solicitudData = {
+                  fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+                  horario: new Date(),
+                  codigo: producto.codigo,
+                  cantidad: producto.cantidad,
+                  motivo: `Faltante en pedido ${pedidoId} - ${producto.motivo || 'Sin stock'}`,
+                  estado: 'pendiente',
+                  solicitadoPor: req.user?.id,
+                  solicitante: req.user?.username
+                };
+                
+                console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
+                await storage.createStockSolicitud(solicitudData);
+              } catch (error) {
+                console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+              }
             }
+          } else {
+            // Si no hay faltantes, marcar como armado normal
+            await storage.updatePedido(pedidoId, { estado: 'armado' });
           }
-        } else {
-          // Si no hay faltantes, marcar como armado normal
-          await storage.updatePedido(pedidoId, { estado: 'armado' });
         }
       }
       

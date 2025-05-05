@@ -496,7 +496,8 @@ export default function ArmadoPage() {
                   {
                     id: ultimoProducto.id,
                     recolectado: ultimoProducto.cantidad, // Marcar como completamente recolectado
-                    motivo: null
+                    motivo: null,
+                    actualizacionAutomatica: true // Flag para indicar que es una actualización automática desde la reanudación
                   },
                   {
                     onSuccess: () => {
@@ -626,7 +627,8 @@ export default function ArmadoPage() {
                     {
                       id: ultimoProducto.id,
                       recolectado: ultimoProducto.cantidad, // Marcar como completamente recolectado
-                      motivo: null
+                      motivo: null,
+                      actualizacionAutomatica: true // Flag para indicar que es una actualización automática desde la reanudación
                     },
                     {
                       onSuccess: () => {
