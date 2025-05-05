@@ -976,6 +976,127 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para pausar el control
+  app.post("/api/control/pedidos/:pedidoId/pausar", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      
+      console.log(`⏸️ SOLICITUD DE PAUSA para pedido ${pedidoId}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado de control
+      if (pedido.estado !== 'controlando') {
+        return res.status(400).json({ 
+          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
+        });
+      }
+      
+      // Obtener el control activo
+      const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+      if (!controlActivo) {
+        return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+      
+      // Verificar si ya existe una pausa activa
+      const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
+        .then(pausas => pausas.filter(p => p.fin === null));
+      
+      if (pausasActivas.length > 0) {
+        return res.status(400).json({
+          message: "Ya existe una pausa activa para este control"
+        });
+      }
+      
+      // Crear una nueva pausa
+      const motivo = req.body.motivo || "Pausa de control";
+      console.log(`Creando pausa con motivo: ${motivo}`);
+      
+      const nuevaPausa = await storage.createPausa({
+        pedidoId: pedidoId,
+        motivo: motivo,
+        tipo: "control",
+        inicio: new Date()
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: "Control pausado correctamente",
+        pausa: nuevaPausa
+      });
+    } catch (error) {
+      console.error("Error al pausar control:", error);
+      next(error);
+    }
+  });
+  
+  // Endpoint para reanudar el control
+  app.post("/api/control/pedidos/:pedidoId/reanudar", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      
+      console.log(`▶️ SOLICITUD DE REANUDACIÓN para pedido ${pedidoId}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el pedido está en estado de control
+      if (pedido.estado !== 'controlando') {
+        return res.status(400).json({ 
+          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
+        });
+      }
+      
+      // Buscar pausas activas para este pedido
+      const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
+        .then(pausas => pausas.filter(p => p.fin === null));
+      
+      if (pausasActivas.length === 0) {
+        return res.status(400).json({
+          message: "No hay pausas activas para este control"
+        });
+      }
+      
+      // Finalizar la pausa más reciente
+      const pausaActiva = pausasActivas[0]; // Tomar la primera pausa activa
+      const ahora = new Date();
+      
+      // Calcular duración en segundos
+      const inicio = new Date(pausaActiva.inicio);
+      const duracionMs = ahora.getTime() - inicio.getTime();
+      const duracionSegundos = Math.floor(duracionMs / 1000);
+      
+      const pausaActualizada = await storage.updatePausa(pausaActiva.id, {
+        fin: ahora,
+        duracion: duracionSegundos
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: "Control reanudado correctamente",
+        pausa: pausaActualizada
+      });
+    } catch (error) {
+      console.error("Error al reanudar control:", error);
+      next(error);
+    }
+  });
+  
   // Endpoint para finalizar manualmente un control
   app.post("/api/control/pedidos/:pedidoId/finalizar", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
@@ -1004,6 +1125,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
       if (!controlActivo) {
         return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+      
+      // Finalizar pausas activas si existen
+      const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
+        .then(pausas => pausas.filter(p => p.fin === null));
+      
+      for (const pausa of pausasActivas) {
+        console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control`);
+        const inicio = new Date(pausa.inicio);
+        const ahora = new Date();
+        const duracionMs = ahora.getTime() - inicio.getTime();
+        const duracionSegundos = Math.floor(duracionMs / 1000);
+        
+        await storage.updatePausa(pausa.id, {
+          fin: ahora,
+          duracion: duracionSegundos
+        });
       }
       
       // Establecer fecha de fin para el control
@@ -1197,6 +1335,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
         try {
           console.log(`🎉 INICIANDO FINALIZACIÓN AUTOMÁTICA DEL CONTROL para pedido ${pedidoId} - Todos los productos están correctamente controlados`);
           
+          // Finalizar pausas activas si existen
+          const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
+            .then(pausas => pausas.filter(p => p.fin === null));
+          
+          for (const pausa of pausasActivas) {
+            console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control automáticamente`);
+            const inicio = new Date(pausa.inicio);
+            const ahora = new Date();
+            const duracionMs = ahora.getTime() - inicio.getTime();
+            const duracionSegundos = Math.floor(duracionMs / 1000);
+            
+            await storage.updatePausa(pausa.id, {
+              fin: ahora,
+              duracion: duracionSegundos
+            });
+          }
+          
           // Establecer fecha de fin para el control
           const ahora = new Date();
           await storage.updateControlHistorico(controlActivo.id, {
@@ -1361,6 +1516,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (todosProductosControlados && !hayProductosSinEscanear) {
         try {
           console.log(`🎉 INICIANDO FINALIZACIÓN AUTOMÁTICA DEL CONTROL para pedido ${pedidoId} después de retirar excedentes - Todos los productos están correctamente controlados`);
+          
+          // Finalizar pausas activas si existen
+          const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
+            .then(pausas => pausas.filter(p => p.fin === null));
+          
+          for (const pausa of pausasActivas) {
+            console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control automáticamente después de retirar excedentes`);
+            const inicio = new Date(pausa.inicio);
+            const ahora = new Date();
+            const duracionMs = ahora.getTime() - inicio.getTime();
+            const duracionSegundos = Math.floor(duracionMs / 1000);
+            
+            await storage.updatePausa(pausa.id, {
+              fin: ahora,
+              duracion: duracionSegundos
+            });
+          }
           
           // Establecer fecha de fin para el control
           const ahora = new Date();
