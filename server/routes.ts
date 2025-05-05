@@ -645,9 +645,27 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(404).json({ error: 'Pedido no encontrado' });
       }
       
-      // Verificar si está en estado de control
+      // Verificar si está en estado de control o si es un pedido armado que puede entrar en control
       if (pedido.estado !== 'controlando') {
-        return res.status(404).json({ error: 'No hay control activo para este pedido' });
+        // Si está en estado armado, podemos iniciarlo automáticamente
+        if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock') {
+          console.log(`Pedido ${pedidoNumId} en estado ${pedido.estado}, iniciando control automáticamente...`);
+          // Cambiar el estado del pedido a "controlando"
+          await storage.updatePedido(pedidoNumId, {
+            estado: 'controlando',
+            controladorId: req.user.id,
+            controlInicio: new Date()
+          });
+          
+          // Actualizar la variable pedido para el resto del flujo
+          pedido.estado = 'controlando';
+          pedido.controladorId = req.user.id;
+          pedido.controlInicio = new Date().toISOString();
+          
+          console.log(`Pedido ${pedidoNumId} actualizado a estado 'controlando'`);
+        } else {
+          return res.status(404).json({ error: 'No hay control activo para este pedido' });
+        }
       }
       
       // Obtener el último registro de control para este pedido
