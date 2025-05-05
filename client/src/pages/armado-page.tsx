@@ -135,12 +135,20 @@ export default function ArmadoPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       
+      // Verificar si el pedido tiene un ultimoProductoId (si viene de una pausa)
+      if (data.ultimoProductoId) {
+        console.log(`Pedido iniciado con ultimo producto ID: ${data.ultimoProductoId}`);
+        // Este valor será usado en el useEffect cuando se carguen los productos
+      }
+      
       // Actualizar el state local con los datos del pedido iniciado
       setCurrentPedido(data);
       
       toast({
-        title: "Pedido iniciado",
-        description: "Has iniciado el armado del pedido correctamente",
+        title: pedidoArmador?.pausaActiva ? "Pedido reanudado" : "Pedido iniciado",
+        description: pedidoArmador?.pausaActiva 
+          ? "Has reanudado el armado del pedido correctamente" 
+          : "Has iniciado el armado del pedido correctamente",
       });
       
       // Cerrar el diálogo de confirmación
@@ -152,8 +160,19 @@ export default function ArmadoPage() {
           const res = await apiRequest("GET", `/api/productos/pedido/${data.id}`);
           const productos = await res.json();
           if (productos.length > 0) {
-            // Establecer la cantidad por defecto al primer producto
-            setRecolectados(productos[0].cantidad);
+            // Si hay un último producto ID, buscar ese producto y usar su cantidad
+            if (data.ultimoProductoId) {
+              const ultimoProducto = productos.find((p: any) => p.id === data.ultimoProductoId);
+              if (ultimoProducto) {
+                setRecolectados(ultimoProducto.cantidad);
+              } else {
+                // Si no se encuentra, usar el primer producto
+                setRecolectados(productos[0].cantidad);
+              }
+            } else {
+              // Si no hay último producto, usar el primer producto
+              setRecolectados(productos[0].cantidad);
+            }
           }
         } catch (error) {
           console.error("Error al cargar productos iniciales:", error);
@@ -279,11 +298,20 @@ export default function ArmadoPage() {
   
   // Crear pausa mutation
   const crearPausaMutation = useMutation({
-    mutationFn: async (data: InsertPausa) => {
+    mutationFn: async (data: InsertPausa & { ultimoProductoId?: number | null }) => {
       try {
+        // Si hay un producto actual, guardamos su ID para continuar desde allí al reanudar
+        const currentProductoData = productos[currentProductoIndex];
+        const ultimoProductoId = data.ultimoProductoId || (currentProductoData ? currentProductoData.id : null);
+        
+        if (ultimoProductoId) {
+          console.log(`Guardando último producto ID ${ultimoProductoId} en la pausa`);
+        }
+        
         const res = await apiRequest("POST", "/api/pausas", {
           ...data,
-          tipo: "armado" // Especificar que es una pausa de armado
+          tipo: "armado", // Especificar que es una pausa de armado
+          ultimoProductoId // Incluir el ID del último producto procesado
         });
         
         // Verificar que la respuesta es JSON antes de procesarla
@@ -426,33 +454,34 @@ export default function ArmadoPage() {
           const data = await res.json();
           setProductos(data);
           
-          // *** CORRECCIÓN URGENTE ***
-          // Buscamos directamente el producto 17012
-          const index17012 = data.findIndex((p: any) => p.codigo === "17012");
-          
-          if (index17012 !== -1) {
-            console.log("SELECCIONANDO PRODUCTO 17012 (index:", index17012, ")");
-            setCurrentProductoIndex(index17012);
-          } else {
-            // Buscar cualquier otro producto no procesado
-            const primerNoRecolectado = data.findIndex((p: any) => p.recolectado === null);
+          // Verificar si el pedido tiene un último producto registrado (de una pausa)
+          if (currentPedido.ultimoProductoId) {
+            console.log(`Pedido reanudado con último producto ID: ${currentPedido.ultimoProductoId}`);
             
-            if (primerNoRecolectado !== -1) {
-              console.log("Producto 17012 no encontrado. Seleccionando primer producto sin procesar:", data[primerNoRecolectado].codigo);
-              setCurrentProductoIndex(primerNoRecolectado);
-            } else {
-              // Si todos tienen valores, buscar uno incompleto
-              const primerIncompleto = data.findIndex((p: any) => p.recolectado !== null && p.recolectado < p.cantidad);
+            // Buscar el índice del último producto procesado
+            const ultimoProductoIndex = data.findIndex((p: any) => p.id === currentPedido.ultimoProductoId);
+            
+            if (ultimoProductoIndex !== -1) {
+              console.log(`Continuando desde el último producto procesado (index: ${ultimoProductoIndex})`);
+              setCurrentProductoIndex(ultimoProductoIndex);
               
-              if (primerIncompleto !== -1) {
-                console.log("No hay productos sin procesar. Seleccionando producto incompleto:", data[primerIncompleto].codigo);
-                setCurrentProductoIndex(primerIncompleto);
-              } else {
-                // Si todo está completo, usar el primero
-                console.log("Todos los productos están completos. Seleccionando el primero.");
-                setCurrentProductoIndex(0);
+              // Si el producto actual ya está completamente procesado, pasar al siguiente
+              const ultimoProducto = data[ultimoProductoIndex];
+              if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado === ultimoProducto.cantidad) {
+                // Movernos al siguiente producto si existe
+                if (ultimoProductoIndex < data.length - 1) {
+                  console.log(`Último producto ya completado, avanzando al siguiente (index: ${ultimoProductoIndex + 1})`);
+                  setCurrentProductoIndex(ultimoProductoIndex + 1);
+                }
               }
+            } else {
+              console.warn(`No se encontró el último producto ID ${currentPedido.ultimoProductoId} en la lista de productos`);
+              // Usar lógica de selección por defecto
+              seleccionarProductoDefault(data);
             }
+          } else {
+            // Sin último producto, usar lógica de selección por defecto
+            seleccionarProductoDefault(data);
           }
           
           // Verificar si hay una pausa activa
@@ -470,6 +499,29 @@ export default function ArmadoPage() {
             description: "No se pudieron cargar los productos del pedido",
             variant: "destructive",
           });
+        }
+      };
+      
+      // Función auxiliar para seleccionar el producto por defecto
+      const seleccionarProductoDefault = (data: any[]) => {
+        // Buscar el primer producto no procesado
+        const primerNoRecolectado = data.findIndex((p: any) => p.recolectado === null);
+        
+        if (primerNoRecolectado !== -1) {
+          console.log("Seleccionando primer producto sin procesar:", data[primerNoRecolectado].codigo);
+          setCurrentProductoIndex(primerNoRecolectado);
+        } else {
+          // Si todos tienen valores, buscar uno incompleto
+          const primerIncompleto = data.findIndex((p: any) => p.recolectado !== null && p.recolectado < p.cantidad);
+          
+          if (primerIncompleto !== -1) {
+            console.log("No hay productos sin procesar. Seleccionando producto incompleto:", data[primerIncompleto].codigo);
+            setCurrentProductoIndex(primerIncompleto);
+          } else {
+            // Si todo está completo, usar el primero
+            console.log("Todos los productos están completos. Seleccionando el primero.");
+            setCurrentProductoIndex(0);
+          }
         }
       };
       
@@ -920,7 +972,7 @@ export default function ArmadoPage() {
                           pedidoId: currentPedido.id,
                           motivo: motivoFinal,
                           tipo: "armado", // Especificar que es una pausa de armado
-                          ultimo_producto_id: currentProducto?.id || null // Guardar el ID del último producto procesado
+                          ultimoProductoId: currentProducto?.id || null // Guardar el ID del último producto procesado
                         });
                       }}
                       disabled={crearPausaMutation.isPending}
@@ -1681,11 +1733,16 @@ export default function ArmadoPage() {
                   
                   const now = new Date();
                   
+                  // Obtener el ID del producto actual para guardarlo en la pausa
+                  const currentProductoData = productos[currentProductoIndex];
+                  const ultimoProductoId = currentProductoData ? currentProductoData.id : null;
+                  
                   crearPausaMutation.mutate({
                     pedidoId: currentPedido.id,
                     motivo: motivoPausa,
                     tipo: "armado", // Especificar que es una pausa de armado
-                    inicio: now
+                    inicio: now,
+                    ultimoProductoId // Incluir el ID del último producto procesado
                   });
                 }}
                 disabled={crearPausaMutation.isPending}
