@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'wouter';
+import { useParams, useLocation, useNavigate } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -580,6 +580,50 @@ export default function ControlPedidoPageNuevo() {
     );
   }
   
+  // Funcion para iniciar control manualmente
+  const iniciarControlManualmente = async () => {
+    console.log("Intentando iniciar un nuevo control...");
+    try {
+      const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+        method: 'POST'
+      });
+      
+      if (initResp.ok) {
+        toast({
+          title: "Control iniciado",
+          description: "Se ha iniciado un nuevo control para este pedido",
+          variant: "default"
+        });
+        // Recargar la página para mostrar el nuevo control
+        window.location.reload();
+      } else {
+        // Intentar obtener el mensaje de error
+        try {
+          const errorData = await initResp.json();
+          toast({
+            title: "No se pudo iniciar el control",
+            description: errorData.message || errorData.error || "Error al iniciar el control",
+            variant: "destructive",
+            duration: 6000
+          });
+        } catch (e) {
+          toast({
+            title: "No se pudo iniciar el control",
+            description: `Error: ${initResp.status}`,
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error al iniciar control:", error);
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al intentar iniciar el control",
+        variant: "destructive"
+      });
+    }
+  };
+  
   // Si hay error al cargar el control
   if (controlError) {
     return (
@@ -591,9 +635,36 @@ export default function ControlPedidoPageNuevo() {
             No se pudo cargar la información del control.
           </AlertDescription>
         </Alert>
-        <Button onClick={volverALista} variant="outline" className="mt-4">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Volver a la lista
-        </Button>
+        
+        {/* Mostrar botón para iniciar control manualmente */}
+        <div className="flex flex-col gap-4 mt-4">
+          <div className="flex flex-row gap-4">
+            <Button onClick={volverALista} variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Volver a la lista
+            </Button>
+            
+            <Button 
+              onClick={() => {
+                console.log("Iniciando control manualmente...");
+                const confirmIniciar = window.confirm(
+                  "El pedido no tiene un control activo. ¿Desea iniciar un nuevo control para este pedido?"
+                );
+                
+                if (confirmIniciar) {
+                  iniciarControlManualmente();
+                }
+              }} 
+              variant="default"
+            >
+              <Play className="mr-2 h-4 w-4" /> Iniciar control manualmente
+            </Button>
+          </div>
+          
+          <div className="mt-4 text-sm text-neutral-600">
+            <InfoIcon className="inline-block h-4 w-4 mr-1" />
+            <span>Si este pedido está en estado "armado" y desea controlarlo, puede iniciar un nuevo control usando el botón de arriba.</span>
+          </div>
+        </div>
       </div>
     );
   }
