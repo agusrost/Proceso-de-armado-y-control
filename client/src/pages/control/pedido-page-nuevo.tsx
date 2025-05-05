@@ -383,20 +383,57 @@ export default function ControlPedidoPageNuevo() {
     }
   });
 
-  // Procesar datos del control cuando se cargan
-  useEffect(() => {
-    if (controlData && !isLoadingControl) {
-      // Actualizar estado con los datos del control
-      setControlState(prevState => ({
+  // Función para actualizar un producto específico
+  const handleProductoUpdate = (productoActualizado: ProductoControlado) => {
+    // Actualizar estado con el nuevo producto
+    setControlState(prevState => {
+      const nuevosProductos = prevState.productosControlados.map(p => 
+        p.codigo === productoActualizado.codigo ? productoActualizado : p
+      );
+      
+      return {
         ...prevState,
-        isRunning: controlData.control?.estado === 'activo',
-        pedidoId: controlData.pedido?.id || null,
-        codigoPedido: controlData.pedido?.pedidoId || null,
-        productosControlados: procesarProductosControlados(controlData),
-        pedidoYaControlado: controlData.control?.estado === 'completado'
-      }));
-    }
-  }, [controlData, isLoadingControl]);
+        productosControlados: nuevosProductos
+      };
+    });
+    
+    // Actualizar en el backend
+    fetch(`/api/control/productos/${productoActualizado.codigo}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pedidoId: pedidoId,
+        controlado: productoActualizado.controlado,
+        estado: productoActualizado.estado
+      })
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(data => {
+          throw new Error(data.message || 'Error al actualizar producto');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      refetchControl(); // Refrescar datos
+      
+      toast({
+        title: 'Producto actualizado',
+        description: `Se ha actualizado la cantidad de ${productoActualizado.codigo} a ${productoActualizado.controlado}`,
+      });
+    })
+    .catch(error => {
+      console.error('Error al actualizar producto:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo actualizar el producto',
+        variant: 'destructive',
+      });
+    });
+  };
 
   // Procesar productos controlados a partir de los datos
   const procesarProductosControlados = (data: any): ProductoControlado[] => {
@@ -439,6 +476,21 @@ export default function ControlPedidoPageNuevo() {
     });
   };
 
+  // Procesar datos del control cuando se cargan
+  useEffect(() => {
+    if (controlData && !isLoadingControl) {
+      // Actualizar estado con los datos del control
+      setControlState(prevState => ({
+        ...prevState,
+        isRunning: controlData.control?.estado === 'activo',
+        pedidoId: controlData.pedido?.id || null,
+        codigoPedido: controlData.pedido?.pedidoId || null,
+        productosControlados: procesarProductosControlados(controlData),
+        pedidoYaControlado: controlData.control?.estado === 'completado'
+      }));
+    }
+  }, [controlData, isLoadingControl]);
+
   // Manejar escaneo exitoso
   const handleEscanearSuccess = (data: any) => {
     // Refrescar datos del control
@@ -476,150 +528,118 @@ export default function ControlPedidoPageNuevo() {
   const handleEscanearError = (error: any) => {
     if (error.message === "Producto no encontrado en este pedido") {
       toast({
-        title: 'Producto no encontrado',
+        title: 'Producto no válido',
         description: 'Este producto no pertenece a este pedido',
-        variant: 'destructive'
+        variant: 'destructive',
       });
-    }
-  };
-
-  // Manejar actualización de producto cuando se retira excedente
-  const handleProductoUpdate = (productoActualizado: ProductoControlado) => {
-    // Actualizar el estado local con el producto actualizado
-    const nuevosProductos = controlState.productosControlados.map(p => 
-      p.codigo === productoActualizado.codigo ? productoActualizado : p
-    );
-    
-    setControlState(prevState => ({
-      ...prevState,
-      productosControlados: nuevosProductos
-    }));
-    
-    // Refrescar datos del control
-    refetchControl();
-    
-    // Mostrar confirmación
-    toast({
-      title: 'Producto actualizado',
-      description: `Se ajustó la cantidad de ${productoActualizado.codigo} a ${productoActualizado.controlado}/${productoActualizado.cantidad}`,
-    });
-    
-    // Verificar si todos los productos tienen las cantidades correctas
-    const todosProductosCorrectos = nuevosProductos.every(p => p.controlado === p.cantidad);
-    
-    // Si todos están correctos, finalizar automáticamente el control
-    if (todosProductosCorrectos && nuevosProductos.length > 0) {
-      // Pequeña demora para que el usuario vea la notificación de producto actualizado
-      setTimeout(() => {
-        toast({
-          title: 'Control completado',
-          description: 'Todas las cantidades son correctas. Finalizando automáticamente...',
-        });
-        
-        // Iniciar el proceso de finalización
-        finalizarControlMutation.mutate();
-      }, 1000);
-    }
-  };
-
-  // Manejar finalización de control
-  const handleFinalizarControl = () => {
-    // Verificar si hay productos con excedentes
-    const hayExcedentes = controlState.productosControlados.some(p => p.controlado > p.cantidad);
-    
-    if (hayExcedentes) {
+    } else {
       toast({
-        title: 'Atención',
-        description: 'Hay productos con excedentes. Por favor retire los excedentes antes de finalizar.',
-        variant: 'destructive'
+        title: 'Error',
+        description: error.message || 'Error al escanear producto',
+        variant: 'destructive',
       });
-      return;
     }
-    
-    // Abrir diálogo de confirmación
-    setShowFinalizarDialog(true);
   };
 
-  // Verificar si hay faltantes
-  const hayFaltantes = controlState.productosControlados.some(p => p.controlado < p.cantidad);
-  
-  // Verificar si hay excedentes
-  const hayExcedentes = controlState.productosControlados.some(p => p.controlado > p.cantidad);
-  
-  // Verificar si el control está completo (todos tienen la cantidad exacta)
-  const controlCompleto = controlState.productosControlados.every(p => p.controlado === p.cantidad);
-  
-  // Contar productos
+  // Calcular estadísticas para mostrar en UI
   const totalProductos = controlState.productosControlados.length;
-  const productosCompletos = controlState.productosControlados.filter(p => p.controlado >= p.cantidad).length;
+  const productosCompletos = controlState.productosControlados.filter(p => 
+    p.controlado === p.cantidad
+  ).length;
   
-  // Verificar si hay productos que aún no se han escaneado
-  const hayProductosSinEscanear = controlState.productosControlados.some(p => p.controlado === 0);
+  const productosExcedentes = controlState.productosControlados.filter(p => 
+    p.controlado > p.cantidad
+  ).length;
+  
+  const productosFaltantes = controlState.productosControlados.filter(p => 
+    p.controlado < p.cantidad
+  ).length;
+  
+  const hayExcedentes = productosExcedentes > 0;
+  const hayFaltantes = productosFaltantes > 0;
+  
+  // Calcular estado de completitud
+  const porcentajeCompletado = totalProductos > 0 
+    ? Math.round((productosCompletos / totalProductos) * 100) 
+    : 0;
 
-  // Volver a la lista de controles
-  const volverALista = () => {
-    navigate('/control');
-  };
-
-  // Manejar pedido ya controlado (respuesta especial del queryFn)
-  if (controlData?.pedidoControlado) {
+  // Si hay error de carga o el pedido está ya controlado, mostrar pantalla alternativa
+  if (controlError || (controlData?.pedidoControlado)) {
     return (
       <div className="container mx-auto py-8 px-4">
-        <Alert className="mb-4 bg-green-50 border-green-500">
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
-          <AlertTitle className="text-green-700">¡Control Finalizado!</AlertTitle>
-          <AlertDescription className="text-green-600">
-            El pedido {controlData.pedido?.pedidoId} ha sido controlado exitosamente.
-          </AlertDescription>
-        </Alert>
-        <div className="flex gap-4 mt-4">
-          <Button onClick={volverALista} variant="default">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Volver a la lista
-          </Button>
+        <div className="flex flex-col space-y-6">
+          <div className="flex items-center mb-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mr-2"
+              onClick={() => navigate('/control')}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" /> Volver
+            </Button>
+            <h1 className="text-2xl font-bold">Control de Pedido #{id}</h1>
+          </div>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center justify-center py-8">
+                {controlData?.pedidoControlado ? (
+                  <>
+                    <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                      <CheckCircle2 className="h-10 w-10 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-center mb-2">
+                      Pedido ya controlado
+                    </h2>
+                    <p className="text-center text-gray-600 mb-6">
+                      Este pedido ya ha sido verificado y está marcado como controlado.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                      <InfoIcon className="h-10 w-10 text-amber-600" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-center mb-2">
+                      No hay un control activo
+                    </h2>
+                    <p className="text-center text-gray-600 mb-6">
+                      No se encontró un control activo para este pedido.
+                    </p>
+                  </>
+                )}
+                <Button 
+                  onClick={() => navigate('/control')}
+                  className="w-full max-w-xs"
+                >
+                  Volver a la lista de pedidos
+                </Button>
+                {!controlData?.pedidoControlado && (
+                  <Button 
+                    onClick={iniciarControlManualmente}
+                    variant="outline"
+                    className="w-full max-w-xs mt-2"
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    Iniciar control manual
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
-  
-  // Si hay error al cargar el control
-  if (controlError) {
+
+  // Si está cargando, mostrar spinner
+  if (isLoadingControl) {
     return (
       <div className="container mx-auto py-8 px-4">
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            No se pudo cargar la información del control.
-          </AlertDescription>
-        </Alert>
-        
-        {/* Mostrar botón para iniciar control manualmente */}
-        <div className="flex flex-col gap-4 mt-4">
-          <div className="flex flex-row gap-4">
-            <Button onClick={volverALista} variant="outline">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Volver a la lista
-            </Button>
-            
-            <Button 
-              onClick={() => {
-                console.log("Iniciando control manualmente...");
-                const confirmIniciar = window.confirm(
-                  "El pedido no tiene un control activo. ¿Desea iniciar un nuevo control para este pedido?"
-                );
-                
-                if (confirmIniciar) {
-                  iniciarControlManualmente();
-                }
-              }} 
-              variant="default"
-            >
-              <Play className="mr-2 h-4 w-4" /> Iniciar control manualmente
-            </Button>
-          </div>
-          
-          <div className="mt-4 text-sm text-neutral-600">
-            <InfoIcon className="inline-block h-4 w-4 mr-1" />
-            <span>Si este pedido está en estado "armado" y desea controlarlo, puede iniciar un nuevo control usando el botón de arriba.</span>
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+            <h2 className="text-xl font-medium">Cargando información del control...</h2>
           </div>
         </div>
       </div>
@@ -628,362 +648,369 @@ export default function ControlPedidoPageNuevo() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      {/* Encabezado mejorado */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center">
-              <PackageCheck className="mr-2 h-6 w-6 text-primary" />
-              Control de Pedido: <span className="text-blue-600 ml-2">{controlData?.pedido?.pedidoId}</span>
-            </h1>
-            <p className="text-gray-700 mt-2 font-medium">
-              {isLoadingControl ? 'Cargando información...' : 
-                <>Cliente: <span className="text-gray-900">{controlData?.pedido?.clienteId || 'No disponible'}</span></>}
-            </p>
-            <p className="text-gray-600 mt-1">
-              {isLoadingControl ? '' : 
-                <>Armado por: <span className="text-gray-800">{
-                  controlData?.pedido?.armador 
-                    ? `${controlData.pedido.armador.firstName || ''} ${controlData.pedido.armador.lastName || ''} (${controlData.pedido.armador.username})`.trim() 
-                    : 'No asignado'
-                }</span></>
-              }
-            </p>
-          </div>
-        
-        <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
-          <Button 
-            variant="outline" 
-            onClick={volverALista}
-            className="flex-shrink-0"
+      <div className="flex flex-col space-y-6">
+        {/* Encabezado y acciones */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div className="flex items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mr-2"
+              onClick={() => navigate('/control')}
             >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Volver
-          </Button>
-          
-          {/* Botón de pausar/reanudar control */}
-          <Button 
-            variant="outline"
-            onClick={handlePausarReanudar}
-            disabled={isLoadingControl || finalizandoControl || pausando || controlState.productosControlados.length === 0}
-            className={`flex-shrink-0 ${pausado ? 'border-green-500 hover:bg-green-50' : 'border-orange-500 hover:bg-orange-50'}`}
-          >
-            {pausando ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {pausado ? "Reanudando..." : "Pausando..."}
-              </>
-            ) : (
-              <>
-                {pausado ? (
-                  <>
-                    <PlayCircle className="mr-2 h-4 w-4 text-green-600" />
-                    Reanudar control
-                  </>
-                ) : (
-                  <>
-                    <PauseCircle className="mr-2 h-4 w-4 text-orange-600" />
-                    Pausar control
-                  </>
-                )}
-              </>
-            )}
-          </Button>
-          
-          <Button 
-            variant="default"
-            onClick={handleFinalizarControl}
-            disabled={isLoadingControl || hayExcedentes || finalizandoControl || controlState.productosControlados.length === 0}
-            className="flex-shrink-0"
-          >
-            {finalizandoControl ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Finalizando...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                {hayFaltantes ? "Finalizar con faltantes" : "Finalizar control"}
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-      
-      {/* Resumen de estado */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="flex items-center">
-              <Packages className="h-8 w-8 mr-3 text-primary" />
-              <div>
-                <div className="text-sm text-gray-500">Total productos</div>
-                <div className="text-2xl font-bold">{totalProductos}</div>
-              </div>
-            </div>
-            
-            <div className="flex items-center">
-              <CheckCircle2 className="h-8 w-8 mr-3 text-green-500" />
-              <div>
-                <div className="text-sm text-gray-500">Productos completos</div>
-                <div className="text-2xl font-bold">{productosCompletos}/{totalProductos}</div>
-              </div>
-            </div>
-            
-            <div className="flex items-center">
-              <div className={`h-8 w-8 mr-3 rounded-full flex items-center justify-center ${
-                controlCompleto ? 'bg-green-100 text-green-600' : 
-                hayFaltantes ? 'bg-yellow-100 text-yellow-600' : 
-                'bg-red-100 text-red-600'
-              }`}>
-                {controlCompleto ? 
-                  <CheckCircle2 className="h-5 w-5" /> : 
-                  <AlertTriangle className="h-5 w-5" />
-                }
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Estado</div>
-                <div className="text-lg font-semibold">
-                  {controlCompleto ? 'Completo' : 
-                    hayExcedentes ? 'Con excedentes' :
-                    hayFaltantes ? 'Con faltantes' : 
-                    'En proceso'
-                  }
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center">
-              <Button
-                variant={controlCompleto ? "default" : hayExcedentes ? "destructive" : "outline"}
-                className="w-full"
-                disabled={isLoadingControl || finalizandoControl || controlState.productosControlados.length === 0 || hayExcedentes}
-                onClick={handleFinalizarControl}
-              >
-                {hayExcedentes ? (
-                  <>
-                    <AlertTriangle className="mr-2 h-4 w-4" />
-                    Retire excedentes
-                  </>
-                ) : controlCompleto ? (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Finalizar control
-                  </>
-                ) : (
-                  <>
-                    <InfoIcon className="mr-2 h-4 w-4" />
-                    Finalizar con faltantes
-                  </>
-                )}
-              </Button>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Volver
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Control #{controlData?.control?.id}</h1>
+              <p className="text-gray-500">
+                Pedido: {controlData?.pedido?.pedidoId} - Cliente: {controlData?.pedido?.clienteId}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Contenido principal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Columna de escaneo */}
-        <div className="md:col-span-1">
-          <Tabs value={tabActiva} onValueChange={setTabActiva} className="w-full">
-            <TabsList className="grid grid-cols-2 mb-4">
-              <TabsTrigger value="productos">Productos</TabsTrigger>
-              <TabsTrigger value="escanear">Escanear</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="productos" className="mt-0">
-              <ProductosEscaneadosLista 
-                productos={controlState.productosControlados}
-                title="Lista de productos"
-                description={`${productosCompletos}/${totalProductos} productos completos`}
-                emptyMessage="No hay productos para este pedido"
-                pedidoId={pedidoId}
-                isLoading={isLoadingControl}
-                onProductoUpdate={handleProductoUpdate}
-              />
-            </TabsContent>
-            
-            <TabsContent value="escanear" className="mt-0">
-              <ProductoEscanerSeguro
-                pedidoId={pedidoId}
-                onEscaneoSuccess={handleEscanearSuccess}
-                onEscaneoError={handleEscanearError}
-                disabled={isLoadingControl || finalizandoControl}
-              />
-              
-              {hayProductosSinEscanear && (
-                <Alert className="mt-4">
-                  <InfoIcon className="h-4 w-4" />
-                  <AlertTitle>Recordatorio</AlertTitle>
-                  <AlertDescription>
-                    Aún hay productos que no han sido escaneados.
-                  </AlertDescription>
-                </Alert>
+          
+          <div className="flex gap-2">
+            <Button 
+              variant={pausado ? "default" : "outline"}
+              onClick={handlePausarReanudar}
+              className={pausado ? "bg-green-600 hover:bg-green-700" : "border-orange-200 text-orange-700 hover:bg-orange-50"}
+              disabled={controlState.productosControlados.length === 0}
+            >
+              {pausado ? (
+                <>
+                  <PlayCircle className="h-4 w-4 mr-1" />
+                  Continuar control
+                </>
+              ) : (
+                <>
+                  <PauseCircle className="h-4 w-4 mr-1" />
+                  Pausar control
+                </>
               )}
-            </TabsContent>
-          </Tabs>
+            </Button>
+            
+            <Button 
+              variant={hayFaltantes ? "outline" : "default"}
+              className={hayFaltantes ? "border-red-200 text-red-700 hover:bg-red-50" : ""}
+              onClick={() => setShowFinalizarDialog(true)}
+              disabled={controlState.productosControlados.length === 0}
+            >
+              <PackageCheck className="h-4 w-4 mr-1" />
+              Finalizar control
+            </Button>
+          </div>
         </div>
         
-        {/* Columna de productos controlados */}
-        <div className="md:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <PackageCheck className="h-5 w-5 mr-2 text-primary" />
-                Estado del Control
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingControl ? (
-                <div className="flex items-center justify-center p-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : controlState.productosControlados.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Packages className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No hay productos para controlar en este pedido</p>
-                  <Button variant="outline" onClick={volverALista} className="mt-4">
-                    Volver a la lista
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Resumen de excedentes */}
-                  {hayExcedentes && (
-                    <Alert variant="destructive" className="mb-4">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Excedentes detectados</AlertTitle>
-                      <AlertDescription>
-                        Hay productos con cantidades excedentes. 
-                        Haga clic en cada producto con excedente para ajustar la cantidad.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  {/* Resumen de faltantes */}
-                  {hayFaltantes && !hayExcedentes && (
-                    <Alert className="mb-4 bg-yellow-50 border-yellow-200 text-yellow-800">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      <AlertTitle>Faltantes detectados</AlertTitle>
-                      <AlertDescription>
-                        Hay productos con cantidades faltantes. Puede finalizar el control 
-                        con faltantes o continuar escaneando los productos.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  {/* Resumen de completos */}
-                  {controlCompleto && !hayExcedentes && !hayFaltantes && (
-                    <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <AlertTitle>Control completo</AlertTitle>
-                      <AlertDescription>
-                        Todos los productos han sido controlados correctamente.
-                        Puede finalizar el control.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  <Separator className="my-4" />
-                  
-                  {/* Productos con excedentes */}
-                  {hayExcedentes && (
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3 flex items-center text-red-700">
-                        <AlertTriangle className="h-5 w-5 mr-2 text-red-600" />
-                        Productos con excedentes
-                      </h3>
-                      <div className="space-y-3">
-                        {controlState.productosControlados
-                          .filter(p => p.controlado > p.cantidad)
-                          .map(producto => (
+        {/* Contenido principal */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Panel izquierdo - Escaneo */}
+          <div className="lg:col-span-2">
+            <Tabs value={tabActiva} onValueChange={setTabActiva}>
+              <TabsList className="grid grid-cols-2 mb-4">
+                <TabsTrigger value="productos">
+                  <Packages className="h-4 w-4 mr-1" />
+                  Productos
+                </TabsTrigger>
+                <TabsTrigger value="escanear">
+                  <PackageCheck className="h-4 w-4 mr-1" />
+                  Escanear
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="productos" className="space-y-4">
+                <Card>
+                  <CardHeader className="py-4">
+                    <CardTitle className="text-xl flex items-center">
+                      <Packages className="h-5 w-5 mr-2" />
+                      Estado del control
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Mostrar cuando no hay productos aún */}
+                    {controlState.productosControlados.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 mb-4">No hay productos controlados aún</p>
+                        <Button 
+                          variant="secondary" 
+                          onClick={() => setTabActiva("escanear")}
+                        >
+                          Empezar a escanear
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Resumen de progreso */}
+                        <div className="flex flex-col space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">Progreso</span>
+                            <span className="text-sm text-gray-500">{porcentajeCompletado}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
                             <div 
-                              key={producto.codigo}
-                              className="p-3 border border-red-200 rounded-md bg-red-50 flex justify-between items-center hover:bg-red-100 cursor-pointer transition-colors"
-                              onClick={() => {
-                                // Si hay excedente, configurar el estado para el diálogo de retirada
-                                if (producto.controlado > producto.cantidad) {
-                                  handleProductoUpdate({
-                                    ...producto,
-                                    controlado: producto.cantidad,
-                                    estado: 'correcto'
-                                  });
-                                }
-                              }}
+                              className={`h-2.5 rounded-full ${
+                                porcentajeCompletado === 100 
+                                  ? "bg-green-600" 
+                                  : hayFaltantes 
+                                    ? "bg-yellow-400"
+                                    : "bg-blue-600"
+                              }`}
+                              style={{ width: `${porcentajeCompletado}%` }}
+                            ></div>
+                          </div>
+                          <div className="flex justify-between text-sm text-gray-500 mt-1">
+                            <span>{productosCompletos} de {totalProductos} productos completos</span>
+                            {hayFaltantes && (
+                              <span className="text-yellow-600 font-medium">{productosFaltantes} faltantes</span>
+                            )}
+                            {hayExcedentes && (
+                              <span className="text-red-600 font-medium">{productosExcedentes} excedentes</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <Separator />
+                        
+                        {/* Productos con excedentes */}
+                        {hayExcedentes && (
+                          <div className="mb-6">
+                            <h3 className="text-lg font-semibold mb-3 flex items-center text-red-700">
+                              <XCircle className="h-5 w-5 mr-2 text-red-600" />
+                              Productos con excedentes
+                            </h3>
+                            <div className="space-y-3">
+                              {controlState.productosControlados
+                                .filter(p => p.controlado > p.cantidad)
+                                .map(producto => (
+                                  <div 
+                                    key={producto.codigo}
+                                    className="p-3 border border-red-200 rounded-md bg-red-50 flex justify-between items-center hover:bg-red-100 cursor-pointer transition-colors"
+                                    onClick={() => {
+                                      // Si hay excedente, actualizamos el producto para igualarlo a la cantidad correcta
+                                      if (producto.controlado > producto.cantidad) {
+                                        handleProductoUpdate({
+                                          ...producto,
+                                          controlado: producto.cantidad,
+                                          estado: 'correcto'
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <div>
+                                      <div className="font-medium">{producto.codigo}</div>
+                                      <div className="text-sm text-gray-600">{producto.descripcion}</div>
+                                    </div>
+                                    <div className="text-red-700 font-bold text-lg">
+                                      {producto.controlado}/{producto.cantidad}
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Productos con faltantes */}
+                        {hayFaltantes && (
+                          <div className="mb-6">
+                            <h3 className="text-lg font-semibold mb-3 flex items-center text-yellow-700">
+                              <AlertTriangle className="h-5 w-5 mr-2 text-yellow-600" />
+                              Productos con faltantes
+                            </h3>
+                            <div className="space-y-3">
+                              {controlState.productosControlados
+                                .filter(p => p.controlado < p.cantidad)
+                                .map(producto => (
+                                  <div 
+                                    key={producto.codigo}
+                                    className="p-3 border border-yellow-200 rounded-md bg-yellow-50 flex justify-between items-center"
+                                  >
+                                    <div>
+                                      <div className="font-medium">{producto.codigo}</div>
+                                      <div className="text-sm text-gray-600">{producto.descripcion}</div>
+                                    </div>
+                                    <div className="text-yellow-700 font-bold text-lg">
+                                      {producto.controlado}/{producto.cantidad}
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Productos completos */}
+                        {productosCompletos > 0 && (
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 flex items-center text-green-700">
+                              <CheckCircle2 className="h-5 w-5 mr-2 text-green-600" />
+                              Productos completos
+                            </h3>
+                            <div className="space-y-3">
+                              {controlState.productosControlados
+                                .filter(p => p.controlado >= p.cantidad)
+                                .map(producto => (
+                                  <div 
+                                    key={producto.codigo}
+                                    className="p-3 border border-green-200 rounded-md bg-green-50 flex justify-between items-center"
+                                  >
+                                    <div>
+                                      <div className="font-medium">{producto.codigo}</div>
+                                      <div className="text-sm text-gray-600">{producto.descripcion}</div>
+                                    </div>
+                                    <div className="text-green-700 font-bold text-lg">
+                                      {producto.controlado}/{producto.cantidad}
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="escanear" className="space-y-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <ProductoEscanerSeguro 
+                      onEscaneo={async (codigo) => {
+                        try {
+                          const response = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ codigo }),
+                          });
+                          
+                          if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Error al escanear producto');
+                          }
+                          
+                          const data = await response.json();
+                          handleEscanearSuccess(data);
+                        } catch (error) {
+                          console.error('Error al escanear:', error);
+                          handleEscanearError(error);
+                        }
+                      }}
+                      allowOverflow={true}
+                      buttonText="Escanear producto"
+                      showEscanerAutomatico={true}
+                    />
+                    
+                    <div className="mt-6">
+                      <h3 className="font-medium mb-4">Productos escaneados</h3>
+                      <ProductosEscaneadosLista 
+                        productos={controlState.productosControlados}
+                        onProductoUpdate={handleProductoUpdate}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+          
+          {/* Panel derecho - Información del pedido */}
+          <div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xl">Información del pedido</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-1">
+                    <div className="text-sm font-medium">Código</div>
+                    <div className="text-sm">{controlData?.pedido?.pedidoId}</div>
+                    
+                    <div className="text-sm font-medium">Cliente</div>
+                    <div className="text-sm">{controlData?.pedido?.clienteId}</div>
+                    
+                    <div className="text-sm font-medium">Estado</div>
+                    <div className="text-sm capitalize">{controlData?.pedido?.estado}</div>
+                    
+                    <div className="text-sm font-medium">Productos</div>
+                    <div className="text-sm">{controlData?.pedido?.totalProductos}</div>
+                    
+                    <div className="text-sm font-medium">Armado por</div>
+                    <div className="text-sm">{controlData?.pedido?.armador?.firstName} {controlData?.pedido?.armador?.lastName}</div>
+                    
+                    <div className="text-sm font-medium">Vendedor</div>
+                    <div className="text-sm">{controlData?.pedido?.vendedor || '-'}</div>
+                    
+                    <div className="text-sm font-medium">Fecha</div>
+                    <div className="text-sm">{new Date(controlData?.pedido?.fecha).toLocaleDateString()}</div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="font-medium mb-2">Estado del control</h3>
+                    <div className="grid grid-cols-2 gap-1">
+                      <div className="text-sm font-medium">Control #</div>
+                      <div className="text-sm">{controlData?.control?.id}</div>
+                      
+                      <div className="text-sm font-medium">Iniciado</div>
+                      <div className="text-sm">
+                        {controlData?.control?.inicio 
+                          ? new Date(controlData.control.inicio).toLocaleString()
+                          : '-'
+                        }
+                      </div>
+                      
+                      <div className="text-sm font-medium">Tiempo activo</div>
+                      <div className="text-sm">
+                        {controlData?.tiempo || '-'}
+                      </div>
+                      
+                      <div className="text-sm font-medium">Estado</div>
+                      <div className="text-sm capitalize">
+                        {pausado ? (
+                          <span className="text-orange-600 font-medium">Pausado</span>
+                        ) : (
+                          <span className="text-green-600 font-medium">Activo</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {controlData?.pausas && controlData.pausas.length > 0 && (
+                    <>
+                      <Separator />
+                      
+                      <div>
+                        <h3 className="font-medium mb-2">Pausas realizadas</h3>
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                          {controlData.pausas.map((pausa: any, index: number) => (
+                            <div 
+                              key={index} 
+                              className="p-2 border rounded-md text-sm flex justify-between items-center"
                             >
                               <div>
-                                <div className="font-medium">{producto.codigo}</div>
-                                <div className="text-sm text-gray-600">{producto.descripcion}</div>
+                                <div>{pausa.motivo}</div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(pausa.inicio).toLocaleString()}
+                                  {pausa.fin && ` → ${new Date(pausa.fin).toLocaleString()}`}
+                                </div>
                               </div>
-                              <div className="text-red-700 font-bold text-lg">
-                                {producto.controlado}/{producto.cantidad}
+                              <div className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                pausa.fin 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {pausa.fin ? 'Completada' : 'Activa'}
                               </div>
                             </div>
                           ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* Productos con faltantes */}
-                  {hayFaltantes && (
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3 flex items-center text-yellow-700">
-                        <AlertTriangle className="h-5 w-5 mr-2 text-yellow-600" />
-                        Productos con faltantes
-                      </h3>
-                      <div className="space-y-3">
-                        {controlState.productosControlados
-                          .filter(p => p.controlado < p.cantidad)
-                          .map(producto => (
-                            <div 
-                              key={producto.codigo}
-                              className="p-3 border border-yellow-200 rounded-md bg-yellow-50 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-medium">{producto.codigo}</div>
-                                <div className="text-sm text-gray-600">{producto.descripcion}</div>
-                              </div>
-                              <div className="text-yellow-700 font-bold text-lg">
-                                {producto.controlado}/{producto.cantidad}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Productos completos */}
-                  {productosCompletos > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3 flex items-center text-green-700">
-                        <CheckCircle2 className="h-5 w-5 mr-2 text-green-600" />
-                        Productos completos
-                      </h3>
-                      <div className="space-y-3">
-                        {controlState.productosControlados
-                          .filter(p => p.controlado >= p.cantidad)
-                          .map(producto => (
-                            <div 
-                              key={producto.codigo}
-                              className="p-3 border border-green-200 rounded-md bg-green-50 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-medium">{producto.codigo}</div>
-                                <div className="text-sm text-gray-600">{producto.descripcion}</div>
-                              </div>
-                              <div className="text-green-700 font-bold text-lg">
-                                {producto.controlado}/{producto.cantidad}
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
+                    </>
                   )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
       
