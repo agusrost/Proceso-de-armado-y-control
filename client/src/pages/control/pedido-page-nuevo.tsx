@@ -864,6 +864,13 @@ export default function ControlPedidoPageNuevo() {
             <DialogTitle className="text-center text-2xl font-bold mb-2">¡Control Finalizado!</DialogTitle>
             <DialogDescription className="text-center mb-6">
               El control del pedido {controlData?.pedido?.pedidoId} se ha completado exitosamente.
+              {controlData?.pedido?.armador && (
+                <p className="mt-2 text-sm text-gray-600">
+                  Pedido armado por: {
+                    `${controlData.pedido.armador.firstName || ''} ${controlData.pedido.armador.lastName || ''} (${controlData.pedido.armador.username})`.trim()
+                  }
+                </p>
+              )}
             </DialogDescription>
             <Button 
               onClick={() => navigate('/control/historial')} 
