@@ -1272,6 +1272,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const detallesExistentes = await storage.getControlDetallesByProductoId(controlActivo.id, productoEncontrado.id);
       console.log(`Detalles existentes para ${productoEncontrado.codigo}:`, detallesExistentes.length);
       
+      // Verificar si hay algún registro de retiro de excedentes
+      const hayRetiroExcedentes = detallesExistentes.some(d => 
+        d.tipo === "retirada-excedente" || d.tipo === "excedente_retirado"
+      );
+      
       // Calcular cantidad ya controlada previamente
       const cantidadPrevia = detallesExistentes.reduce((total, d) => 
         total + (d.cantidadControlada || 0), 0
@@ -1279,10 +1284,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
       console.log(`Cantidad previa para ${productoEncontrado.codigo}: ${cantidadPrevia}`);
       
       // Crear un nuevo detalle de control con la nueva cantidad ADICIONAL
-      const cantidadNum = parseInt(cantidad.toString()) || 1;
+      let cantidadNum = parseInt(cantidad.toString()) || 1;
       
       // Calcular el total después de registrar este nuevo escaneo
-      const cantidadTotalNueva = cantidadPrevia + cantidadNum;
+      let cantidadTotalNueva = cantidadPrevia + cantidadNum;
       console.log(`NUEVA cantidad total para ${productoEncontrado.codigo}: ${cantidadTotalNueva}`);
       
       // Determinar el estado basado en la cantidad TOTAL
@@ -1290,7 +1295,24 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (cantidadTotalNueva < productoEncontrado.cantidad) {
         estado = "faltante";
       } else if (cantidadTotalNueva > productoEncontrado.cantidad) {
-        estado = "excedente";
+        // Si anteriormente se retiró excedente y vamos a superar la cantidad esperada,
+        // limitamos la cantidad para que sea exactamente la esperada
+        if (hayRetiroExcedentes) {
+          console.log(`⚠️ Se detectó un retiro de excedentes previo para ${productoEncontrado.codigo}. Limitando cantidad.`);
+          const cantidadAjustada = Math.max(0, productoEncontrado.cantidad - cantidadPrevia);
+          if (cantidadAjustada <= 0) {
+            return res.status(400).json({
+              message: `Ya se ha completado la cantidad requerida para ${productoEncontrado.codigo}`,
+              tipo: "excedente_ya_completo"
+            });
+          }
+          // Ajustar la cantidad a escanear
+          cantidadNum = cantidadAjustada;
+          cantidadTotalNueva = cantidadPrevia + cantidadNum;
+          estado = "correcto";
+        } else {
+          estado = "excedente";
+        }
       }
       
       const detalleControl = {
