@@ -110,6 +110,16 @@ export default function ControlPedidoPageNuevo() {
   const [tabActiva, setTabActiva] = useState("productos");
   const [pausando, setPausando] = useState(false);
   const [pausado, setPausado] = useState(false);
+  const [motivoPausa, setMotivoPausa] = useState("");
+  const [showPausaDialog, setShowPausaDialog] = useState(false);
+  
+  // Opciones de motivos de pausa (igual que en la interfaz de armado)
+  const motivosPausa = [
+    "Motivos sanitarios",
+    "Almuerzo",
+    "Fin de turno",
+    "Otro: especificar"
+  ];
 
   // Obtener información de control activo para este pedido
   const { 
@@ -161,17 +171,20 @@ export default function ControlPedidoPageNuevo() {
 
   // Mutación para pausar/reanudar control
   const pausarControlMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (motivoSeleccionado?: string) => {
       setPausando(true);
       const endpoint = pausado 
         ? `/api/control/pedidos/${pedidoId}/reanudar` 
         : `/api/control/pedidos/${pedidoId}/pausar`;
+      
+      const body = pausado ? {} : { motivo: motivoSeleccionado };
         
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(body)
       });
       
       if (!response.ok) {
@@ -184,6 +197,8 @@ export default function ControlPedidoPageNuevo() {
     onSuccess: (data) => {
       // Actualizar estado local
       setPausado(!pausado);
+      setShowPausaDialog(false);
+      setMotivoPausa("");
       
       // Mostrar confirmación
       toast({
@@ -212,7 +227,26 @@ export default function ControlPedidoPageNuevo() {
 
   // Manejar pausar/reanudar control
   const handlePausarReanudar = () => {
-    pausarControlMutation.mutate();
+    if (pausado) {
+      // Si está pausado, solo reanudar (no necesita motivo)
+      pausarControlMutation.mutate(undefined);
+    } else {
+      // Si está activo, mostrar diálogo para seleccionar motivo de pausa
+      setShowPausaDialog(true);
+    }
+  };
+  
+  // Confirmar pausa con motivo seleccionado
+  const confirmarPausa = () => {
+    if (motivoPausa) {
+      pausarControlMutation.mutate(motivoPausa);
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Debe seleccionar un motivo para pausar el control',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Manejar mutación para finalizar control
@@ -885,6 +919,62 @@ export default function ControlPedidoPageNuevo() {
             >
               Volver al Historial
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Diálogo de selección de motivo de pausa */}
+      <Dialog open={showPausaDialog} onOpenChange={setShowPausaDialog}>
+        <DialogContent className="sm:max-w-md">
+          <div className="flex flex-col items-start py-4">
+            <DialogTitle className="flex items-center text-xl mb-2">
+              <PauseCircle className="mr-2 h-6 w-6 text-orange-500" />
+              Pausar control
+            </DialogTitle>
+            <DialogDescription className="mb-4">
+              Seleccione el motivo por el cual desea pausar el control del pedido {controlData?.pedido?.pedidoId}.
+            </DialogDescription>
+            
+            <div className="w-full space-y-4 mb-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Motivo de pausa:</label>
+                <Select value={motivoPausa} onValueChange={setMotivoPausa}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Seleccione un motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {motivosPausa.map(motivo => (
+                      <SelectItem key={motivo} value={motivo}>
+                        {motivo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 w-full">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowPausaDialog(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="default" 
+                onClick={confirmarPausa}
+                disabled={!motivoPausa || pausando}
+              >
+                {pausando ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Pausando...
+                  </>
+                ) : (
+                  "Confirmar pausa"
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
