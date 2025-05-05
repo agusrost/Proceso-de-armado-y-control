@@ -109,6 +109,44 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para actualizar estados de pedidos automáticamente
+  app.post("/api/pedidos/actualizar-estados", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Iniciando actualización automática de estados de pedidos");
+      let actualizados = 0;
+      
+      // Obtener todos los pedidos
+      const pedidos = await storage.getPedidos({});
+      
+      for (const pedido of pedidos) {
+        // Lógica de actualización según el estado actual
+        if (pedido.estado === 'pendiente') {
+          // Los pendientes permanecen igual - solo los usuarios pueden cambiar este estado
+        } 
+        else if (pedido.estado === 'pre-finalizado') {
+          // Verificar si todos los productos están recolectados
+          const productos = await storage.getProductosByPedidoId(pedido.id);
+          const todoRecolectado = productos.every(p => p.recolectado === p.cantidad);
+          
+          if (todoRecolectado) {
+            await storage.updatePedido(pedido.id, { estado: 'armado' });
+            actualizados++;
+          }
+        }
+        // Otros estados se manejan manualmente o por otros endpoints
+      }
+      
+      res.json({ 
+        success: true, 
+        mensaje: `Se actualizaron ${actualizados} pedidos automáticamente.`,
+        actualizados 
+      });
+    } catch (error) {
+      console.error("Error al actualizar estados de pedidos:", error);
+      next(error);
+    }
+  });
+  
   // Crear un nuevo pedido
   app.post("/api/pedidos", requireAuth, async (req, res, next) => {
     try {
@@ -2825,6 +2863,71 @@ export async function registerRoutes(app: Application): Promise<Server> {
       res.json(productoActualizado);
     } catch (error) {
       console.error(`Error al actualizar producto ID ${req.params.id}:`, error);
+      next(error);
+    }
+  });
+
+  // Ruta para obtener todos los usuarios de tipo armador
+  app.get("/api/users/armadores", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Obteniendo lista de usuarios con rol de armador");
+      const armadores = await storage.getUsersByRole('armador');
+      
+      if (!armadores) {
+        return res.json([]);
+      }
+      
+      // Filtrar información sensible
+      const armadoresSeguros = armadores.map(armador => ({
+        id: armador.id,
+        username: armador.username,
+        firstName: armador.firstName,
+        lastName: armador.lastName,
+        role: armador.role
+      }));
+      
+      console.log(`Se encontraron ${armadoresSeguros.length} usuarios con rol de armador`);
+      res.json(armadoresSeguros);
+    } catch (error) {
+      console.error("Error al obtener usuarios con rol de armador:", error);
+      next(error);
+    }
+  });
+  
+  // Endpoint para actualizar estados de pedidos automáticamente
+  app.post("/api/pedidos/actualizar-estados", requireAuth, async (req, res, next) => {
+    try {
+      console.log("Iniciando actualización automática de estados de pedidos");
+      let actualizados = 0;
+      
+      // Obtener todos los pedidos
+      const pedidos = await storage.getPedidos({});
+      
+      for (const pedido of pedidos) {
+        // Lógica de actualización según el estado actual
+        if (pedido.estado === 'pendiente') {
+          // Los pendientes permanecen igual - solo los usuarios pueden cambiar este estado
+        } 
+        else if (pedido.estado === 'pre-finalizado') {
+          // Verificar si todos los productos están recolectados
+          const productos = await storage.getProductosByPedidoId(pedido.id);
+          const todoRecolectado = productos.every(p => p.recolectado === p.cantidad);
+          
+          if (todoRecolectado) {
+            await storage.updatePedido(pedido.id, { estado: 'armado' });
+            actualizados++;
+          }
+        }
+        // Otros estados se manejan manualmente o por otros endpoints
+      }
+      
+      res.json({ 
+        success: true, 
+        mensaje: `Se actualizaron ${actualizados} pedidos automáticamente.`,
+        actualizados 
+      });
+    } catch (error) {
+      console.error("Error al actualizar estados de pedidos:", error);
       next(error);
     }
   });
