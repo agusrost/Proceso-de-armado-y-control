@@ -466,14 +466,40 @@ export default function ArmadoPage() {
               console.log(`Continuando desde el último producto procesado (index: ${ultimoProductoIndex})`);
               setCurrentProductoIndex(ultimoProductoIndex);
               
-              // Si el producto actual ya está completamente procesado, pasar al siguiente
+              // Verificar el estado del último producto procesado
               const ultimoProducto = data[ultimoProductoIndex];
+              console.log(`Revisando último producto procesado:`, {
+                id: ultimoProducto.id,
+                codigo: ultimoProducto.codigo,
+                cantidad: ultimoProducto.cantidad,
+                recolectado: ultimoProducto.recolectado
+              });
+              
+              // Si el producto actual ya está completamente procesado, pasar al siguiente
               if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado === ultimoProducto.cantidad) {
                 // Movernos al siguiente producto si existe
                 if (ultimoProductoIndex < data.length - 1) {
                   console.log(`Último producto ya completado, avanzando al siguiente (index: ${ultimoProductoIndex + 1})`);
                   setCurrentProductoIndex(ultimoProductoIndex + 1);
                 }
+              } 
+              // Si ya se recolectaron algunas unidades pero no todas, actualizar la UI para mostrar las restantes
+              else if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado > 0) {
+                console.log(`Producto parcialmente procesado, ya se recolectaron ${ultimoProducto.recolectado} de ${ultimoProducto.cantidad} unidades`);
+                
+                // Calcular unidades pendientes
+                const pendientes = ultimoProducto.cantidad - ultimoProducto.recolectado;
+                
+                // Actualizamos el producto actual para mostrar las unidades restantes
+                setProductoActual({
+                  ...ultimoProducto,
+                  pendientesMostrados: pendientes
+                });
+                
+                // También establecemos el valor predeterminado del campo recolectados
+                setRecolectados(pendientes);
+                
+                console.log(`Actualizando UI para mostrar ${pendientes} unidades pendientes de recolectar`);
               }
             } else {
               console.warn(`No se encontró el último producto ID ${currentPedido.ultimoProductoId} en la lista de productos`);
@@ -731,7 +757,14 @@ export default function ArmadoPage() {
         
         <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
           <h2 className="text-xl font-semibold mb-3">Código SKU: {producto.codigo}</h2>
-          <p className="text-lg mb-3">Cantidad: {producto.cantidad}</p>
+          <p className="text-lg mb-3">
+            Cantidad: {producto.pendientesMostrados || producto.cantidad}
+            {producto.pendientesMostrados && producto.pendientesMostrados !== producto.cantidad && (
+              <span className="text-sm text-gray-500 ml-2">
+                (de {producto.cantidad} total)
+              </span>
+            )}
+          </p>
           <p className="text-lg mb-3">Ubicación: {producto.ubicacion || 'Sin ubicación'}</p>
           <p className="text-lg mb-5">Descripción: {producto.descripcion || 'Sin descripción'}</p>
           
