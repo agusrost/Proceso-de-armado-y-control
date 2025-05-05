@@ -274,12 +274,14 @@ export default function ControlPedidoPageNuevo() {
 
   // Manejar actualización de producto cuando se retira excedente
   const handleProductoUpdate = (productoActualizado: ProductoControlado) => {
-    // Actualizar el estado local
+    // Actualizar el estado local con el producto actualizado
+    const nuevosProductos = controlState.productosControlados.map(p => 
+      p.codigo === productoActualizado.codigo ? productoActualizado : p
+    );
+    
     setControlState(prevState => ({
       ...prevState,
-      productosControlados: prevState.productosControlados.map(p => 
-        p.codigo === productoActualizado.codigo ? productoActualizado : p
-      )
+      productosControlados: nuevosProductos
     }));
     
     // Refrescar datos del control
@@ -290,6 +292,23 @@ export default function ControlPedidoPageNuevo() {
       title: 'Producto actualizado',
       description: `Se ajustó la cantidad de ${productoActualizado.codigo} a ${productoActualizado.controlado}/${productoActualizado.cantidad}`,
     });
+    
+    // Verificar si todos los productos tienen las cantidades correctas
+    const todosProductosCorrectos = nuevosProductos.every(p => p.controlado === p.cantidad);
+    
+    // Si todos están correctos, finalizar automáticamente el control
+    if (todosProductosCorrectos && nuevosProductos.length > 0) {
+      // Pequeña demora para que el usuario vea la notificación de producto actualizado
+      setTimeout(() => {
+        toast({
+          title: 'Control completado',
+          description: 'Todas las cantidades son correctas. Finalizando automáticamente...',
+        });
+        
+        // Iniciar el proceso de finalización
+        finalizarControlMutation.mutate();
+      }, 1000);
+    }
   };
 
   // Manejar finalización de control
