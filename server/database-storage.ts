@@ -728,11 +728,40 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Métodos de eliminación
+  async deleteControlHistorico(id: number): Promise<boolean> {
+    try {
+      console.log(`Eliminando control histórico con ID ${id}`);
+      await db
+        .delete(controlHistorico)
+        .where(eq(controlHistorico.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar control histórico:', error);
+      return false;
+    }
+  }
+
   async deletePedido(id: number): Promise<boolean> {
     try {
+      // Primero eliminamos todos los registros de la tabla de control histórico
+      console.log(`Eliminando todos los registros relacionados con el pedido ID ${id}`);
+      
+      // Registros de control histórico
+      await db
+        .delete(controlHistorico)
+        .where(eq(controlHistorico.pedidoId, id));
+      
+      // Registros de solicitudes de stock
+      await db
+        .delete(stockSolicitudes)
+        .where(eq(stockSolicitudes.pedidoId, id));
+      
+      // Finalmente eliminamos el pedido
+      console.log(`Eliminando el pedido ID ${id}`);
       await db
         .delete(pedidos)
         .where(eq(pedidos.id, id));
+      
       return true;
     } catch (error) {
       console.error('Error al eliminar pedido:', error);

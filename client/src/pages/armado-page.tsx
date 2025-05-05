@@ -397,7 +397,16 @@ export default function ArmadoPage() {
         setProductos([]);
         setMostrarAlertaFinal(false);
         setCurrentProductoIndex(0);
-      }, 500);
+        
+        // Consultar siguiente pedido pendiente para mostrar automáticamente
+        queryClient.refetchQueries({ queryKey: ["/api/pedido-para-armador"] })
+          .then(() => {
+            console.log("Se ha consultado el siguiente pedido pendiente tras finalizar armado");
+          })
+          .catch(err => {
+            console.error("Error al consultar siguiente pedido:", err);
+          });
+      }, 1000);
     },
     onError: (error: Error) => {
       toast({
