@@ -258,6 +258,11 @@ export default function ArmadoPage() {
         title: "Pedido finalizado",
         description: "Has finalizado el armado del pedido correctamente",
       });
+      
+      // Redirección automática a la página de armador después de finalizar
+      setTimeout(() => {
+        window.location.href = "/armador";
+      }, 1500); // Esperamos 1.5 segundos para que el usuario vea el mensaje de éxito
     },
     onError: (error: Error) => {
       toast({
