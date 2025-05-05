@@ -595,8 +595,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             }
             
             // Obtener pausas activas
-            const pausasActivas = await storage.getPausasByPedidoId(pedido.id, true)
-              .then(pausas => pausas.filter(p => p.fin === null));
+            const pausasActivas = await storage.getPausasActivasByPedidoId(pedido.id, true);
             
             return {
               ...pedido,
@@ -1045,8 +1044,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Verificar si ya existe una pausa activa
-      const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
-        .then(pausas => pausas.filter(p => p.fin === null));
+      const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
       
       if (pausasActivas.length > 0) {
         return res.status(400).json({
@@ -1553,8 +1551,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
           console.log(`🎉 INICIANDO FINALIZACIÓN AUTOMÁTICA DEL CONTROL para pedido ${pedidoId} después de retirar excedentes - Todos los productos están correctamente controlados`);
           
           // Finalizar pausas activas si existen
-          const pausasActivas = await storage.getPausasByPedidoId(pedidoId, true)
-            .then(pausas => pausas.filter(p => p.fin === null));
+          const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
           
           for (const pausa of pausasActivas) {
             console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control automáticamente después de retirar excedentes`);
