@@ -1146,11 +1146,28 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const duracionMs = ahora.getTime() - inicio.getTime();
       const duracionSegundos = Math.floor(duracionMs / 1000);
       
+      // Convertir segundos a formato de duración HH:MM:SS
+      const horas = Math.floor(duracionSegundos / 3600);
+      const minutos = Math.floor((duracionSegundos % 3600) / 60);
+      const segundos = duracionSegundos % 60;
+      const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+      
+      console.log(`Calculada duración de pausa: ${duracionFormateada} (${duracionSegundos} segundos)`);
+      
       // Si es pausa por fin de turno, registramos la fecha actual como fin de pausa
-      const pausaActualizada = await storage.updatePausa(pausaActiva.id, {
-        fin: ahora,
-        duracion: duracionSegundos
-      });
+      console.log(`Finalizando pausa ${pausaActiva.id} con SQL directo, esPausaFinTurno: ${esPausaFinTurno}`);
+      
+      // Usar SQL directo para asegurar consistencia con otros endpoints
+      await db.execute(sql`
+        UPDATE pausas
+        SET fin = NOW(), duracion = ${duracionFormateada}
+        WHERE id = ${pausaActiva.id}
+      `);
+      
+      console.log(`Pausa ${pausaActiva.id} finalizada correctamente`);
+      
+      // Obtener la pausa actualizada
+      const pausaActualizada = await storage.getPausaById(pausaActiva.id);
       
       return res.status(200).json({
         success: true,
@@ -1203,10 +1220,27 @@ export async function registerRoutes(app: Application): Promise<Server> {
         const duracionMs = ahora.getTime() - inicio.getTime();
         const duracionSegundos = Math.floor(duracionMs / 1000);
         
-        await storage.updatePausa(pausa.id, {
-          fin: ahora,
-          duracion: duracionSegundos
-        });
+        // Convertir segundos a formato de duración HH:MM:SS
+        const horas = Math.floor(duracionSegundos / 3600);
+        const minutos = Math.floor((duracionSegundos % 3600) / 60);
+        const segundos = duracionSegundos % 60;
+        const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+        
+        // Verificar si la pausa fue por "fin de turno"
+        const esPausaFinTurno = pausa.motivo === "fin de turno" || 
+                              pausa.motivo === "Fin de turno" || 
+                              pausa.motivo === "FIN DE TURNO";
+                              
+        console.log(`Finalizando pausa con motivo: "${pausa.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
+        
+        // Usar SQL directo para finalizar la pausa
+        await db.execute(sql`
+          UPDATE pausas
+          SET fin = NOW(), duracion = ${duracionFormateada}
+          WHERE id = ${pausa.id}
+        `);
+        
+        console.log(`Pausa ${pausa.id} finalizada correctamente`);
       }
       
       // Establecer fecha de fin para el control
@@ -1432,10 +1466,27 @@ export async function registerRoutes(app: Application): Promise<Server> {
             const duracionMs = ahora.getTime() - inicio.getTime();
             const duracionSegundos = Math.floor(duracionMs / 1000);
             
-            await storage.updatePausa(pausa.id, {
-              fin: ahora,
-              duracion: duracionSegundos
-            });
+            // Convertir segundos a formato de duración HH:MM:SS
+            const horas = Math.floor(duracionSegundos / 3600);
+            const minutos = Math.floor((duracionSegundos % 3600) / 60);
+            const segundos = duracionSegundos % 60;
+            const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+            
+            // Verificar si la pausa fue por "fin de turno"
+            const esPausaFinTurno = pausa.motivo === "fin de turno" || 
+                                  pausa.motivo === "Fin de turno" || 
+                                  pausa.motivo === "FIN DE TURNO";
+                                  
+            console.log(`Finalizando pausa con motivo: "${pausa.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
+            
+            // Usar SQL directo para finalizar la pausa
+            await db.execute(sql`
+              UPDATE pausas
+              SET fin = NOW(), duracion = ${duracionFormateada}
+              WHERE id = ${pausa.id}
+            `);
+            
+            console.log(`Pausa ${pausa.id} finalizada correctamente`);
           }
           
           // Establecer fecha de fin para el control
@@ -1613,10 +1664,27 @@ export async function registerRoutes(app: Application): Promise<Server> {
             const duracionMs = ahora.getTime() - inicio.getTime();
             const duracionSegundos = Math.floor(duracionMs / 1000);
             
-            await storage.updatePausa(pausa.id, {
-              fin: ahora,
-              duracion: duracionSegundos
-            });
+            // Convertir segundos a formato de duración HH:MM:SS
+            const horas = Math.floor(duracionSegundos / 3600);
+            const minutos = Math.floor((duracionSegundos % 3600) / 60);
+            const segundos = duracionSegundos % 60;
+            const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+            
+            // Verificar si la pausa fue por "fin de turno"
+            const esPausaFinTurno = pausa.motivo === "fin de turno" || 
+                                  pausa.motivo === "Fin de turno" || 
+                                  pausa.motivo === "FIN DE TURNO";
+                                  
+            console.log(`Finalizando pausa con motivo: "${pausa.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
+            
+            // Usar SQL directo para finalizar la pausa
+            await db.execute(sql`
+              UPDATE pausas
+              SET fin = NOW(), duracion = ${duracionFormateada}
+              WHERE id = ${pausa.id}
+            `);
+            
+            console.log(`Pausa ${pausa.id} finalizada correctamente`);
           }
           
           // Establecer fecha de fin para el control
