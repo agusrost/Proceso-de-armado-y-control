@@ -152,6 +152,62 @@ export default function ControlPedidoPageNuevo() {
   // Estado para diálogo de finalización exitosa
   const [showExitoDialog, setShowExitoDialog] = useState(false);
 
+  // Mutación para pausar/reanudar control
+  const pausarControlMutation = useMutation({
+    mutationFn: async () => {
+      setPausando(true);
+      const endpoint = pausado 
+        ? `/api/control/pedidos/${pedidoId}/reanudar` 
+        : `/api/control/pedidos/${pedidoId}/pausar`;
+        
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error al ${pausado ? 'reanudar' : 'pausar'} el control`);
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Actualizar estado local
+      setPausado(!pausado);
+      
+      // Mostrar confirmación
+      toast({
+        title: pausado ? 'Control reanudado' : 'Control pausado',
+        description: pausado 
+          ? 'El tiempo de control está corriendo nuevamente.' 
+          : 'El tiempo de control ha sido pausado.',
+      });
+      
+      // Invalidar queries relacionadas
+      queryClient.invalidateQueries({
+        queryKey: [`/api/control/pedidos/${pedidoId}/activo`],
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || `No se pudo ${pausado ? 'reanudar' : 'pausar'} el control`,
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setPausando(false);
+    }
+  });
+
+  // Manejar pausar/reanudar control
+  const handlePausarReanudar = () => {
+    pausarControlMutation.mutate();
+  };
+
   // Manejar mutación para finalizar control
   const finalizarControlMutation = useMutation({
     mutationFn: async () => {
@@ -416,6 +472,35 @@ export default function ControlPedidoPageNuevo() {
             className="flex-shrink-0"
             >
             <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+          </Button>
+          
+          {/* Botón de pausar/reanudar control */}
+          <Button 
+            variant="outline"
+            onClick={handlePausarReanudar}
+            disabled={isLoadingControl || finalizandoControl || pausando || controlState.productosControlados.length === 0}
+            className={`flex-shrink-0 ${pausado ? 'border-green-500 hover:bg-green-50' : 'border-orange-500 hover:bg-orange-50'}`}
+          >
+            {pausando ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {pausado ? "Reanudando..." : "Pausando..."}
+              </>
+            ) : (
+              <>
+                {pausado ? (
+                  <>
+                    <PlayCircle className="mr-2 h-4 w-4 text-green-600" />
+                    Reanudar control
+                  </>
+                ) : (
+                  <>
+                    <PauseCircle className="mr-2 h-4 w-4 text-orange-600" />
+                    Pausar control
+                  </>
+                )}
+              </>
+            )}
           </Button>
           
           <Button 
