@@ -94,9 +94,9 @@ export function ControlProductoItem({
             
             {hasExcess && (
               <div className="mt-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-sm">
-                Retirar {producto.controlado - producto.cantidad} unidad(es)
+                <span className="font-medium">¡EXCEDENTE!</span> Retirar {producto.controlado - producto.cantidad} unidad(es)
                 {clickable && (
-                  <span className="block font-medium">Click para confirmar retiro</span>
+                  <span className="block font-medium mt-1">Click aquí para confirmar retiro</span>
                 )}
               </div>
             )}
@@ -111,9 +111,15 @@ export function ControlProductoItem({
           <div className="flex flex-col items-end space-y-1">
             <div className="flex items-center">
               {icon}
-              <span className={`ml-1 font-bold text-lg ${textColor}`}>
-                {producto.controlado}/{producto.cantidad}
-              </span>
+              {hasExcess ? (
+                <span className={`ml-1 font-bold text-lg ${textColor}`}>
+                  <span className="text-sm mr-1">Excedente:</span> +{producto.controlado - producto.cantidad}
+                </span>
+              ) : (
+                <span className={`ml-1 font-bold text-lg ${textColor}`}>
+                  {producto.controlado}/{producto.cantidad}
+                </span>
+              )}
             </div>
           </div>
         </div>
