@@ -435,8 +435,74 @@ export class DatabaseStorage implements IStorage {
         return null;
       };
       
+      // Función auxiliar para buscar pedidos pausados
+      const buscarPedidosPausados = async (armadorId: number) => {
+        console.log(`Buscando pedidos pausados para el armador ${armadorId}`);
+        
+        // Consulta para encontrar pedidos con pausas activas asignados a este armador
+        const query = `
+          SELECT 
+            p.id, p.pedido_id, p.cliente_id, p.fecha, p.items, p.total_productos, 
+            p.vendedor, p.estado, p.puntaje, p.armador_id, p.tiempo_bruto, 
+            p.tiempo_neto, p.numero_pausas, 
+            to_char(p.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+            to_char(p.finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+            p.raw_text, p.controlado_id, 
+            to_char(p.control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+            to_char(p.control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+            p.control_comentario, p.control_tiempo,
+            -- Información del armador
+            u.id as armador_user_id,
+            u.username as armador_username,
+            u.first_name as armador_first_name,
+            u.last_name as armador_last_name,
+            u.role as armador_role,
+            -- Información de la pausa
+            pa.id as pausa_id,
+            pa.motivo as pausa_motivo,
+            to_char(pa.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as pausa_inicio
+          FROM pedidos p
+          LEFT JOIN users u ON p.armador_id = u.id
+          JOIN pausas pa ON p.id = pa.pedido_id
+          WHERE p.armador_id = $1 
+            AND pa.fin IS NULL 
+            AND pa.tipo = 'armado'
+            AND (p.estado = 'en-proceso' OR p.estado = 'armado-pendiente-stock')
+          ORDER BY p.fecha ASC
+          LIMIT 1
+        `;
+        
+        console.log("Ejecutando consulta para pedidos pausados:", query);
+        
+        const result = await pool.query(query, [armadorId]);
+        
+        if (result.rows.length > 0) {
+          console.log(`Encontrado pedido pausado: ${result.rows[0].pedido_id} (Estado: ${result.rows[0].estado})`);
+          const pedido = this.convertPedidoRowToCamelCase(result.rows[0]);
+          
+          // Añadir información de la pausa al objeto pedido
+          pedido['pausaActiva'] = {
+            id: result.rows[0].pausa_id,
+            motivo: result.rows[0].pausa_motivo,
+            inicio: result.rows[0].pausa_inicio
+          };
+          
+          return pedido;
+        }
+        
+        console.log("No se encontraron pedidos pausados para este armador");
+        return null;
+      };
+      
       if (armadorId) {
-        // Primero buscamos pedidos en proceso asignados a este armador
+        // NUEVO: Primero buscamos pedidos pausados (armado-pendiente-stock o en-proceso) para este armador
+        const pedidoPausado = await buscarPedidosPausados(armadorId);
+        if (pedidoPausado) {
+          console.log(`Encontrado pedido pausado para armador ${armadorId}: ${pedidoPausado.pedidoId} (Estado: ${pedidoPausado.estado})`);
+          return pedidoPausado as Pedido;
+        }
+        
+        // Buscamos pedidos en proceso asignados a este armador
         const pedidoEnProceso = await executeQuery(
           'en-proceso', 
           'AND armador_id = $2', 
@@ -448,8 +514,19 @@ export class DatabaseStorage implements IStorage {
           return pedidoEnProceso as Pedido;
         }
         
-        // Nuevo: Buscamos pedidos en proceso sin armador asignado
-        // Este es el caso del pedido P0312 que está en-proceso pero sin armador
+        // Buscamos pedidos específicamente en estado armado-pendiente-stock para este armador
+        const pedidoPendienteStock = await executeQuery(
+          'armado-pendiente-stock', 
+          'AND armador_id = $2', 
+          ['armado-pendiente-stock', armadorId]
+        );
+        
+        if (pedidoPendienteStock) {
+          console.log(`Encontrado pedido en estado pendiente-stock para armador ${armadorId}: ${pedidoPendienteStock.pedidoId}`);
+          return pedidoPendienteStock as Pedido;
+        }
+        
+        // Buscamos pedidos en proceso sin armador asignado
         console.log("Buscando pedidos en-proceso sin armador asignado (caso especial)");
         
         const pedidoEnProcesoSinAsignar = await executeQuery(
