@@ -464,7 +464,6 @@ export default function ArmadoPage() {
             
             if (ultimoProductoIndex !== -1) {
               console.log(`Continuando desde el último producto procesado (index: ${ultimoProductoIndex})`);
-              setCurrentProductoIndex(ultimoProductoIndex);
               
               // Verificar el estado del último producto procesado
               const ultimoProducto = data[ultimoProductoIndex];
@@ -475,12 +474,21 @@ export default function ArmadoPage() {
                 recolectado: ultimoProducto.recolectado
               });
               
-              // Si el producto ya fue recolectado (total o parcialmente), movernos al siguiente
+              // Si el producto ya fue recolectado de alguna manera (tiene recolectado != null),
+              // avanzamos al siguiente producto
               if (ultimoProducto.recolectado !== null) {
                 // Movernos al siguiente producto si existe
                 if (ultimoProductoIndex < data.length - 1) {
                   console.log(`Producto ya procesado, avanzando al siguiente (index: ${ultimoProductoIndex + 1})`);
-                  setCurrentProductoIndex(ultimoProductoIndex + 1);
+                  const siguienteIndice = ultimoProductoIndex + 1;
+                  setCurrentProductoIndex(siguienteIndice);
+                  
+                  // Establecer la cantidad del siguiente producto para recolectar
+                  const siguienteProducto = data[siguienteIndice];
+                  if (siguienteProducto) {
+                    console.log(`Estableciendo cantidad a recolectar del siguiente producto (${siguienteProducto.codigo}): ${siguienteProducto.cantidad}`);
+                    setRecolectados(siguienteProducto.cantidad);
+                  }
                 }
               } 
               // Si el producto no ha sido procesado aún, quedarse en él
@@ -610,15 +618,10 @@ export default function ArmadoPage() {
                   cantidad: ultimoProducto.cantidad
                 });
                 
-                // Si ya se recolectaron algunas unidades pero no todas, completar el producto y mover al siguiente
-                if (ultimoProducto.recolectado !== null && 
-                    ultimoProducto.recolectado > 0 && 
-                    ultimoProducto.recolectado < ultimoProducto.cantidad) {
-                  console.log(`Producto parcialmente procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad}), completando y moviéndonos al siguiente`);
-                  
-                  // Actualizar el producto para marcarlo como completamente recolectado
-                  const pendientes = ultimoProducto.cantidad - ultimoProducto.recolectado;
-                  console.log(`Completando automáticamente ${pendientes} unidades pendientes`);
+                // Si el producto ya fue procesado de alguna manera (tiene recolectado != null),
+                // avanzamos al siguiente producto
+                if (ultimoProducto.recolectado !== null) {
+                  console.log(`Producto ya procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad}), moviéndonos al siguiente`);
                   
                   // Buscar el siguiente producto
                   const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
