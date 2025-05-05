@@ -110,12 +110,11 @@ export function RetirarExcedenteDialogNuevo({
                   El producto <span className="font-semibold">{producto.codigo}</span> tiene un 
                   excedente de <span className="font-semibold text-red-500">{excedente} unidad(es)</span>.
                 </p>
-                <p>
-                  La cantidad contabilizada es <span className="font-semibold">{producto.controlado}</span> unidades,
-                  pero la cantidad requerida es <span className="font-semibold">{producto.cantidad}</span> unidades.
+                <p className="mt-2 font-medium">
+                  ¿Confirma que ha retirado {excedente} unidad(es) del producto?
                 </p>
-                <p>
-                  ¿Desea retirar el excedente y ajustar la cantidad a la requerida?
+                <p className="text-sm text-gray-600 mt-1">
+                  Al confirmar, la cantidad se ajustará de {producto.controlado} a {producto.cantidad} unidades.
                 </p>
                 <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 mt-3">
                   <p className="text-yellow-800 text-sm flex items-start">

@@ -94,9 +94,9 @@ export function ControlProductoItem({
             
             {hasExcess && (
               <div className="mt-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-sm">
-                Excedente: {producto.controlado - producto.cantidad} unidad(es)
+                Retirar {producto.controlado - producto.cantidad} unidad(es)
                 {clickable && (
-                  <span className="block font-medium">Click para retirar excedente</span>
+                  <span className="block font-medium">Click para confirmar retiro</span>
                 )}
               </div>
             )}
