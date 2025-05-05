@@ -35,13 +35,13 @@ function requireAccess(access: string) {
   };
 }
 
-// Función para requerir ser admin-plus
+// Función para requerir ser admin (admin-plus o admin-gral)
 function requireAdminPlus(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Debe iniciar sesión para acceder a esta funcionalidad" });
   }
   
-  if (req.user?.role !== 'admin-plus') {
+  if (req.user?.role !== 'admin-plus' && req.user?.role !== 'admin-gral') {
     return res.status(403).json({ message: "Esta funcionalidad es solo para administradores" });
   }
   
