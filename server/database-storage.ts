@@ -96,19 +96,28 @@ export class DatabaseStorage implements IStorage {
   async getPedidoById(id: number): Promise<Pedido | undefined> {
     try {
       // Utilizamos sql directo para obtener los campos de timestamp como strings
+      // Incluimos un LEFT JOIN para obtener información del armador si existe
       const result = await db.execute(sql`
         SELECT 
-          id, pedido_id, cliente_id, fecha, items, total_productos, 
-          vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-          tiempo_neto, numero_pausas, 
-          to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-          to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-          raw_text, controlado_id, 
-          to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-          to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-          control_comentario, control_tiempo 
-        FROM pedidos
-        WHERE id = ${id}
+          p.id, p.pedido_id, p.cliente_id, p.fecha, p.items, p.total_productos, 
+          p.vendedor, p.estado, p.puntaje, p.armador_id, p.tiempo_bruto, 
+          p.tiempo_neto, p.numero_pausas, 
+          to_char(p.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+          to_char(p.finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+          p.raw_text, p.controlado_id, 
+          to_char(p.control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+          to_char(p.control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+          p.control_comentario, p.control_tiempo,
+          
+          -- Información del armador
+          u.id as armador_user_id,
+          u.username as armador_username,
+          u.first_name as armador_first_name,
+          u.last_name as armador_last_name,
+          u.role as armador_role
+        FROM pedidos p
+        LEFT JOIN users u ON p.armador_id = u.id
+        WHERE p.id = ${id}
       `);
       
       if (result.rows.length === 0) {
@@ -137,7 +146,16 @@ export class DatabaseStorage implements IStorage {
         controlInicio: result.rows[0].control_inicio,
         controlFin: result.rows[0].control_fin,
         controlComentario: result.rows[0].control_comentario,
-        controlTiempo: result.rows[0].control_tiempo
+        controlTiempo: result.rows[0].control_tiempo,
+        
+        // Incluir información del armador si existe
+        armador: result.rows[0].armador_user_id ? {
+          id: result.rows[0].armador_user_id,
+          username: result.rows[0].armador_username,
+          firstName: result.rows[0].armador_first_name,
+          lastName: result.rows[0].armador_last_name,
+          role: result.rows[0].armador_role
+        } : null
       };
       
       console.log("Pedido obtenido con timestamps como strings:", {
@@ -156,52 +174,75 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPedidoByPedidoId(pedidoId: string): Promise<Pedido | undefined> {
-    // Utilizamos sql directo para obtener los campos de timestamp como strings
-    const result = await db.execute(sql`
-      SELECT 
-        id, pedido_id, cliente_id, fecha, items, total_productos, 
-        vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-        tiempo_neto, numero_pausas, 
-        to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-        to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-        raw_text, controlado_id, 
-        to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-        to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-        control_comentario, control_tiempo 
-      FROM pedidos
-      WHERE pedido_id = ${pedidoId}
-    `);
-    
-    if (result.rows.length === 0) {
-      return undefined;
+    try {
+      // Utilizamos sql directo para obtener los campos de timestamp como strings
+      // Incluimos un LEFT JOIN para obtener información del armador si existe
+      const result = await db.execute(sql`
+        SELECT 
+          p.id, p.pedido_id, p.cliente_id, p.fecha, p.items, p.total_productos, 
+          p.vendedor, p.estado, p.puntaje, p.armador_id, p.tiempo_bruto, 
+          p.tiempo_neto, p.numero_pausas, 
+          to_char(p.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+          to_char(p.finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+          p.raw_text, p.controlado_id, 
+          to_char(p.control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+          to_char(p.control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+          p.control_comentario, p.control_tiempo,
+          
+          -- Información del armador
+          u.id as armador_user_id,
+          u.username as armador_username,
+          u.first_name as armador_first_name,
+          u.last_name as armador_last_name,
+          u.role as armador_role
+        FROM pedidos p
+        LEFT JOIN users u ON p.armador_id = u.id
+        WHERE p.pedido_id = ${pedidoId}
+      `);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      // Convertimos las claves snake_case a camelCase para mantener compatibilidad
+      const pedido = {
+        id: result.rows[0].id,
+        pedidoId: result.rows[0].pedido_id,
+        clienteId: result.rows[0].cliente_id,
+        fecha: result.rows[0].fecha,
+        items: result.rows[0].items,
+        totalProductos: result.rows[0].total_productos,
+        vendedor: result.rows[0].vendedor,
+        estado: result.rows[0].estado,
+        puntaje: result.rows[0].puntaje,
+        armadorId: result.rows[0].armador_id,
+        tiempoBruto: result.rows[0].tiempo_bruto,
+        tiempoNeto: result.rows[0].tiempo_neto,
+        numeroPausas: result.rows[0].numero_pausas,
+        inicio: result.rows[0].inicio,
+        finalizado: result.rows[0].finalizado,
+        rawText: result.rows[0].raw_text,
+        controladoId: result.rows[0].controlado_id,
+        controlInicio: result.rows[0].control_inicio,
+        controlFin: result.rows[0].control_fin,
+        controlComentario: result.rows[0].control_comentario,
+        controlTiempo: result.rows[0].control_tiempo,
+        
+        // Incluir información del armador si existe
+        armador: result.rows[0].armador_user_id ? {
+          id: result.rows[0].armador_user_id,
+          username: result.rows[0].armador_username,
+          firstName: result.rows[0].armador_first_name,
+          lastName: result.rows[0].armador_last_name,
+          role: result.rows[0].armador_role
+        } : null
+      };
+      
+      return pedido as Pedido;
+    } catch (error) {
+      console.error("Error en getPedidoByPedidoId:", error);
+      throw error;
     }
-    
-    // Convertimos las claves snake_case a camelCase para mantener compatibilidad
-    const pedido = {
-      id: result.rows[0].id,
-      pedidoId: result.rows[0].pedido_id,
-      clienteId: result.rows[0].cliente_id,
-      fecha: result.rows[0].fecha,
-      items: result.rows[0].items,
-      totalProductos: result.rows[0].total_productos,
-      vendedor: result.rows[0].vendedor,
-      estado: result.rows[0].estado,
-      puntaje: result.rows[0].puntaje,
-      armadorId: result.rows[0].armador_id,
-      tiempoBruto: result.rows[0].tiempo_bruto,
-      tiempoNeto: result.rows[0].tiempo_neto,
-      numeroPausas: result.rows[0].numero_pausas,
-      inicio: result.rows[0].inicio,
-      finalizado: result.rows[0].finalizado,
-      rawText: result.rows[0].raw_text,
-      controladoId: result.rows[0].controlado_id,
-      controlInicio: result.rows[0].control_inicio,
-      controlFin: result.rows[0].control_fin,
-      controlComentario: result.rows[0].control_comentario,
-      controlTiempo: result.rows[0].control_tiempo
-    };
-    
-    return pedido as Pedido;
   }
   
   async getPedidos(filters: { fecha?: string, estado?: string, vendedor?: string, armadorId?: number | string, pedidoId?: string, clienteId?: string }): Promise<Pedido[]> {
@@ -210,19 +251,27 @@ export class DatabaseStorage implements IStorage {
       const queryParts = [];
       const params = [];
       
-      // Comenzamos con la consulta básica
+      // Comenzamos con la consulta básica que incluye join con la tabla users
       queryParts.push(`
         SELECT 
-          id, pedido_id, cliente_id, fecha, items, total_productos, 
-          vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-          tiempo_neto, numero_pausas, 
-          to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-          to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-          raw_text, controlado_id, 
-          to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-          to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-          control_comentario, control_tiempo 
-        FROM pedidos
+          p.id, p.pedido_id, p.cliente_id, p.fecha, p.items, p.total_productos, 
+          p.vendedor, p.estado, p.puntaje, p.armador_id, p.tiempo_bruto, 
+          p.tiempo_neto, p.numero_pausas, 
+          to_char(p.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+          to_char(p.finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+          p.raw_text, p.controlado_id, 
+          to_char(p.control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+          to_char(p.control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+          p.control_comentario, p.control_tiempo,
+          
+          -- Información del armador
+          u.id as armador_user_id,
+          u.username as armador_username,
+          u.first_name as armador_first_name,
+          u.last_name as armador_last_name,
+          u.role as armador_role
+        FROM pedidos p
+        LEFT JOIN users u ON p.armador_id = u.id
       `);
       
       // Acumulamos las condiciones WHERE
@@ -348,22 +397,30 @@ export class DatabaseStorage implements IStorage {
   
   async getNextPendingPedido(armadorId?: number): Promise<Pedido | undefined> {
     try {
-      // Función auxiliar para ejecutar consultas parametrizadas
+      // Función auxiliar para ejecutar consultas parametrizadas con join para obtener datos del armador
       const executeQuery = async (estado: string, armadorCondition: string, params: any[]) => {
         const query = `
           SELECT 
-            id, pedido_id, cliente_id, fecha, items, total_productos, 
-            vendedor, estado, puntaje, armador_id, tiempo_bruto, 
-            tiempo_neto, numero_pausas, 
-            to_char(inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
-            to_char(finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
-            raw_text, controlado_id, 
-            to_char(control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
-            to_char(control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
-            control_comentario, control_tiempo 
-          FROM pedidos
-          WHERE estado = $1 ${armadorCondition}
-          ORDER BY fecha ASC
+            p.id, p.pedido_id, p.cliente_id, p.fecha, p.items, p.total_productos, 
+            p.vendedor, p.estado, p.puntaje, p.armador_id, p.tiempo_bruto, 
+            p.tiempo_neto, p.numero_pausas, 
+            to_char(p.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as inicio,
+            to_char(p.finalizado, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as finalizado,
+            p.raw_text, p.controlado_id, 
+            to_char(p.control_inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_inicio,
+            to_char(p.control_fin, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as control_fin,
+            p.control_comentario, p.control_tiempo,
+            
+            -- Información del armador
+            u.id as armador_user_id,
+            u.username as armador_username,
+            u.first_name as armador_first_name,
+            u.last_name as armador_last_name,
+            u.role as armador_role
+          FROM pedidos p
+          LEFT JOIN users u ON p.armador_id = u.id
+          WHERE p.estado = $1 ${armadorCondition}
+          ORDER BY p.fecha ASC
           LIMIT 1
         `;
         
@@ -468,7 +525,7 @@ export class DatabaseStorage implements IStorage {
    * @returns Objeto Pedido con propiedades en formato camelCase
    */
   private convertPedidoRowToCamelCase(row: any): Pedido {
-    return {
+    const pedido = {
       id: row.id,
       pedidoId: row.pedido_id,
       clienteId: row.cliente_id,
@@ -490,7 +547,20 @@ export class DatabaseStorage implements IStorage {
       controlFin: row.control_fin,
       controlComentario: row.control_comentario,
       controlTiempo: row.control_tiempo
-    } as Pedido;
+    };
+    
+    // Añadir información del armador si está disponible
+    if (row.armador_user_id) {
+      pedido['armador'] = {
+        id: row.armador_user_id,
+        username: row.armador_username,
+        firstName: row.armador_first_name,
+        lastName: row.armador_last_name,
+        role: row.armador_role
+      };
+    }
+    
+    return pedido as Pedido;
   }
   
   // Producto methods
