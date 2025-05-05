@@ -684,24 +684,39 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Verificar si está en estado de control o si es un pedido armado que puede entrar en control
       if (pedido.estado !== 'controlando') {
-        // Si está en estado armado, podemos iniciarlo automáticamente
+        // Si está en estado armado, intentar iniciarlo automáticamente
+        console.log(`Pedido ${pedidoNumId} (${pedido.pedidoId}) en estado "${pedido.estado}", verificando si puede iniciar control...`);
+        
         if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock') {
-          console.log(`Pedido ${pedidoNumId} en estado ${pedido.estado}, iniciando control automáticamente...`);
-          // Cambiar el estado del pedido a "controlando"
-          await storage.updatePedido(pedidoNumId, {
-            estado: 'controlando',
-            controladorId: req.user.id,
-            controlInicio: new Date()
-          });
-          
-          // Actualizar la variable pedido para el resto del flujo
-          pedido.estado = 'controlando';
-          pedido.controladorId = req.user.id;
-          pedido.controlInicio = new Date().toISOString();
-          
-          console.log(`Pedido ${pedidoNumId} actualizado a estado 'controlando'`);
+          console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}", iniciando control automáticamente...`);
+          try {
+            // Cambiar el estado del pedido a "controlando"
+            await storage.updatePedido(pedidoNumId, {
+              estado: 'controlando',
+              controladorId: req.user.id,
+              controlInicio: new Date()
+            });
+            
+            // Actualizar la variable pedido para el resto del flujo
+            pedido.estado = 'controlando';
+            pedido.controladorId = req.user.id;
+            pedido.controlInicio = new Date().toISOString();
+            
+            console.log(`Pedido ${pedidoNumId} actualizado exitosamente a estado 'controlando'`);
+          } catch (error) {
+            console.error(`Error al actualizar el estado del pedido ${pedidoNumId} a 'controlando':`, error);
+            return res.status(500).json({ 
+              error: 'Error al iniciar el control automático', 
+              detalle: error.message 
+            });
+          }
         } else {
-          return res.status(404).json({ error: 'No hay control activo para este pedido' });
+          // Si el pedido no está en un estado compatible con control, devolver error específico
+          console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}" no compatible para control`);
+          return res.status(400).json({ 
+            error: 'ESTADO_INCOMPATIBLE', 
+            message: `No se puede iniciar control para un pedido en estado "${pedido.estado}". El pedido debe estar en estado "armado" o "armado-pendiente-stock".`
+          });
         }
       }
       
