@@ -1134,11 +1134,19 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const pausaActiva = pausasActivas[0]; // Tomar la primera pausa activa
       const ahora = new Date();
       
+      // Verificar si la pausa fue por "fin de turno"
+      const esPausaFinTurno = pausaActiva.motivo === "fin de turno" || 
+                            pausaActiva.motivo === "Fin de turno" || 
+                            pausaActiva.motivo === "FIN DE TURNO";
+      
+      console.log(`Reanudando pausa con motivo: "${pausaActiva.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
+      
       // Calcular duración en segundos
       const inicio = new Date(pausaActiva.inicio);
       const duracionMs = ahora.getTime() - inicio.getTime();
       const duracionSegundos = Math.floor(duracionMs / 1000);
       
+      // Si es pausa por fin de turno, registramos la fecha actual como fin de pausa
       const pausaActualizada = await storage.updatePausa(pausaActiva.id, {
         fin: ahora,
         duracion: duracionSegundos
