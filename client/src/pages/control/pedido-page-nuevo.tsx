@@ -309,11 +309,25 @@ export default function ControlPedidoPageNuevo() {
     // Refrescar datos del control
     refetchControl();
     
+    // Verificar si el control se finalizó automáticamente
+    if (data?.finalizadoAutomaticamente) {
+      // Mostrar un mensaje más significativo
+      toast({
+        title: 'Control finalizado automáticamente',
+        description: 'Todos los productos han sido controlados correctamente.',
+        variant: 'default',
+      });
+      
+      // Mostrar el diálogo de éxito
+      setShowExitoDialog(true);
+      return;
+    }
+    
     // Obtener información del producto para mostrar en la notificación
     const codigo = data?.codigo || data?.productoData?.codigo || 'Producto';
     const cantidad = data?.cantidadControlada || data?.cantidad || 1;
     
-    // Mostrar confirmación
+    // Mostrar confirmación estándar para escaneo normal
     toast({
       title: 'Producto escaneado',
       description: `${codigo}: ${cantidad} unidad(es)`,
