@@ -102,6 +102,40 @@ export default function ControlPedidoPageNuevo() {
   } = useQuery({
     queryKey: [`/api/control/pedidos/${pedidoId}/activo`],
     refetchInterval: 5000, // Recargar cada 5 segundos
+    // Función personalizada para manejar errores 404 - caso especial
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/control/pedidos/${pedidoId}/activo`);
+        
+        // Si el pedido está controlado, mostrar mensaje de éxito en lugar de error
+        if (response.status === 404) {
+          // Verificar si el pedido ya está en estado controlado
+          const pedidoResponse = await fetch(`/api/pedidos/${pedidoId}`);
+          if (pedidoResponse.ok) {
+            const pedidoData = await pedidoResponse.json();
+            
+            if (pedidoData.estado === 'controlado') {
+              // Retornar un objeto con información sobre el pedido controlado
+              // en vez de lanzar un error
+              return {
+                pedidoControlado: true,
+                pedido: pedidoData,
+                mensaje: '¡Control completado con éxito!'
+              };
+            }
+          }
+        }
+        
+        if (!response.ok) {
+          throw new Error('No se pudo cargar la información del control');
+        }
+        
+        return response.json();
+      } catch (error) {
+        console.error('Error al cargar el control:', error);
+        throw error;
+      }
+    }
   });
   
   // Manejar mutación para finalizar control
@@ -293,6 +327,26 @@ export default function ControlPedidoPageNuevo() {
     navigate('/control');
   };
 
+  // Manejar pedido ya controlado (respuesta especial del queryFn)
+  if (controlData?.pedidoControlado) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <Alert className="mb-4 bg-green-50 border-green-500">
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <AlertTitle className="text-green-700">¡Control Finalizado!</AlertTitle>
+          <AlertDescription className="text-green-600">
+            El pedido {controlData.pedido?.pedidoId} ha sido controlado exitosamente.
+          </AlertDescription>
+        </Alert>
+        <div className="flex gap-4 mt-4">
+          <Button onClick={volverALista} variant="default">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Volver a la lista
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
   // Si hay error al cargar el control
   if (controlError) {
     return (
@@ -453,8 +507,8 @@ export default function ControlPedidoPageNuevo() {
             <TabsContent value="escanear" className="mt-0">
               <ProductoEscanerSeguro
                 pedidoId={pedidoId}
-                onEscanearSuccess={handleEscanearSuccess}
-                onEscanearError={handleEscanearError}
+                onEscaneoSuccess={handleEscanearSuccess}
+                onEscaneoError={handleEscanearError}
                 disabled={isLoadingControl || finalizandoControl}
               />
               
