@@ -30,6 +30,7 @@ export default function ArmadorPage() {
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [proximaActualizacion, setProximaActualizacion] = useState<number | null>(null);
+  const [tiempoRestante, setTiempoRestante] = useState<number>(0);
   const [actualizando, setActualizando] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -109,23 +110,26 @@ export default function ArmadorPage() {
     if (!isLoading && !pedido) {
       const INTERVALO_RECARGA = 3 * 60 * 1000; // 3 minutos en milisegundos
       const ahora = Date.now();
-      setProximaActualizacion(ahora + INTERVALO_RECARGA);
+      const proximoTiempo = ahora + INTERVALO_RECARGA;
+      setProximaActualizacion(proximoTiempo);
+      setTiempoRestante(INTERVALO_RECARGA);
       
       // Configurar intervalo para actualizar el contador cada segundo
       intervalRef.current = setInterval(() => {
-        const tiempoRestante = proximaActualizacion ? proximaActualizacion - Date.now() : 0;
-        
-        // Si ha llegado el momento de recargar
-        if (tiempoRestante <= 0) {
-          setActualizando(true);
-          refetch().finally(() => {
-            const nuevoTiempo = Date.now() + INTERVALO_RECARGA;
-            setProximaActualizacion(nuevoTiempo);
-            setActualizando(false);
-          });
-        } else {
-          // Forzar re-renderizado para actualizar el contador
-          setProximaActualizacion(prevTime => prevTime);
+        if (proximaActualizacion) {
+          const restante = proximaActualizacion - Date.now();
+          setTiempoRestante(Math.max(0, restante));
+          
+          // Si ha llegado el momento de recargar
+          if (restante <= 0) {
+            setActualizando(true);
+            refetch().finally(() => {
+              const nuevoTiempo = Date.now() + INTERVALO_RECARGA;
+              setProximaActualizacion(nuevoTiempo);
+              setTiempoRestante(INTERVALO_RECARGA);
+              setActualizando(false);
+            });
+          }
         }
       }, 1000);
     }
@@ -176,7 +180,7 @@ export default function ArmadorPage() {
               <div className="mt-4 text-sm text-blue-300">
                 <p>Buscando nuevos pedidos automáticamente en:</p>
                 <p className="font-mono text-lg">
-                  {formatTiempoRestante(proximaActualizacion - Date.now())}
+                  {formatTiempoRestante(tiempoRestante)}
                 </p>
               </div>
             )}
@@ -197,10 +201,12 @@ export default function ArmadorPage() {
               onClick={() => {
                 setActualizando(true);
                 refetch().finally(() => {
-                  setActualizando(false);
                   // Reiniciar el contador para 3 minutos
                   const INTERVALO_RECARGA = 3 * 60 * 1000;
-                  setProximaActualizacion(Date.now() + INTERVALO_RECARGA);
+                  const nuevoTiempo = Date.now() + INTERVALO_RECARGA;
+                  setProximaActualizacion(nuevoTiempo);
+                  setTiempoRestante(INTERVALO_RECARGA);
+                  setActualizando(false);
                 });
               }}
               disabled={actualizando}
