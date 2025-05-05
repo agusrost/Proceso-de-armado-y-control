@@ -475,19 +475,20 @@ export default function ArmadoPage() {
                 recolectado: ultimoProducto.recolectado
               });
               
-              // Si el producto actual ya está completamente procesado, pasar al siguiente
-              if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado === ultimoProducto.cantidad) {
+              // Si el producto ya fue recolectado (total o parcialmente), movernos al siguiente
+              if (ultimoProducto.recolectado !== null) {
                 // Movernos al siguiente producto si existe
                 if (ultimoProductoIndex < data.length - 1) {
-                  console.log(`Último producto ya completado, avanzando al siguiente (index: ${ultimoProductoIndex + 1})`);
+                  console.log(`Producto ya procesado, avanzando al siguiente (index: ${ultimoProductoIndex + 1})`);
                   setCurrentProductoIndex(ultimoProductoIndex + 1);
                 }
               } 
-              // Si ya se recolectaron algunas unidades pero no todas, completar el producto y mover al siguiente
-              else if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado > 0) {
-                console.log(`Producto parcialmente procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad}), completando y moviéndonos al siguiente`);
+              // Si el producto no ha sido procesado aún, quedarse en él
+              else {
+                console.log(`Producto aún no procesado, continuando desde él (index: ${ultimoProductoIndex})`);
+                setCurrentProductoIndex(ultimoProductoIndex);
                 
-                // Actualizar el producto para marcarlo como completamente recolectado
+                // No necesitamos actualizar nada, solo continuar desde este producto
                 const pendientes = ultimoProducto.cantidad - ultimoProducto.recolectado;
                 console.log(`Completando automáticamente ${pendientes} unidades pendientes`);
                 
@@ -862,18 +863,23 @@ export default function ArmadoPage() {
           <h1 className="text-4xl font-bold">KONECTA</h1>
         </div>
         
+        {/* Información del pedido */}
+        <div className="w-full max-w-md bg-blue-800 text-white rounded-md p-3 mx-4 mb-3">
+          <p className="text-center font-medium">
+            Usted está armando el pedido <span className="font-bold">{currentPedido.pedidoId}</span>
+            {currentPedido.clienteId && (
+              <>, del cliente <span className="font-bold">{currentPedido.clienteId}</span></>
+            )}
+          </p>
+        </div>
+        
         <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
           <h2 className="text-xl font-semibold mb-3">Código SKU: {producto.codigo}</h2>
           <p className="text-lg mb-3">
-            Cantidad: {producto.pendientesMostrados || producto.cantidad}
-            {producto.pendientesMostrados && producto.pendientesMostrados !== producto.cantidad && (
-              <span className="text-sm text-gray-500 ml-2">
-                (de {producto.cantidad} total)
-              </span>
-            )}
+            <span className="font-medium">Cantidad:</span> {producto.cantidad}
           </p>
-          <p className="text-lg mb-3">Ubicación: {producto.ubicacion || 'Sin ubicación'}</p>
-          <p className="text-lg mb-5">Descripción: {producto.descripcion || 'Sin descripción'}</p>
+          <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {producto.ubicacion || 'Sin ubicación'}</p>
+          <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {producto.descripcion || 'Sin descripción'}</p>
           
           <div className="flex items-center justify-between border rounded-md mb-4">
             <button 
@@ -1135,7 +1141,7 @@ export default function ArmadoPage() {
                   className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
                 >
                   <Pause size={16} className="mr-2" />
-                  Pausar armado
+                  {pausaActiva ? 'Continuar armado' : 'Pausar armado'}
                 </button>
               )}
             </>
