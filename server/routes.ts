@@ -2644,9 +2644,56 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(403).json({ message: "Este pedido está asignado a otro armador" });
       }
       
-      // Verificar que el pedido esté en estado pendiente o en-proceso
-      if (pedido.estado !== 'pendiente' && pedido.estado !== 'en-proceso') {
-        return res.status(400).json({ message: `No se puede iniciar un pedido en estado ${pedido.estado}` });
+      // Verificar que el pedido esté en un estado válido para iniciar/continuar el armado
+      const estadosPermitidos = ['pendiente', 'en-proceso', 'armado-pendiente-stock'];
+      
+      if (!estadosPermitidos.includes(pedido.estado)) {
+        return res.status(400).json({ 
+          message: `No se puede iniciar un pedido en estado ${pedido.estado}. Estados permitidos: ${estadosPermitidos.join(', ')}` 
+        });
+      }
+      
+      // Primero, verificar si hay pausas activas para este pedido y finalizarlas
+      try {
+        const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
+        
+        if (pausasActivas.length > 0) {
+          console.log(`Se encontraron ${pausasActivas.length} pausas activas para el pedido ${pedido.pedidoId}. Finalizando automáticamente...`);
+          
+          // Finalizar cada una de las pausas activas
+          for (const pausa of pausasActivas) {
+            console.log(`Finalizando pausa ${pausa.id} para el pedido ${pedido.pedidoId}`);
+            
+            try {
+              // Calcular la duración de la pausa
+              const inicio = new Date(pausa.inicio);
+              const fin = new Date();
+              const duracionMs = fin.getTime() - inicio.getTime();
+              
+              // Convertir ms a formato HH:MM:SS
+              const duracionSegundos = Math.floor(duracionMs / 1000);
+              const horas = Math.floor(duracionSegundos / 3600);
+              const minutos = Math.floor((duracionSegundos % 3600) / 60);
+              const segundos = duracionSegundos % 60;
+              const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+              
+              // Actualizar la pausa en la base de datos
+              await db.execute(sql`
+                UPDATE pausas
+                SET fin = NOW(), duracion = ${duracionFormateada}
+                WHERE id = ${pausa.id}
+              `);
+              
+              console.log(`Pausa ${pausa.id} finalizada correctamente con duración ${duracionFormateada}`);
+            } catch (err) {
+              console.error(`Error al finalizar la pausa ${pausa.id}:`, err);
+              // No fallamos aquí, seguimos intentando con las demás pausas
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error al verificar pausas activas:", err);
+        // No fallamos aquí, continuamos con el proceso normal
       }
       
       // Si el pedido está en estado pendiente, actualizarlo a en-proceso y guardar tiempo de inicio
@@ -2667,6 +2714,22 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
         
         console.log(`Pedido ${pedido.pedidoId} iniciado por el armador ${req.user.username} (${req.user.id})`);
+      } else if (pedido.estado === 'armado-pendiente-stock') {
+        // Si está en estado "armado-pendiente-stock", lo actualizamos a "en-proceso"
+        try {
+          console.log(`Cambiando estado de pedido ${pedido.pedidoId} de 'armado-pendiente-stock' a 'en-proceso'`);
+          
+          await db.execute(sql`
+            UPDATE pedidos 
+            SET estado = 'en-proceso'
+            WHERE id = ${pedidoId}
+          `);
+          
+          console.log(`Pedido ${pedido.pedidoId} actualizado para continuar armado`);
+        } catch (err) {
+          console.error("Error al actualizar estado del pedido:", err);
+          return res.status(500).json({ message: "Error al actualizar el pedido" });
+        }
       } else {
         console.log(`Pedido ${pedido.pedidoId} ya está en proceso, continuando armado`);
       }

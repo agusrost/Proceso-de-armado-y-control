@@ -608,16 +608,33 @@ export default function ArmadoPage() {
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         <Play size={16} className="mr-2" />
-                        Iniciar armado
+                        {/* Cambiar el texto del botón si hay una pausa activa */}
+                        {pedidoArmador.pausaActiva ? 'Continuar armado' : 'Iniciar armado'}
                       </Button>
                       
                       <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Iniciar armado</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              {pedidoArmador.pausaActiva ? 'Continuar armado' : 'Iniciar armado'}
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                              ¿Estás seguro de que deseas iniciar el armado del pedido? 
-                              Se iniciará el cronómetro y no podrás cancelarlo.
+                              {pedidoArmador.pausaActiva ? (
+                                <>
+                                  ¿Estás seguro de que deseas continuar el armado del pedido?
+                                  {pedidoArmador.pausaActiva.motivo && (
+                                    <div className="mt-2 text-sm bg-blue-50 p-2 rounded">
+                                      <span className="font-semibold">Motivo de la pausa: </span> 
+                                      {pedidoArmador.pausaActiva.motivo}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  ¿Estás seguro de que deseas iniciar el armado del pedido? 
+                                  Se iniciará el cronómetro y no podrás cancelarlo.
+                                </>
+                              )}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -625,7 +642,7 @@ export default function ArmadoPage() {
                             <AlertDialogAction 
                               onClick={() => iniciarPedidoMutation.mutate(pedidoArmador.id)}
                             >
-                              Iniciar
+                              {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar'}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
