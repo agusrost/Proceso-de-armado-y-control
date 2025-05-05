@@ -455,6 +455,25 @@ export default function ArmadoPage() {
           const data = await res.json();
           setProductos(data);
           
+          // Función para buscar el siguiente producto no procesado
+          const encontrarSiguienteProductoNoProcesado = () => {
+            // Buscar el primer producto no procesado (recolectado === null)
+            const siguienteIndex = data.findIndex(p => p.recolectado === null);
+            
+            if (siguienteIndex !== -1) {
+              console.log(`Encontrado siguiente producto no procesado: ${data[siguienteIndex].codigo}`);
+              setCurrentProductoIndex(siguienteIndex);
+              setRecolectados(data[siguienteIndex].cantidad);
+              return true;
+            }
+            
+            // Si todos están procesados, usar el primero
+            console.log("No hay productos sin procesar, usando el primero");
+            setCurrentProductoIndex(0);
+            setRecolectados(data[0].cantidad);
+            return false;
+          };
+          
           // Verificar si el pedido tiene un último producto registrado (de una pausa)
           if (currentPedido.ultimoProductoId) {
             console.log(`Pedido reanudado con último producto ID: ${currentPedido.ultimoProductoId}`);
@@ -475,21 +494,13 @@ export default function ArmadoPage() {
               });
               
               // Si el producto ya fue recolectado de alguna manera (tiene recolectado != null),
-              // avanzamos al siguiente producto
+              // avanzamos al siguiente producto no procesado
               if (ultimoProducto.recolectado !== null) {
-                // Movernos al siguiente producto si existe
-                if (ultimoProductoIndex < data.length - 1) {
-                  console.log(`Producto ya procesado, avanzando al siguiente (index: ${ultimoProductoIndex + 1})`);
-                  const siguienteIndice = ultimoProductoIndex + 1;
-                  setCurrentProductoIndex(siguienteIndice);
-                  
-                  // Establecer la cantidad del siguiente producto para recolectar
-                  const siguienteProducto = data[siguienteIndice];
-                  if (siguienteProducto) {
-                    console.log(`Estableciendo cantidad a recolectar del siguiente producto (${siguienteProducto.codigo}): ${siguienteProducto.cantidad}`);
-                    setRecolectados(siguienteProducto.cantidad);
-                  }
-                }
+                console.log(`Último producto ya procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad})`);
+                console.log(`Buscando el siguiente producto NO procesado...`);
+                
+                // Buscar y seleccionar el siguiente producto no procesado
+                encontrarSiguienteProductoNoProcesado();
               } 
               // Si el producto no ha sido procesado aún, quedarse en él
               else {
@@ -604,7 +615,27 @@ export default function ArmadoPage() {
         try {
           const res = await apiRequest("GET", `/api/productos/pedido/${pedidoArmador.id}`);
           const productos = await res.json();
+          
           if (productos.length > 0) {
+            // Función para buscar el siguiente producto no procesado
+            const encontrarSiguienteProductoNoProcesado = () => {
+              // Buscar el primer producto no procesado (recolectado === null)
+              const siguienteIndex = productos.findIndex(p => p.recolectado === null);
+              
+              if (siguienteIndex !== -1) {
+                console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo}`);
+                setCurrentProductoIndex(siguienteIndex);
+                setRecolectados(productos[siguienteIndex].cantidad);
+                return true;
+              }
+              
+              // Si todos están procesados, usar el primero
+              console.log("No hay productos sin procesar, usando el primero");
+              setCurrentProductoIndex(0);
+              setRecolectados(productos[0].cantidad);
+              return false;
+            };
+            
             // Verificar si el pedido tiene un último producto procesado
             if (pedidoArmador.ultimoProductoId) {
               // Buscar el último producto procesado
@@ -619,69 +650,34 @@ export default function ArmadoPage() {
                 });
                 
                 // Si el producto ya fue procesado de alguna manera (tiene recolectado != null),
-                // avanzamos al siguiente producto
+                // avanzamos al siguiente producto no procesado
                 if (ultimoProducto.recolectado !== null) {
-                  console.log(`Producto ya procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad}), moviéndonos al siguiente`);
+                  console.log(`Último producto ya procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad})`);
+                  console.log(`Buscando el siguiente producto NO procesado...`);
                   
-                  // Buscar el siguiente producto
+                  // Buscar y seleccionar el siguiente producto no procesado
+                  encontrarSiguienteProductoNoProcesado();
+                } 
+                // Si el producto no ha sido procesado, continuar con él
+                else {
+                  console.log(`El último producto no ha sido procesado, continuando con él`);
                   const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
-                  
-                  // Ejecutar la actualización
-                  actualizarProductoMutation.mutate(
-                    {
-                      id: ultimoProducto.id,
-                      recolectado: ultimoProducto.cantidad, // Marcar como completamente recolectado
-                      motivo: null,
-                      actualizacionAutomatica: true // Flag para indicar que es una actualización automática desde la reanudación
-                    },
-                    {
-                      onSuccess: () => {
-                        console.log(`Producto completado automáticamente, avanzando al siguiente`);
-                        
-                        // Movernos al siguiente producto si existe
-                        if (index < productos.length - 1) {
-                          console.log(`Avanzando al siguiente producto: ${productos[index + 1].codigo}`);
-                          const siguienteProducto = productos[index + 1];
-                          setRecolectados(siguienteProducto.cantidad);
-                        }
-                      },
-                      onError: (error) => {
-                        console.error("Error al completar producto parcial automáticamente:", error);
-                        toast({
-                          title: "Error al procesar producto",
-                          description: "No se pudo completar el producto automáticamente",
-                          variant: "destructive",
-                        });
-                        
-                        // A pesar del error, intentamos avanzar al siguiente producto
-                        if (index < productos.length - 1) {
-                          const siguienteProducto = productos[index + 1];
-                          setRecolectados(siguienteProducto.cantidad);
-                        }
-                      }
-                    }
-                  );
-                  return;
-                }
-                // Si el producto está completamente recolectado
-                else if (ultimoProducto.recolectado === ultimoProducto.cantidad) {
-                  console.log(`El último producto ya está completamente recolectado. Usando el siguiente producto.`);
-                  // Buscar el siguiente producto
-                  const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
-                  if (index < productos.length - 1) {
-                    const siguienteProducto = productos[index + 1];
-                    setRecolectados(siguienteProducto.cantidad);
-                    return;
+                  if (index !== -1) {
+                    setCurrentProductoIndex(index);
+                    setRecolectados(ultimoProducto.cantidad);
+                  } else {
+                    encontrarSiguienteProductoNoProcesado();
                   }
                 }
+              } else {
+                // Si no se encuentra el último producto, buscar el siguiente no procesado
+                console.log(`No se encontró el último producto con ID ${pedidoArmador.ultimoProductoId}`);
+                encontrarSiguienteProductoNoProcesado();
               }
-            }
-            
-            // Si no hay últimoProductoId o no se encontró, usar el primer producto
-            const primerProducto = productos[0];
-            if (primerProducto) {
-              console.log(`Usando primer producto (sin pausa previa). Cantidad: ${primerProducto.cantidad}`);
-              setRecolectados(primerProducto.cantidad);
+            } else {
+              // Si no hay último producto, buscar el primero sin procesar
+              console.log(`Pedido sin último producto, buscando el primero sin procesar`);
+              encontrarSiguienteProductoNoProcesado();
             }
           }
         } catch (error) {
