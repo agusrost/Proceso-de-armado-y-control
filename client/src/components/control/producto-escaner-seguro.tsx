@@ -109,11 +109,17 @@ export function ProductoEscanerSeguro({
   // Manejar envío de formulario
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    escanearMutation.mutate();
+    // Verificar que el componente no esté deshabilitado y la mutación no esté en progreso
+    if (!disabled && !escanearMutation.isPending) {
+      escanearMutation.mutate();
+    }
   };
 
   // Manejar cambio en el código (y envío automático si se escanea con lector)
   const handleCodigoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Si el componente está deshabilitado, no procesar cambios
+    if (disabled) return;
+    
     setCodigo(e.target.value);
     
     // Si el cambio termina con un salto de línea o retorno de carro, enviar automáticamente
@@ -123,7 +129,10 @@ export function ProductoEscanerSeguro({
       setCodigo(limpioCodigo);
       setCantidad(1);
       setTimeout(() => {
-        escanearMutation.mutate();
+        // Verificar nuevamente que no esté deshabilitado antes de enviar
+        if (!disabled && !escanearMutation.isPending) {
+          escanearMutation.mutate();
+        }
       }, 0);
     }
   };
@@ -189,7 +198,7 @@ export function ProductoEscanerSeguro({
           <Button 
             type="submit" 
             className="w-full"
-            disabled={!codigo.trim() || escanearMutation.isPending}
+            disabled={!codigo.trim() || escanearMutation.isPending || disabled}
           >
             {escanearMutation.isPending ? (
               <>
