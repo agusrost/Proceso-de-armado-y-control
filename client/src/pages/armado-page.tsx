@@ -567,9 +567,47 @@ export default function ArmadoPage() {
           const res = await apiRequest("GET", `/api/productos/pedido/${pedidoArmador.id}`);
           const productos = await res.json();
           if (productos.length > 0) {
-            // Establecer la cantidad por defecto del producto actual
+            // Verificar si el pedido tiene un último producto procesado
+            if (pedidoArmador.ultimoProductoId) {
+              // Buscar el último producto procesado
+              const ultimoProducto = productos.find((p: any) => p.id === pedidoArmador.ultimoProductoId);
+              
+              if (ultimoProducto) {
+                console.log("Pedido reanudado desde una pausa. Ultimo producto:", {
+                  id: ultimoProducto.id,
+                  codigo: ultimoProducto.codigo,
+                  recolectado: ultimoProducto.recolectado,
+                  cantidad: ultimoProducto.cantidad
+                });
+                
+                // Si ya se recolectaron algunas unidades pero no todas
+                if (ultimoProducto.recolectado !== null && 
+                    ultimoProducto.recolectado > 0 && 
+                    ultimoProducto.recolectado < ultimoProducto.cantidad) {
+                  // Calcular unidades pendientes
+                  const pendientes = ultimoProducto.cantidad - ultimoProducto.recolectado;
+                  console.log(`Ya se recolectaron ${ultimoProducto.recolectado} de ${ultimoProducto.cantidad}. Pendientes: ${pendientes}`);
+                  setRecolectados(pendientes);
+                  return;
+                }
+                // Si el producto está completamente recolectado
+                else if (ultimoProducto.recolectado === ultimoProducto.cantidad) {
+                  console.log(`El último producto ya está completamente recolectado. Usando el siguiente producto.`);
+                  // Buscar el siguiente producto
+                  const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
+                  if (index < productos.length - 1) {
+                    const siguienteProducto = productos[index + 1];
+                    setRecolectados(siguienteProducto.cantidad);
+                    return;
+                  }
+                }
+              }
+            }
+            
+            // Si no hay últimoProductoId o no se encontró, usar el primer producto
             const primerProducto = productos[0];
             if (primerProducto) {
+              console.log(`Usando primer producto (sin pausa previa). Cantidad: ${primerProducto.cantidad}`);
               setRecolectados(primerProducto.cantidad);
             }
           }
