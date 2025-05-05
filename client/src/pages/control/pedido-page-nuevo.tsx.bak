@@ -902,14 +902,8 @@ export default function ControlPedidoPageNuevo() {
                               key={producto.codigo}
                               className="p-3 border border-red-200 rounded-md bg-red-50 flex justify-between items-center hover:bg-red-100 cursor-pointer transition-colors"
                               onClick={() => {
-                                // Si hay excedente, configurar el estado para el diálogo de retirada
-                                if (producto.controlado > producto.cantidad) {
-                                  handleProductoUpdate({
-                                    ...producto,
-                                    controlado: producto.cantidad,
-                                    estado: 'correcto'
-                                  });
-                                }
+                                // Al hacer clic, simulamos el comportamiento de ProductosEscaneadosLista
+                                handleProductoClick(producto);
                               }}
                             >
                               <div>
@@ -1108,4 +1102,16 @@ export default function ControlPedidoPageNuevo() {
       </Dialog>
     </div>
   );
+
+  // Función para manejar el clic en producto (para mostrar diálogo de excedentes)
+  function handleProductoClick(producto: ProductoControlado) {
+    if (producto.controlado > producto.cantidad) {
+      // Si hay excedente, configurar el estado para el diálogo de retirada
+      handleProductoUpdate({
+        ...producto,
+        controlado: producto.cantidad,
+        estado: 'correcto'
+      });
+    }
+  }
 }

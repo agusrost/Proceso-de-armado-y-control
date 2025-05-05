@@ -117,7 +117,7 @@ export function ControlProductoItem({
                 </span>
               ) : (
                 <span className={`ml-1 font-bold text-lg ${textColor}`}>
-                  {producto.controlado}/{producto.cantidad}
+                  {producto.controlado || 0}/{producto.cantidad}
                 </span>
               )}
             </div>
