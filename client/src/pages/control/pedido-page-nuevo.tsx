@@ -76,22 +76,40 @@ export default function ControlPedidoPageNuevo() {
         if (controlState.mensajeError === "No se pudo cargar la información del control") {
           console.log("Intentando reiniciar el control...");
           const resp = await fetch(`/api/control/pedidos/${pedidoId}/activo`);
-          if (resp.status === 404) {
-            // Intentar iniciar un nuevo control
-            console.log("Control no encontrado, iniciando uno nuevo...");
-            const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
-              method: 'POST'
-            });
-            
-            if (initResp.ok) {
-              toast({
-                title: "Control iniciado",
-                description: "Se ha iniciado un nuevo control para este pedido",
-                variant: "default"
-              });
-              // Recargar la página para mostrar el nuevo control
-              window.location.reload();
+          
+          // Verificar si hay un error relacionado con el estado
+          if (resp.status === 400) {
+            try {
+              const errorData = await resp.json();
+              
+              // Verificar si es un error de estado incompatible
+              if (errorData.error === 'ESTADO_INCOMPATIBLE') {
+                console.log("Estado incompatible:", errorData.message);
+                toast({
+                  title: "Estado del pedido incompatible",
+                  description: errorData.message,
+                  variant: "destructive",
+                  duration: 6000
+                });
+                // Mostrar mensaje y ofrecer iniciar el control
+                const confirmIniciar = window.confirm(`El pedido no está listo para control: ${errorData.message}\n\n¿Desea intentar iniciar el control de todos modos?`);
+                
+                if (confirmIniciar) {
+                  iniciarControlManualmente();
+                } else {
+                  // Volver a la lista de control
+                  navigate('/control');
+                }
+                return;
+              }
+            } catch (parseError) {
+              console.error("Error al procesar respuesta de error:", parseError);
             }
+          }
+          
+          if (resp.status === 404) {
+            // Intentar iniciar un nuevo control automáticamente
+            iniciarControlManualmente();
           }
         }
       } catch (error) {
@@ -99,10 +117,53 @@ export default function ControlPedidoPageNuevo() {
       }
     };
     
+    const iniciarControlManualmente = async () => {
+      console.log("Intentando iniciar un nuevo control...");
+      try {
+        const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+          method: 'POST'
+        });
+        
+        if (initResp.ok) {
+          toast({
+            title: "Control iniciado",
+            description: "Se ha iniciado un nuevo control para este pedido",
+            variant: "default"
+          });
+          // Recargar la página para mostrar el nuevo control
+          window.location.reload();
+        } else {
+          // Intentar obtener el mensaje de error
+          try {
+            const errorData = await initResp.json();
+            toast({
+              title: "No se pudo iniciar el control",
+              description: errorData.error || "Error al iniciar el control",
+              variant: "destructive",
+              duration: 6000
+            });
+          } catch (e) {
+            toast({
+              title: "No se pudo iniciar el control",
+              description: `Error: ${initResp.status}`,
+              variant: "destructive"
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error al iniciar control:", error);
+        toast({
+          title: "Error",
+          description: "Ocurrió un error al intentar iniciar el control",
+          variant: "destructive"
+        });
+      }
+    };
+    
     if (controlState.mensajeError) {
       handleError();
     }
-  }, [controlState.mensajeError, pedidoId, toast]);
+  }, [controlState.mensajeError, pedidoId, toast, navigate]);
   
   // Estado para diálogos y control
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
@@ -134,6 +195,38 @@ export default function ControlPedidoPageNuevo() {
     queryFn: async () => {
       try {
         const response = await fetch(`/api/control/pedidos/${pedidoId}/activo`);
+        
+        // Si hay error 400, podría ser un problema de estado incompatible
+        if (response.status === 400) {
+          try {
+            const errorData = await response.json();
+            
+            // Si es un error de estado incompatible, manejar específicamente
+            if (errorData.error === 'ESTADO_INCOMPATIBLE') {
+              console.log("Estado incompatible en queryFn:", errorData.message);
+              
+              // Mostrar diálogo de confirmación
+              setTimeout(() => {
+                const confirmIniciar = window.confirm(
+                  `El pedido no está listo para control: ${errorData.message}\n\n¿Desea intentar iniciar el control automáticamente?`
+                );
+                
+                if (confirmIniciar) {
+                  // Intentará iniciar el control en useEffect al detectar el error
+                  console.log("Usuario confirmó iniciar control manualmente");
+                } else {
+                  // Volver a la lista de control si el usuario cancela
+                  navigate('/control');
+                }
+              }, 100);
+            }
+          } catch (parseError) {
+            console.error("Error al procesar respuesta de error:", parseError);
+          }
+          
+          // Seguimos lanzando el error para que entre el mecanismo de manejo en useEffect
+          throw new Error('No se pudo cargar la información del control');
+        }
         
         // Si el pedido está controlado, mostrar mensaje de éxito en lugar de error
         if (response.status === 404) {
