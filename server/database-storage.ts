@@ -460,6 +460,7 @@ export class DatabaseStorage implements IStorage {
             -- Información de la pausa
             pa.id as pausa_id,
             pa.motivo as pausa_motivo,
+            pa.ultimo_producto_id as pausa_ultimo_producto_id,
             to_char(pa.inicio, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as pausa_inicio
           FROM pedidos p
           LEFT JOIN users u ON p.armador_id = u.id
@@ -484,8 +485,15 @@ export class DatabaseStorage implements IStorage {
           pedido['pausaActiva'] = {
             id: result.rows[0].pausa_id,
             motivo: result.rows[0].pausa_motivo,
-            inicio: result.rows[0].pausa_inicio
+            inicio: result.rows[0].pausa_inicio,
+            ultimoProductoId: result.rows[0].pausa_ultimo_producto_id
           };
+          
+          // Añadir también ultimoProductoId como propiedad del pedido para compatibilidad con cliente actual
+          if (result.rows[0].pausa_ultimo_producto_id) {
+            console.log(`Pausa tiene un último producto asociado: ${result.rows[0].pausa_ultimo_producto_id}`);
+            pedido['ultimoProductoId'] = result.rows[0].pausa_ultimo_producto_id;
+          }
           
           return pedido;
         }
@@ -684,8 +692,14 @@ export class DatabaseStorage implements IStorage {
       tipo: pausaData.tipo || "armado", // Aseguramos que se guarde el tipo (control o armado)
       inicio: pausaData.inicio || new Date(),
       fin: null,
-      duracion: null
+      duracion: null,
+      ultimo_producto_id: pausaData.ultimoProductoId || null // Añadir último producto procesado
     };
+    
+    // Log especial si tenemos un último producto
+    if (pausaData.ultimoProductoId) {
+      console.log(`Guardando último producto ${pausaData.ultimoProductoId} con la pausa`);
+    }
     
     console.log("Datos formateados para inserción:", dataToInsert);
     
