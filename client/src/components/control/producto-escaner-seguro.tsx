@@ -24,13 +24,6 @@ export function ProductoEscanerSeguro({
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Focus en el input al montar el componente
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
-
   // Mutación para enviar el escaneo al servidor
   const escanearMutation = useMutation({
     mutationFn: async () => {
@@ -94,6 +87,22 @@ export function ProductoEscanerSeguro({
       }
     }
   });
+
+  // Focus en el input al montar el componente
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+  
+  // Devolver el foco al input después de cada envío exitoso o error
+  useEffect(() => {
+    if (escanearMutation.isSuccess || escanearMutation.isError) {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  }, [escanearMutation.isSuccess, escanearMutation.isError]);
 
   // Manejar envío de formulario
   const handleSubmit = (e: React.FormEvent) => {

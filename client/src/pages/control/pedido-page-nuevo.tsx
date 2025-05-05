@@ -52,6 +52,42 @@ export default function ControlPedidoPageNuevo() {
     mensajeError: null
   });
   
+  // Manejar errores de forma más robusta
+  useEffect(() => {
+    const handleError = async () => {
+      try {
+        // Si hay un error de control, intentar reiniciar el control
+        if (controlState.mensajeError === "No se pudo cargar la información del control") {
+          console.log("Intentando reiniciar el control...");
+          const resp = await fetch(`/api/control/pedidos/${pedidoId}/activo`);
+          if (resp.status === 404) {
+            // Intentar iniciar un nuevo control
+            console.log("Control no encontrado, iniciando uno nuevo...");
+            const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+              method: 'POST'
+            });
+            
+            if (initResp.ok) {
+              toast({
+                title: "Control iniciado",
+                description: "Se ha iniciado un nuevo control para este pedido",
+                variant: "default"
+              });
+              // Recargar la página para mostrar el nuevo control
+              window.location.reload();
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error al intentar reiniciar el control:", error);
+      }
+    };
+    
+    if (controlState.mensajeError) {
+      handleError();
+    }
+  }, [controlState.mensajeError, pedidoId, toast]);
+  
   // Estado para diálogos
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
   const [finalizandoControl, setFinalizandoControl] = useState(false);
