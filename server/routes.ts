@@ -772,8 +772,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
-  // Endpoint para iniciar el control de un pedido
-  app.post("/api/control/pedidos/:pedidoId/iniciar", requireAuth, requireAccess('control'), async (req, res, next) => {
+  // Endpoint para iniciar el control de un pedido (permitido para cualquier usuario)
+  app.post("/api/control/pedidos/:pedidoId/iniciar", requireAuth, async (req, res, next) => {
     try {
       const { pedidoId } = req.params;
       const pedidoNumId = parseInt(pedidoId);
