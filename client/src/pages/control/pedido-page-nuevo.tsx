@@ -477,6 +477,15 @@ export default function ControlPedidoPageNuevo() {
             {isLoadingControl ? 'Cargando información...' : 
               `Cliente: ${controlData?.pedido?.clienteId || 'No disponible'}`}
           </p>
+          <p className="text-gray-500 text-sm">
+            {isLoadingControl ? '' : 
+              `Armado por: ${
+                controlData?.pedido?.armador 
+                  ? `${controlData.pedido.armador.firstName || ''} ${controlData.pedido.armador.lastName || ''} (${controlData.pedido.armador.username})`.trim() 
+                  : 'No asignado'
+              }`
+            }
+          </p>
         </div>
         
         <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
