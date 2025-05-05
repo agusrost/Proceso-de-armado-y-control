@@ -2593,6 +2593,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(400).json({ message: "Esta pausa ya está finalizada" });
       }
       
+      // Verificar si la pausa fue por "fin de turno"
+      const esPausaFinTurno = pausa.motivo === "fin de turno" || 
+                            pausa.motivo === "Fin de turno" || 
+                            pausa.motivo === "FIN DE TURNO";
+      
+      console.log(`Finalizando pausa con motivo: "${pausa.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
+      
       // Calcular la duración de la pausa
       const inicio = new Date(pausa.inicio);
       const fin = new Date();
@@ -2617,14 +2624,25 @@ export async function registerRoutes(app: Application): Promise<Server> {
       try {
         console.log("Ejecutando SQL para finalizar pausa:", {
           pausaId,
+          esPausaFinTurno,
           duracionFormateada
         });
         
-        await db.execute(sql`
-          UPDATE pausas
-          SET fin = NOW(), duracion = ${duracionFormateada}
-          WHERE id = ${pausaId}
-        `);
+        if (esPausaFinTurno) {
+          console.log("Pausa por fin de turno detectada, actualizando con timestamp actual");
+          await db.execute(sql`
+            UPDATE pausas
+            SET fin = NOW(), duracion = ${duracionFormateada}
+            WHERE id = ${pausaId}
+          `);
+        } else {
+          console.log("Pausa regular, actualizando normalmente");
+          await db.execute(sql`
+            UPDATE pausas
+            SET fin = NOW(), duracion = ${duracionFormateada}
+            WHERE id = ${pausaId}
+          `);
+        }
         
         console.log("SQL para finalizar pausa ejecutado correctamente");
       } catch (err) {
@@ -2717,6 +2735,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
               const minutos = Math.floor((duracionSegundos % 3600) / 60);
               const segundos = duracionSegundos % 60;
               const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+              
+              // Verificar si la pausa fue por "fin de turno"
+              const esPausaFinTurno = pausa.motivo === "fin de turno" || 
+                                     pausa.motivo === "Fin de turno" || 
+                                     pausa.motivo === "FIN DE TURNO";
+                                     
+              console.log(`Finalizando pausa con motivo: "${pausa.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
               
               // Actualizar la pausa en la base de datos
               await db.execute(sql`
