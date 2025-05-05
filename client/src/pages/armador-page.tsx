@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -6,6 +6,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+
+// Función para formatear el tiempo restante en minutos y segundos
+const formatTiempoRestante = (ms: number): string => {
+  if (ms <= 0) return "0:00";
+  
+  // Convertir a segundos y asegurar que no sea negativo
+  const segundosTotales = Math.max(0, Math.floor(ms / 1000));
+  
+  // Extraer minutos y segundos
+  const minutos = Math.floor(segundosTotales / 60);
+  const segundos = segundosTotales % 60;
+  
+  // Formatear con padding de cero para segundos
+  return `${minutos}:${segundos.toString().padStart(2, '0')}`;
+};
 
 export default function ArmadorPage() {
   const { user, logoutMutation } = useAuth();
@@ -13,9 +29,12 @@ export default function ArmadorPage() {
   const [, setLocation] = useLocation();
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [proximaActualizacion, setProximaActualizacion] = useState<number | null>(null);
+  const [actualizando, setActualizando] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fetch current pedido assigned to armador
-  const { data: pedido, isLoading, error } = useQuery({
+  const { data: pedido, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
     enabled: !!user,
     refetchInterval: false,
@@ -77,6 +96,48 @@ export default function ArmadorPage() {
       }
     }
   }, [pedido]);
+  
+  // Efecto para configurar la recarga automática cada 3 minutos
+  useEffect(() => {
+    // Limpiar cualquier intervalo existente
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Si no hay pedido y no está cargando, configurar la recarga automática
+    if (!isLoading && !pedido) {
+      const INTERVALO_RECARGA = 3 * 60 * 1000; // 3 minutos en milisegundos
+      const ahora = Date.now();
+      setProximaActualizacion(ahora + INTERVALO_RECARGA);
+      
+      // Configurar intervalo para actualizar el contador cada segundo
+      intervalRef.current = setInterval(() => {
+        const tiempoRestante = proximaActualizacion ? proximaActualizacion - Date.now() : 0;
+        
+        // Si ha llegado el momento de recargar
+        if (tiempoRestante <= 0) {
+          setActualizando(true);
+          refetch().finally(() => {
+            const nuevoTiempo = Date.now() + INTERVALO_RECARGA;
+            setProximaActualizacion(nuevoTiempo);
+            setActualizando(false);
+          });
+        } else {
+          // Forzar re-renderizado para actualizar el contador
+          setProximaActualizacion(prevTime => prevTime);
+        }
+      }, 1000);
+    }
+    
+    // Limpieza al desmontar
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isLoading, pedido, proximaActualizacion, refetch]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white">
@@ -108,7 +169,44 @@ export default function ArmadorPage() {
         ) : (
           <div className="bg-blue-900/50 p-6 rounded-lg mb-16 max-w-md">
             <p className="text-xl font-medium mb-2">No hay pedidos pendientes</p>
-            <p className="text-white/80">No tienes pedidos para armar en este momento.</p>
+            <p className="text-white/80 mb-4">No tienes pedidos para armar en este momento.</p>
+            
+            {/* Contador de próxima actualización */}
+            {proximaActualizacion && !actualizando && (
+              <div className="mt-4 text-sm text-blue-300">
+                <p>Buscando nuevos pedidos automáticamente en:</p>
+                <p className="font-mono text-lg">
+                  {formatTiempoRestante(proximaActualizacion - Date.now())}
+                </p>
+              </div>
+            )}
+            
+            {/* Indicador de actualización en curso */}
+            {actualizando && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-blue-300">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Actualizando...</span>
+              </div>
+            )}
+            
+            {/* Botón de actualización manual */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 border-blue-400 text-blue-200 hover:bg-blue-800"
+              onClick={() => {
+                setActualizando(true);
+                refetch().finally(() => {
+                  setActualizando(false);
+                  // Reiniciar el contador para 3 minutos
+                  const INTERVALO_RECARGA = 3 * 60 * 1000;
+                  setProximaActualizacion(Date.now() + INTERVALO_RECARGA);
+                });
+              }}
+              disabled={actualizando}
+            >
+              {actualizando ? "Actualizando..." : "Actualizar ahora"}
+            </Button>
           </div>
         )}
         
