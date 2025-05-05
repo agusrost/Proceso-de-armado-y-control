@@ -3065,45 +3065,124 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
-  // Endpoint específico para corregir el pedido P987987 (sin restricción admin para esta corrección única)
-  app.post("/api/pedidos/corregir-P987987", requireAuth, async (req, res, next) => {
+  // Endpoint específico para eliminar los pedidos problemáticos (sin restricción admin para esta corrección única)
+  app.post("/api/pedidos/eliminar-pedidos-problema", async (req, res, next) => {
     try {
-      console.log("Iniciando corrección específica del pedido P987987");
+      console.log("Iniciando eliminación de pedidos problemáticos");
+      const resultados = [];
       
-      // Buscar el pedido por su ID externo
-      const pedido = await storage.getPedidoByPedidoId('P987987');
+      // ====================== ELIMINAR PEDIDO P987987 ======================
+      console.log("Procesando pedido P987987...");
+      const pedido987987 = await storage.getPedidoByPedidoId('P987987');
       
-      if (!pedido) {
-        return res.status(404).json({ 
-          success: false, 
-          mensaje: "No se encontró el pedido P987987" 
-        });
-      }
-      
-      console.log(`Encontrado pedido P987987 con ID interno ${pedido.id} y estado "${pedido.estado}"`);
-      
-      // Corregir su estado a "armado" para permitir continuar con el flujo normal
-      const pedidoActualizado = await storage.updatePedido(pedido.id, { 
-        estado: 'armado' 
-      });
-      
-      if (pedidoActualizado) {
-        return res.status(200).json({
-          success: true,
-          mensaje: `Pedido P987987 corregido exitosamente. Estado anterior: "${pedido.estado}", estado actual: "armado"`,
-          pedido: pedidoActualizado
+      if (pedido987987) {
+        console.log(`Encontrado pedido P987987 con ID interno ${pedido987987.id}`);
+        
+        // 1. Eliminar pausas
+        const pausas = await storage.getPausasByPedidoId(pedido987987.id);
+        for (const pausa of pausas) {
+          await storage.deletePausa(pausa.id);
+        }
+        
+        // 2. Eliminar control histórico y detalles
+        const controles = await storage.getControlHistoricoByPedidoId(pedido987987.id);
+        for (const control of controles) {
+          const detalles = await storage.getControlDetalleByControlId(control.id);
+          for (const detalle of detalles) {
+            await storage.eliminarDetallesControlPorProducto(control.id, detalle.productoId);
+          }
+          await storage.deleteControlHistorico(control.id);
+        }
+        
+        // 3. Eliminar productos
+        const productos = await storage.getProductosByPedidoId(pedido987987.id);
+        for (const producto of productos) {
+          await storage.deleteProducto(producto.id);
+        }
+        
+        // 4. Eliminar el pedido
+        const eliminado = await storage.deletePedido(pedido987987.id);
+        
+        resultados.push({
+          pedidoId: 'P987987',
+          resultado: eliminado ? 'eliminado' : 'error',
+          mensaje: eliminado ? 'Pedido eliminado correctamente' : 'Error al eliminar el pedido'
         });
       } else {
-        return res.status(500).json({
-          success: false,
-          mensaje: "Error al actualizar el estado del pedido P987987"
+        resultados.push({
+          pedidoId: 'P987987',
+          resultado: 'no encontrado',
+          mensaje: 'No se encontró el pedido P987987'
         });
       }
+      
+      // ====================== ELIMINAR PEDIDO P0500 ======================
+      console.log("Procesando pedido P0500...");
+      const pedido0500 = await storage.getPedidoByPedidoId('P0500');
+      
+      if (pedido0500) {
+        console.log(`Encontrado pedido P0500 con ID interno ${pedido0500.id}`);
+        
+        // 1. Eliminar pausas
+        const pausas = await storage.getPausasByPedidoId(pedido0500.id);
+        for (const pausa of pausas) {
+          await storage.deletePausa(pausa.id);
+        }
+        
+        // 2. Eliminar control histórico y detalles
+        const controles = await storage.getControlHistoricoByPedidoId(pedido0500.id);
+        for (const control of controles) {
+          const detalles = await storage.getControlDetalleByControlId(control.id);
+          for (const detalle of detalles) {
+            await storage.eliminarDetallesControlPorProducto(control.id, detalle.productoId);
+          }
+          await storage.deleteControlHistorico(control.id);
+        }
+        
+        // 3. Eliminar productos
+        const productos = await storage.getProductosByPedidoId(pedido0500.id);
+        for (const producto of productos) {
+          await storage.deleteProducto(producto.id);
+        }
+        
+        // 4. Eliminar el pedido
+        const eliminado = await storage.deletePedido(pedido0500.id);
+        
+        resultados.push({
+          pedidoId: 'P0500',
+          resultado: eliminado ? 'eliminado' : 'error',
+          mensaje: eliminado ? 'Pedido eliminado correctamente' : 'Error al eliminar el pedido'
+        });
+      } else {
+        resultados.push({
+          pedidoId: 'P0500',
+          resultado: 'no encontrado',
+          mensaje: 'No se encontró el pedido P0500'
+        });
+      }
+      
+      // Verificar DB directamente para asegurar eliminación
+      console.log("Verificando eliminación directa en base de datos...");
+      try {
+        // Eliminación directa a nivel de base de datos si es necesario
+        await db.execute(sql`
+          DELETE FROM pedidos WHERE pedido_id = 'P987987' OR pedido_id = 'P0500'
+        `);
+        console.log("Ejecutada limpieza de seguridad directamente en la base de datos");
+      } catch (dbError) {
+        console.error("Error en eliminación directa de base de datos:", dbError);
+      }
+      
+      return res.status(200).json({
+        success: true,
+        mensaje: "Proceso de limpieza de pedidos completado",
+        resultados
+      });
     } catch (error) {
-      console.error("Error al corregir el pedido P987987:", error);
+      console.error("Error al eliminar pedidos problemáticos:", error);
       return res.status(500).json({
         success: false,
-        mensaje: "Error al procesar la corrección del pedido P987987",
+        mensaje: "Error al procesar la eliminación de pedidos problemáticos",
         error: error instanceof Error ? error.message : String(error)
       });
     }
