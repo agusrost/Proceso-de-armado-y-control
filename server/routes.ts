@@ -2871,9 +2871,44 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Devolver el pedido actualizado junto con la información del último producto si existe
       const pedidoActualizado = await storage.getPedidoById(pedidoId);
       
-      // Si se encontró un último producto ID, incluirlo en la respuesta
+      // Si se encontró un último producto ID, verificar si ya fue procesado
+      // y en ese caso, encontrar el siguiente producto sin procesar
       if (ultimoProductoId) {
-        console.log(`Se encontró un último producto ID ${ultimoProductoId}, incluyéndolo en la respuesta`);
+        try {
+          // Buscar todos los productos del pedido
+          const productos = await storage.getProductosByPedidoId(pedidoId);
+          console.log(`Verificando estado de productos para pedido ${pedidoId}`);
+          
+          // Buscar el producto identificado por ultimoProductoId
+          const ultimoProducto = productos.find(p => p.id === ultimoProductoId);
+          
+          if (ultimoProducto) {
+            console.log(`Encontrado último producto ${ultimoProducto.codigo} con estado recolectado: ${ultimoProducto.recolectado}`);
+            
+            // Si el producto ya fue procesado, buscar el siguiente sin procesar
+            if (ultimoProducto.recolectado !== null) {
+              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado. Buscando siguiente sin procesar...`);
+              
+              // Buscar el primer producto que NO ha sido procesado
+              const siguienteProductoSinProcesar = productos.find(p => p.recolectado === null);
+              
+              if (siguienteProductoSinProcesar) {
+                console.log(`Encontrado siguiente producto sin procesar: ${siguienteProductoSinProcesar.codigo}`);
+                // Usar este producto como el siguiente a procesar
+                ultimoProductoId = siguienteProductoSinProcesar.id;
+                console.log(`Cambiando ultimoProductoId a ${ultimoProductoId} (${siguienteProductoSinProcesar.codigo})`);
+              } else {
+                console.log(`No se encontraron productos sin procesar`);
+              }
+            }
+          } else {
+            console.log(`No se encontró el producto con ID ${ultimoProductoId}`);
+          }
+        } catch (error) {
+          console.error("Error al verificar estado de productos:", error);
+        }
+        
+        console.log(`Se usará el producto ID ${ultimoProductoId}, incluyéndolo en la respuesta`);
         return res.json({
           ...pedidoActualizado,
           ultimoProductoId
