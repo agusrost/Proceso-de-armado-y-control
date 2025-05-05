@@ -1547,7 +1547,7 @@ export default function ArmadoPage() {
               <div className="flex justify-end">
                 <Button 
                   type="submit" 
-                  disabled={actualizarProductoMutation.isPending}
+                  disabled={actualizarProductoMutation.isPending || pausaActiva}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {actualizarProductoMutation.isPending ? 'Guardando...' : 'Guardar y Continuar'}
