@@ -2491,7 +2491,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Verificar que el pedido está en un estado válido para pausar
-      const estadosPermitidos = ['en-proceso', 'controlando', 'armando'];
+      // Ampliamos los estados permitidos para incluir más variantes que puedan existir
+      const estadosPermitidos = ['en-proceso', 'controlando', 'armando', 'armado', 'pendiente', 'pre-finalizado'];
+      
+      console.log(`Verificando si el estado '${pedido.estado}' está permitido para pausar`);
+      
       if (!estadosPermitidos.includes(pedido.estado)) {
         return res.status(400).json({ 
           message: `Solo se pueden pausar pedidos en proceso (armando o controlando). Estado actual: ${pedido.estado}` 
