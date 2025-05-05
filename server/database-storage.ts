@@ -604,6 +604,7 @@ export class DatabaseStorage implements IStorage {
     const dataToInsert = {
       pedidoId: pausaData.pedidoId,
       motivo: pausaData.motivo,
+      tipo: pausaData.tipo || "armado", // Aseguramos que se guarde el tipo (control o armado)
       inicio: pausaData.inicio || new Date(),
       fin: null,
       duracion: null
