@@ -2952,6 +2952,163 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para corregir estados inconsistentes de pedidos
+  app.post("/api/pedidos/corregir-estados", requireAuth, requireAdminPlus, async (req, res, next) => {
+    try {
+      console.log("Iniciando corrección de estados inconsistentes de pedidos");
+      let corregidos = 0;
+      
+      // Obtener todos los pedidos
+      const pedidos = await storage.getPedidos({});
+      const resultados: {pedidoId: string, estadoAnterior: string, estadoNuevo: string}[] = [];
+      
+      for (const pedido of pedidos) {
+        // 1. Corregir estados inconsistentes de "armado, pendiente stock"
+        if (pedido.estado === 'armado, pendiente stock') {
+          // Verificar si tiene solicitudes de stock pendientes
+          const solicitudes = await storage.getSolicitudesByPedidoId(pedido.id);
+          const pendientes = solicitudes.filter(s => s.estado === 'pendiente');
+          
+          if (pendientes.length === 0) {
+            console.log(`Corrigiendo estado inconsistente del pedido ${pedido.pedidoId} de "${pedido.estado}" a "armado"`);
+            await storage.updatePedido(pedido.id, { estado: 'armado' });
+            resultados.push({
+              pedidoId: pedido.pedidoId,
+              estadoAnterior: pedido.estado,
+              estadoNuevo: 'armado'
+            });
+            corregidos++;
+          }
+        } 
+        // 2. Corregir estados con formato inconsistente
+        else if (pedido.estado.includes(',') || 
+                (pedido.estado.includes('armado') && pedido.estado.includes('pendiente'))) {
+          console.log(`Verificando tipografía en estado del pedido ${pedido.pedidoId}: "${pedido.estado}"`);
+          
+          let nuevoEstado = pedido.estado;
+          
+          // Si tiene estado compuesto con coma, normalizar a formato con guiones
+          if (pedido.estado.includes(',')) {
+            nuevoEstado = pedido.estado
+              .replace('armado, pendiente stock', 'armado-pendiente-stock')
+              .replace('armado,pendiente stock', 'armado-pendiente-stock')
+              .replace(', ', '-')
+              .replace(',', '-');
+          }
+          
+          // Si el estado normalizado es diferente, actualizarlo
+          if (nuevoEstado !== pedido.estado) {
+            console.log(`Corrigiendo formato de estado para pedido ${pedido.pedidoId} de "${pedido.estado}" a "${nuevoEstado}"`);
+            await storage.updatePedido(pedido.id, { estado: nuevoEstado });
+            resultados.push({
+              pedidoId: pedido.pedidoId,
+              estadoAnterior: pedido.estado,
+              estadoNuevo: nuevoEstado
+            });
+            corregidos++;
+          }
+        }
+      }
+      
+      // 3. Buscar específicamente el pedido P987987 reportado con problemas
+      try {
+        const pedidoP987987 = await storage.getPedidoByPedidoId('P987987');
+        if (pedidoP987987) {
+          console.log(`Encontrado pedido P987987 con estado: ${pedidoP987987.estado}`);
+          // Verificar si el estado es inconsistente y corregirlo
+          if (pedidoP987987.estado !== 'armado' && 
+              pedidoP987987.estado !== 'controlando' && 
+              pedidoP987987.estado !== 'controlado') {
+            console.log(`Forzando corrección de estado para pedido P987987 de "${pedidoP987987.estado}" a "armado"`);
+            await storage.updatePedido(pedidoP987987.id, { estado: 'armado' });
+            resultados.push({
+              pedidoId: pedidoP987987.pedidoId,
+              estadoAnterior: pedidoP987987.estado,
+              estadoNuevo: 'armado'
+            });
+            corregidos++;
+          }
+        }
+      } catch (error) {
+        console.error("Error al buscar pedido específico P987987:", error);
+      }
+      
+      // 4. Buscar el pedido P0500 reportado como persistente después de eliminación
+      try {
+        const pedidoP0500 = await storage.getPedidoByPedidoId('P0500');
+        if (pedidoP0500) {
+          console.log(`Encontrado pedido P0500 con ID: ${pedidoP0500.id} que debería estar eliminado`);
+          // Forzar eliminación completa
+          const eliminacionForzada = await storage.deletePedido(pedidoP0500.id);
+          if (eliminacionForzada) {
+            resultados.push({
+              pedidoId: 'P0500',
+              estadoAnterior: 'existente',
+              estadoNuevo: 'eliminado'
+            });
+            corregidos++;
+          }
+        }
+      } catch (error) {
+        console.error("Error al buscar pedido específico P0500:", error);
+      }
+      
+      res.json({ 
+        success: true, 
+        mensaje: `Se corrigieron ${corregidos} pedidos con estados inconsistentes.`,
+        corregidos,
+        resultados
+      });
+    } catch (error) {
+      console.error("Error al corregir estados de pedidos:", error);
+      next(error);
+    }
+  });
+  
+  // Endpoint específico para corregir el pedido P987987
+  app.post("/api/pedidos/corregir-P987987", requireAuth, requireAdminPlus, async (req, res, next) => {
+    try {
+      console.log("Iniciando corrección específica del pedido P987987");
+      
+      // Buscar el pedido por su ID externo
+      const pedido = await storage.getPedidoByPedidoId('P987987');
+      
+      if (!pedido) {
+        return res.status(404).json({ 
+          success: false, 
+          mensaje: "No se encontró el pedido P987987" 
+        });
+      }
+      
+      console.log(`Encontrado pedido P987987 con ID interno ${pedido.id} y estado "${pedido.estado}"`);
+      
+      // Corregir su estado a "armado" para permitir continuar con el flujo normal
+      const pedidoActualizado = await storage.updatePedido(pedido.id, { 
+        estado: 'armado' 
+      });
+      
+      if (pedidoActualizado) {
+        return res.status(200).json({
+          success: true,
+          mensaje: `Pedido P987987 corregido exitosamente. Estado anterior: "${pedido.estado}", estado actual: "armado"`,
+          pedido: pedidoActualizado
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          mensaje: "Error al actualizar el estado del pedido P987987"
+        });
+      }
+    } catch (error) {
+      console.error("Error al corregir el pedido P987987:", error);
+      return res.status(500).json({
+        success: false,
+        mensaje: "Error al procesar la corrección del pedido P987987",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // Endpoint para eliminar un pedido
   app.delete("/api/pedidos/:id", requireAuth, requireAdminPlus, async (req, res, next) => {
     try {

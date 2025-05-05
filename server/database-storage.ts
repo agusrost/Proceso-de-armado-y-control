@@ -718,6 +718,28 @@ export class DatabaseStorage implements IStorage {
     return query;
   }
   
+  async getSolicitudesByPedidoId(pedidoId: number): Promise<StockSolicitud[]> {
+    try {
+      // Consultar solicitudes de stock vinculadas a un pedido específico por motivo/descripción
+      // Ya que pedidoId no existe como columna, buscamos en motivo o descripción
+      const solicitudes = await db
+        .select()
+        .from(stockSolicitudes)
+        .where(
+          or(
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido ${pedidoId}%`),
+            like(sql`LOWER(${stockSolicitudes.descripcion})`, `%pedido ${pedidoId}%`)
+          )
+        )
+        .orderBy(desc(stockSolicitudes.fecha));
+      
+      return solicitudes;
+    } catch (error) {
+      console.error(`Error al obtener solicitudes de stock para el pedido ${pedidoId}:`, error);
+      return [];
+    }
+  }
+  
   async updateStockSolicitud(id: number, solicitudData: Partial<StockSolicitud>): Promise<StockSolicitud | undefined> {
     const [solicitud] = await db
       .update(stockSolicitudes)
@@ -751,10 +773,36 @@ export class DatabaseStorage implements IStorage {
         .delete(controlHistorico)
         .where(eq(controlHistorico.pedidoId, id));
       
-      // Registros de solicitudes de stock
-      await db
-        .delete(stockSolicitudes)
-        .where(eq(stockSolicitudes.pedidoId, id));
+      // Para solicitudes de stock, no podemos usar pedidoId (no existe).
+      // Buscaremos primero por el ID del pedido en los campos de texto
+      try {
+        // Obtener los detalles del pedido para buscar por ID externo
+        const pedido = await this.getPedidoById(id);
+        if (pedido) {
+          // Buscar solicitudes que contengan referencias a este pedido en sus campos de texto
+          const solicitudes = await db
+            .select()
+            .from(stockSolicitudes)
+            .where(
+              or(
+                like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido ${pedido.pedidoId}%`),
+                like(sql`LOWER(${stockSolicitudes.descripcion})`, `%pedido ${pedido.pedidoId}%`)
+              )
+            );
+          
+          // Eliminar cada solicitud encontrada individualmente
+          for (const solicitud of solicitudes) {
+            await db
+              .delete(stockSolicitudes)
+              .where(eq(stockSolicitudes.id, solicitud.id));
+          }
+          
+          console.log(`Eliminadas ${solicitudes.length} solicitudes de stock relacionadas con el pedido ID ${id} (${pedido.pedidoId})`);
+        }
+      } catch (error) {
+        console.error(`Error al eliminar solicitudes de stock para pedido ID ${id}:`, error);
+        // Continuamos con la eliminación del pedido a pesar del error
+      }
       
       // Finalmente eliminamos el pedido
       console.log(`Eliminando el pedido ID ${id}`);
