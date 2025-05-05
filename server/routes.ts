@@ -2744,8 +2744,18 @@ export async function registerRoutes(app: Application): Promise<Server> {
         console.log(`Pedido ${pedido.pedidoId} ya está en proceso, continuando armado`);
       }
       
-      // Devolver el pedido actualizado
+      // Devolver el pedido actualizado junto con la información del último producto si existe
       const pedidoActualizado = await storage.getPedidoById(pedidoId);
+      
+      // Si se encontró un último producto ID, incluirlo en la respuesta
+      if (ultimoProductoId) {
+        console.log(`Se encontró un último producto ID ${ultimoProductoId}, incluyéndolo en la respuesta`);
+        return res.json({
+          ...pedidoActualizado,
+          ultimoProductoId
+        });
+      }
+      
       res.json(pedidoActualizado);
     } catch (error) {
       console.error("Error al iniciar pedido:", error);
@@ -2878,7 +2888,31 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Se encontraron ${productos.length} productos para el pedido ID ${pedidoId}`);
       
-      // Si no hay productos, esto debería devolver un array vacío, no null
+      // Verificar si hay un último producto ID en el query param (viene de iniciar/reanudar un pedido pausado)
+      const ultimoProductoId = req.query.ultimoProductoId ? parseInt(req.query.ultimoProductoId as string) : null;
+      
+      if (ultimoProductoId) {
+        console.log(`Se recibió ultimoProductoId=${ultimoProductoId}, organizando productos para comenzar desde este`);
+        
+        // Extraer el último producto procesado
+        const ultimoProductoIndex = productos.findIndex(p => p.id === ultimoProductoId);
+        
+        if (ultimoProductoIndex !== -1) {
+          console.log(`Se encontró el último producto procesado en el índice ${ultimoProductoIndex}`);
+          // No es necesario reordenar los productos, el cliente se encargará de empezar desde este índice
+          
+          // Devolver los productos con la metadata de cuál fue el último procesado
+          return res.json({
+            productos,
+            metadata: {
+              ultimoProductoId,
+              ultimoProductoIndex
+            }
+          });
+        }
+      }
+      
+      // Si no hay productos o no se encontró el último producto, devolver solo los productos
       return res.json(productos);
     } catch (error) {
       console.error(`Error al obtener productos del pedido ID ${req.params.id}:`, error);
