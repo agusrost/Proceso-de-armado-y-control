@@ -28,8 +28,17 @@ import {
   Loader2,
   Package as Packages,
   PackageCheck,
-  AlertTriangle
+  AlertTriangle,
+  PauseCircle,
+  PlayCircle
 } from 'lucide-react';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ProductoEscanerSeguro } from '@/components/control/producto-escaner-seguro';
 import { ProductosEscaneadosLista } from '@/components/control/productos-escaneados-lista';
 
@@ -88,10 +97,12 @@ export default function ControlPedidoPageNuevo() {
     }
   }, [controlState.mensajeError, pedidoId, toast]);
   
-  // Estado para diálogos
+  // Estado para diálogos y control
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
   const [finalizandoControl, setFinalizandoControl] = useState(false);
   const [tabActiva, setTabActiva] = useState("productos");
+  const [pausando, setPausando] = useState(false);
+  const [pausado, setPausado] = useState(false);
 
   // Obtener información de control activo para este pedido
   const { 
@@ -138,6 +149,9 @@ export default function ControlPedidoPageNuevo() {
     }
   });
   
+  // Estado para diálogo de finalización exitosa
+  const [showExitoDialog, setShowExitoDialog] = useState(false);
+
   // Manejar mutación para finalizar control
   const finalizarControlMutation = useMutation({
     mutationFn: async () => {
@@ -157,21 +171,13 @@ export default function ControlPedidoPageNuevo() {
       return response.json();
     },
     onSuccess: (data) => {
-      toast({
-        title: '¡Control finalizado!',
-        description: 'El control se ha completado exitosamente.',
-        variant: 'default',
-      });
-      
       // Invalidar queries relacionadas
       queryClient.invalidateQueries({
         queryKey: [`/api/control/pedidos/${pedidoId}/activo`],
       });
       
-      // Redirigir a la página de historial
-      setTimeout(() => {
-        navigate('/control/historial');
-      }, 1500);
+      // Mostrar diálogo de éxito centralizado
+      setShowExitoDialog(true);
     },
     onError: (error: Error) => {
       setFinalizandoControl(false);
@@ -739,6 +745,27 @@ export default function ControlPedidoPageNuevo() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Diálogo de finalización exitosa */}
+      <Dialog open={showExitoDialog} onOpenChange={(open) => !open && navigate('/control/historial')}>
+        <DialogContent className="sm:max-w-md">
+          <div className="flex flex-col items-center justify-center py-6">
+            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+              <CheckCircle2 className="h-10 w-10 text-green-600" />
+            </div>
+            <DialogTitle className="text-center text-2xl font-bold mb-2">¡Control Finalizado!</DialogTitle>
+            <DialogDescription className="text-center mb-6">
+              El control del pedido {controlData?.pedido?.pedidoId} se ha completado exitosamente.
+            </DialogDescription>
+            <Button 
+              onClick={() => navigate('/control/historial')} 
+              className="w-full"
+            >
+              Volver al Historial
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
