@@ -45,6 +45,7 @@ export const pausas = pgTable("pausas", {
   motivo: text("motivo").notNull(),
   duracion: text("duracion"), // formato HH:MM:SS
   tipo: text("tipo").default("armado"), // armado o control
+  ultimoProductoId: integer("ultimo_producto_id").references(() => productos.id), // ID del último producto que estaba siendo procesado
 });
 
 export const productos = pgTable("productos", {
@@ -119,6 +120,7 @@ export const insertPedidoSchema = createInsertSchema(pedidos).omit({ id: true })
 export const insertPausaSchema = createInsertSchema(pausas).omit({ id: true, fin: true, duracion: true }).extend({
   inicio: z.date().optional().nullable(), // Hacemos que inicio sea opcional para que el servidor lo maneje
   tipo: z.enum(["armado", "control"]).optional().default("armado"),
+  ultimoProductoId: z.number().optional().nullable(), // ID del último producto que estaba siendo procesado cuando se pausó
 });
 export const insertProductoSchema = createInsertSchema(productos).omit({ id: true });
 export const insertStockSolicitudSchema = createInsertSchema(stockSolicitudes).omit({ id: true });

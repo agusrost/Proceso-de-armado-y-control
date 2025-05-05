@@ -2654,6 +2654,9 @@ export async function registerRoutes(app: Application): Promise<Server> {
         });
       }
       
+      // Variable para almacenar el ID del último producto procesado
+      let ultimoProductoId = null;
+      
       // Primero, verificar si hay pausas activas para este pedido y finalizarlas
       try {
         const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
@@ -2664,6 +2667,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
           // Finalizar cada una de las pausas activas
           for (const pausa of pausasActivas) {
             console.log(`Finalizando pausa ${pausa.id} para el pedido ${pedido.pedidoId}`);
+            
+            // Si la pausa tiene un producto asociado, guardamos su ID
+            if (pausa.ultimoProductoId) {
+              console.log(`Pausa ${pausa.id} tiene un producto asociado: ${pausa.ultimoProductoId}`);
+              ultimoProductoId = pausa.ultimoProductoId;
+            }
             
             try {
               // Calcular la duración de la pausa

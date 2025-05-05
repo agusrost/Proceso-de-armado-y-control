@@ -913,11 +913,14 @@ export default function ArmadoPage() {
                           ? motivoPausaDetalle 
                           : motivoPausa;
                           
+                        // Obtener el ID del producto actual que se está procesando
+                        const currentProducto = productos[currentProductoIndex];
+                        
                         crearPausaMutation.mutate({
                           pedidoId: currentPedido.id,
                           motivo: motivoFinal,
-                          tipo: "armado" // Especificar que es una pausa de armado
-                          // No enviamos el campo inicio para que el backend lo maneje
+                          tipo: "armado", // Especificar que es una pausa de armado
+                          ultimo_producto_id: currentProducto?.id || null // Guardar el ID del último producto procesado
                         });
                       }}
                       disabled={crearPausaMutation.isPending}
