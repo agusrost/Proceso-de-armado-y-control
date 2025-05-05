@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation, useNavigate } from 'wouter';
+import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -68,6 +68,50 @@ export default function ControlPedidoPageNuevo() {
     mensajeError: null
   });
   
+  // Funcion para iniciar control manualmente
+  const iniciarControlManualmente = async () => {
+    console.log("Intentando iniciar un nuevo control...");
+    try {
+      const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
+        method: 'POST'
+      });
+      
+      if (initResp.ok) {
+        toast({
+          title: "Control iniciado",
+          description: "Se ha iniciado un nuevo control para este pedido",
+          variant: "default"
+        });
+        // Recargar la página para mostrar el nuevo control
+        window.location.reload();
+      } else {
+        // Intentar obtener el mensaje de error
+        try {
+          const errorData = await initResp.json();
+          toast({
+            title: "No se pudo iniciar el control",
+            description: errorData.message || errorData.error || "Error al iniciar el control",
+            variant: "destructive",
+            duration: 6000
+          });
+        } catch (e) {
+          toast({
+            title: "No se pudo iniciar el control",
+            description: `Error: ${initResp.status}`,
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error al iniciar control:", error);
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al intentar iniciar el control",
+        variant: "destructive"
+      });
+    }
+  };
+  
   // Manejar errores de forma más robusta
   useEffect(() => {
     const handleError = async () => {
@@ -114,49 +158,6 @@ export default function ControlPedidoPageNuevo() {
         }
       } catch (error) {
         console.error("Error al intentar reiniciar el control:", error);
-      }
-    };
-    
-    const iniciarControlManualmente = async () => {
-      console.log("Intentando iniciar un nuevo control...");
-      try {
-        const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
-          method: 'POST'
-        });
-        
-        if (initResp.ok) {
-          toast({
-            title: "Control iniciado",
-            description: "Se ha iniciado un nuevo control para este pedido",
-            variant: "default"
-          });
-          // Recargar la página para mostrar el nuevo control
-          window.location.reload();
-        } else {
-          // Intentar obtener el mensaje de error
-          try {
-            const errorData = await initResp.json();
-            toast({
-              title: "No se pudo iniciar el control",
-              description: errorData.error || "Error al iniciar el control",
-              variant: "destructive",
-              duration: 6000
-            });
-          } catch (e) {
-            toast({
-              title: "No se pudo iniciar el control",
-              description: `Error: ${initResp.status}`,
-              variant: "destructive"
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error al iniciar control:", error);
-        toast({
-          title: "Error",
-          description: "Ocurrió un error al intentar iniciar el control",
-          variant: "destructive"
-        });
       }
     };
     
@@ -579,50 +580,6 @@ export default function ControlPedidoPageNuevo() {
       </div>
     );
   }
-  
-  // Funcion para iniciar control manualmente
-  const iniciarControlManualmente = async () => {
-    console.log("Intentando iniciar un nuevo control...");
-    try {
-      const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
-        method: 'POST'
-      });
-      
-      if (initResp.ok) {
-        toast({
-          title: "Control iniciado",
-          description: "Se ha iniciado un nuevo control para este pedido",
-          variant: "default"
-        });
-        // Recargar la página para mostrar el nuevo control
-        window.location.reload();
-      } else {
-        // Intentar obtener el mensaje de error
-        try {
-          const errorData = await initResp.json();
-          toast({
-            title: "No se pudo iniciar el control",
-            description: errorData.message || errorData.error || "Error al iniciar el control",
-            variant: "destructive",
-            duration: 6000
-          });
-        } catch (e) {
-          toast({
-            title: "No se pudo iniciar el control",
-            description: `Error: ${initResp.status}`,
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error al iniciar control:", error);
-      toast({
-        title: "Error",
-        description: "Ocurrió un error al intentar iniciar el control",
-        variant: "destructive"
-      });
-    }
-  };
   
   // Si hay error al cargar el control
   if (controlError) {
