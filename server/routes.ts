@@ -2947,6 +2947,63 @@ export async function registerRoutes(app: Application): Promise<Server> {
       next(error);
     }
   });
+  
+  // Endpoint para eliminar un pedido
+  app.delete("/api/pedidos/:id", requireAuth, requireAdminPlus, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      // Verificar que el pedido existe
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Primero eliminamos todas las pausas asociadas a este pedido
+      const pausas = await storage.getPausasByPedidoId(pedidoId);
+      for (const pausa of pausas) {
+        await storage.deletePausa(pausa.id);
+      }
+      
+      // Eliminar control histórico y detalles si existen
+      const controles = await storage.getControlHistoricoByPedidoId(pedidoId);
+      for (const control of controles) {
+        const detalles = await storage.getControlDetalleByControlId(control.id);
+        for (const detalle of detalles) {
+          await storage.eliminarDetallesControlPorProducto(control.id, detalle.productoId);
+        }
+      }
+      
+      // Eliminar todos los productos asociados a este pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      for (const producto of productos) {
+        await storage.deleteProducto(producto.id);
+      }
+      
+      // Finalmente eliminamos el pedido
+      const eliminado = await storage.deletePedido(pedidoId);
+      
+      if (eliminado) {
+        return res.status(200).json({ 
+          success: true, 
+          message: "Pedido eliminado correctamente",
+          pedidoId
+        });
+      } else {
+        return res.status(500).json({ message: "No se pudo eliminar el pedido" });
+      }
+    } catch (error) {
+      console.error("Error al eliminar pedido:", error);
+      return res.status(500).json({ 
+        message: "Error al eliminar el pedido", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   
