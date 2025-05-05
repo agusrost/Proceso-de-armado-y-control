@@ -2607,7 +2607,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         motivo: req.body.motivo,
         inicio: new Date(),
         tipo: req.body.tipo || 'armado', // Por defecto es una pausa de armado
-        ultimo_producto_id: req.body.ultimo_producto_id || null // Guardar el ID del último producto si se proporciona
+        ultimo_producto_id: req.body.ultimoProductoId || null // Guardar el ID del último producto si se proporciona
       };
       
       console.log("Datos de pausa a insertar:", pausaData);
