@@ -160,18 +160,19 @@ export default function ArmadoPage() {
           const res = await apiRequest("GET", `/api/productos/pedido/${data.id}`);
           const productos = await res.json();
           if (productos.length > 0) {
-            // Si hay un último producto ID, buscar ese producto y usar su cantidad
+            // Si hay un último producto ID, buscar ese producto
             if (data.ultimoProductoId) {
               const ultimoProducto = productos.find((p: any) => p.id === data.ultimoProductoId);
               if (ultimoProducto) {
-                setRecolectados(ultimoProducto.cantidad);
+                // Establecer valor inicial a 0 o al valor ya recolectado si existe
+                setRecolectados(ultimoProducto.recolectado !== null ? ultimoProducto.recolectado : 0);
               } else {
-                // Si no se encuentra, usar el primer producto
-                setRecolectados(productos[0].cantidad);
+                // Si no se encuentra, usar el primer producto con valor inicial 0
+                setRecolectados(0);
               }
             } else {
-              // Si no hay último producto, usar el primer producto
-              setRecolectados(productos[0].cantidad);
+              // Si no hay último producto, usar el primer producto con valor inicial 0
+              setRecolectados(0);
             }
           }
         } catch (error) {
@@ -257,10 +258,10 @@ export default function ArmadoPage() {
         if (currentProductoIndex < productos.length - 1) {
           // Aún hay más productos, avanzar al siguiente
           setCurrentProductoIndex(currentProductoIndex + 1);
-          // Establecer la cantidad predeterminada igual a la cantidad requerida del siguiente producto
+          // Establecer valor inicial a 0 o al valor ya recolectado si existe
           const siguienteProducto = productos[currentProductoIndex + 1];
           if (siguienteProducto) {
-            setRecolectados(siguienteProducto.cantidad);
+            setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : 0);
           } else {
             setRecolectados(0);
           }
@@ -738,9 +739,9 @@ export default function ArmadoPage() {
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
-                // Si es null, establecer a la cantidad predeterminada y luego restar 1
+                // Si es null, establecer a 0
                 if (recolectados === null) {
-                  setRecolectados(Math.max(0, producto.cantidad - 1));
+                  setRecolectados(0);
                 } else {
                   setRecolectados(Math.max(0, recolectados - 1));
                 }
@@ -748,13 +749,13 @@ export default function ArmadoPage() {
             >
               −
             </button>
-            <span className="text-2xl font-semibold">{recolectados === null ? producto.cantidad : recolectados}</span>
+            <span className="text-2xl font-semibold">{recolectados === null ? 0 : recolectados}</span>
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
-                // Si es null, establecer a la cantidad predeterminada y luego sumar 1 (limitando al máximo)
+                // Si es null, establecer a 1
                 if (recolectados === null) {
-                  setRecolectados(Math.min(producto.cantidad, producto.cantidad));
+                  setRecolectados(1);
                 } else {
                   setRecolectados(Math.min(producto.cantidad, recolectados + 1));
                 }
@@ -821,10 +822,10 @@ export default function ArmadoPage() {
             onClick={() => {
               if (!producto) return;
               
-              // Si recolectados es null, establecerlo como la cantidad requerida
+              // Si recolectados es null, establecerlo como 0
               if (recolectados === null) {
-                console.log("Recolectados es null, estableciendo a cantidad predeterminada:", producto.cantidad);
-                setRecolectados(producto.cantidad);
+                console.log("Recolectados es null, estableciendo a 0");
+                setRecolectados(0);
                 return;
               }
               
@@ -844,8 +845,8 @@ export default function ArmadoPage() {
               const esUltimoProducto = currentProductoIndex >= productos.length - 1;
               console.log("¿Es último producto?", esUltimoProducto ? "SÍ" : "NO");
               
-              // Si aún es null, usar la cantidad del producto como valor predeterminado
-              const cantidadRecolectada = recolectados === null ? producto.cantidad : recolectados;
+              // Si aún es null, usar 0 como valor predeterminado
+              const cantidadRecolectada = recolectados === null ? 0 : recolectados;
               
               actualizarProductoMutation.mutate({
                 id: producto.id,
