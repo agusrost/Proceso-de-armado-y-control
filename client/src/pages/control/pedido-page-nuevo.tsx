@@ -247,14 +247,18 @@ export default function ControlPedidoPageNuevo() {
     // Refrescar datos del control
     refetchControl();
     
+    // Obtener información del producto para mostrar en la notificación
+    const codigo = data?.codigo || data?.productoData?.codigo || 'Producto';
+    const cantidad = data?.cantidadControlada || data?.cantidad || 1;
+    
     // Mostrar confirmación
     toast({
       title: 'Producto escaneado',
-      description: `${data.codigo}: ${data.cantidadControlada} unidad(es)`,
+      description: `${codigo}: ${cantidad} unidad(es)`,
     });
     
-    // Cambiar a la pestaña de productos
-    setTabActiva("productos");
+    // Ya no cambiamos de pestaña para permitir escaneos consecutivos
+    // setTabActiva("productos");
   };
 
   // Manejar error en escaneo

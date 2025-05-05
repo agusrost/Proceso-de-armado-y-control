@@ -11,13 +11,15 @@ interface ProductoEscanerSeguroProps {
   className?: string;
   onEscaneoSuccess?: (result: any) => void;
   onEscaneoError?: (error: Error) => void;
+  disabled?: boolean;
 }
 
 export function ProductoEscanerSeguro({
   pedidoId,
   className = "",
   onEscaneoSuccess,
-  onEscaneoError
+  onEscaneoError,
+  disabled = false
 }: ProductoEscanerSeguroProps) {
   const [codigo, setCodigo] = useState("");
   const [cantidad, setCantidad] = useState(1);
@@ -142,7 +144,7 @@ export function ProductoEscanerSeguro({
                 onChange={handleCodigoChange}
                 placeholder="Escanea o ingresa el código"
                 className="pr-10"
-                disabled={escanearMutation.isPending}
+                disabled={escanearMutation.isPending || disabled}
               />
               <ScanLine 
                 className="h-4 w-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
@@ -158,7 +160,7 @@ export function ProductoEscanerSeguro({
                 variant="outline"
                 size="sm"
                 onClick={() => setCantidad(prev => Math.max(1, prev - 1))}
-                disabled={escanearMutation.isPending || cantidad <= 1}
+                disabled={escanearMutation.isPending || cantidad <= 1 || disabled}
                 className="h-9 w-9 p-0"
               >
                 -
@@ -169,14 +171,14 @@ export function ProductoEscanerSeguro({
                 value={cantidad}
                 onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
                 className="text-center"
-                disabled={escanearMutation.isPending}
+                disabled={escanearMutation.isPending || disabled}
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setCantidad(prev => prev + 1)}
-                disabled={escanearMutation.isPending}
+                disabled={escanearMutation.isPending || disabled}
                 className="h-9 w-9 p-0"
               >
                 +
