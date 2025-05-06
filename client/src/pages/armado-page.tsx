@@ -24,7 +24,7 @@ function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: {
         : isCompleted 
           ? 'border-green-300 bg-green-50' // Productos ya recolectados - Verde claro
           : isPending 
-            ? 'border-red-300 bg-red-50' // Productos pendientes - Rojo claro (cambiado de rosa a rojo)
+            ? 'border-red-300 bg-red-50' // Productos pendientes - Rojo claro
             : 'border-gray-300'
     }`}>
       <div className="flex justify-between items-center">
@@ -710,27 +710,36 @@ export default function ArmadoPage() {
       setCurrentPedido(pedidoArmador);
       
       // Verificar si hay pausas activas y actualizar el estado local
-      // Primero comprobamos la propiedad pausaActiva, luego verificamos en pausas[]
-      if (pedidoArmador.pausaActiva) {
-        console.log("Estableciendo pausaActiva a true desde useEffect de pedidoArmador (propiedad pausaActiva)");
+      // Enfoque más consistente para detectar pausas activas
+      const tienePausaActiva = Boolean(pedidoArmador.pausaActiva);
+      const tienePausaSinFinalizar = pedidoArmador.pausas && 
+        Array.isArray(pedidoArmador.pausas) && 
+        pedidoArmador.pausas.some(p => !p.fin);
+      
+      console.log(`Diagnóstico de pausas - pausaActiva prop: ${tienePausaActiva}, pausaSinFinalizar: ${tienePausaSinFinalizar}`);
+      
+      if (tienePausaActiva || tienePausaSinFinalizar) {
+        console.log("⚠️ Pedido tiene pausa activa - Actualizando estado local");
         setPausaActiva(true);
         
-        if (pedidoArmador.pausaActiva.id) {
+        // Buscar el ID de la pausa para finalización
+        if (pedidoArmador.pausaActiva?.id) {
+          console.log(`Usando ID de pausa desde pausaActiva: ${pedidoArmador.pausaActiva.id}`);
           setPausaActualId(pedidoArmador.pausaActiva.id);
-          console.log(`Estableciendo ID de pausa actual: ${pedidoArmador.pausaActiva.id}`);
-        }
-      } else if (pedidoArmador.pausas && pedidoArmador.pausas.length > 0) {
-        // Verificar manualmente si hay pausas sin finalizar
-        const pausaSinFinalizar = pedidoArmador.pausas.find(p => !p.fin);
-        if (pausaSinFinalizar) {
-          console.log("Estableciendo pausaActiva a true desde useEffect (pausa sin finalizar encontrada en pausas[])");
-          setPausaActiva(true);
-          setPausaActualId(pausaSinFinalizar.id);
-        } else {
-          setPausaActiva(false);
-          setPausaActualId(null);
+        } else if (tienePausaSinFinalizar) {
+          // Buscar la pausa sin finalizar más reciente
+          const pausasSinFinalizar = pedidoArmador.pausas.filter(p => !p.fin);
+          const pausaMasReciente = pausasSinFinalizar.sort((a, b) => 
+            new Date(b.inicio).getTime() - new Date(a.inicio).getTime()
+          )[0];
+          
+          if (pausaMasReciente?.id) {
+            console.log(`Usando ID de pausa desde pausas[]: ${pausaMasReciente.id}`);
+            setPausaActualId(pausaMasReciente.id);
+          }
         }
       } else {
+        console.log("✅ Pedido sin pausas activas");
         setPausaActiva(false);
         setPausaActualId(null);
       }
@@ -1013,7 +1022,7 @@ export default function ArmadoPage() {
             
             {producto.recolectado !== null && producto.recolectado < producto.cantidad && (
               <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                INCOMPLETO
+                INCOMPLETO ({producto.recolectado}/{producto.cantidad})
               </div>
             )}
           </div>
