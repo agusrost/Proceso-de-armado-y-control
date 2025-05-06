@@ -878,14 +878,14 @@ export default function ArmadoPage() {
                       >
                         <Play size={16} className="mr-2" />
                         {/* Cambiar el texto del botón si hay una pausa activa */}
-                        {pedidoArmador.pausaActiva ? 'Continuar armado' : 'Iniciar armado'}
+                        {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar armado'}
                       </Button>
                       
                       <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>
-                              {pedidoArmador.pausaActiva ? 'Continuar armado' : 'Iniciar armado'}
+                              {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar armado'}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
                               {pedidoArmador.pausaActiva ? (
