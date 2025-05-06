@@ -16,7 +16,9 @@ import {
   AlertTriangle,
   Eye,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  PauseCircle,
+  PlayCircle
 } from "lucide-react";
 import { Link } from "wouter";
 import { SearchPedidoForm } from "@/components/control/search-pedido-form";
@@ -157,7 +159,14 @@ export default function ControlIndexPage() {
                       const estaControlando = pedido.estado === 'controlando';
                       
                       // Verificar si el pedido tiene pausas de control activas
-                      const tienePausaControl = pedido.pausasActivas && pedido.pausasActivas.length > 0;
+                      // Comprobación más estricta para detectar pausas reales de control
+                      const tienePausaControl = pedido.pausasActivas && 
+                                               Array.isArray(pedido.pausasActivas) && 
+                                               pedido.pausasActivas.length > 0 &&
+                                               // Verificar que sea una pausa de tipo "control"
+                                               pedido.pausasActivas.some(pausa => pausa.tipo === 'control');
+                      
+                      console.log(`Pedido ${pedido.pedidoId}: tiene ${pedido.pausasActivas?.length || 0} pausas, es pausa de control: ${tienePausaControl}`);
                       
                       return (
                         <tr key={pedido.id} className={`hover:bg-neutral-50 ${
@@ -217,9 +226,23 @@ export default function ControlIndexPage() {
                                 to={`/control/pedido/${pedido.id}`} 
                                 className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                               >
-                                {estaControlando && tienePausaControl ? "Reanudar control" : 
-                                 estaControlando ? "Continuar control" : 
-                                 "Iniciar control"}
+                                {/* Texto del botón según el estado actual */}
+                                {estaControlando && tienePausaControl ? (
+                                  <>
+                                    <PlayCircle className="mr-1 h-3.5 w-3.5" />
+                                    Reanudar control
+                                  </>
+                                ) : estaControlando ? (
+                                  <>
+                                    <Eye className="mr-1 h-3.5 w-3.5" />
+                                    Continuar control
+                                  </>
+                                ) : (
+                                  <>
+                                    <ClipboardCheck className="mr-1 h-3.5 w-3.5" />
+                                    Iniciar control
+                                  </>
+                                )}
                               </Link>
                             </div>
                           </td>

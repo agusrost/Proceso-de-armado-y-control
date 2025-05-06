@@ -189,12 +189,21 @@ export default function ControlPedidoColumnasPage() {
     }
   }, [controlState.mensajeError, pedidoId, toast, pedidoQuery.data]);
   
-  // Timer para el control
+  // Timer para el control - Usando una referencia para evitar reinicios
+  // Creamos referencia para el intervalo para evitar reinicios
+  const timerIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    // Limpiar cualquier intervalo existente para prevenir duplicados
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
     
+    // Solo crear un nuevo intervalo si el control está activo
     if (controlState.isRunning && !controlState.pedidoYaControlado) {
-      interval = setInterval(() => {
+      console.log("✓ Iniciando temporizador de columnas (una sola vez)");
+      timerIntervalRef.current = setInterval(() => {
         setControlState(prev => ({
           ...prev,
           segundos: prev.segundos + 1
@@ -203,10 +212,15 @@ export default function ControlPedidoColumnasPage() {
       }, 1000);
     }
     
+    // Limpieza al desmontar
     return () => {
-      if (interval) clearInterval(interval);
+      if (timerIntervalRef.current) {
+        console.log("✓ Limpiando intervalo de temporizador en columnas");
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
     };
-  }, [controlState.isRunning, controlState.pedidoYaControlado]);
+  }, [controlState.isRunning]); // Solo depende de isRunning
   
   // Calcular estado del control
   const totalProductos = controlState.productosControlados.reduce((acc, p) => acc + p.cantidad, 0);

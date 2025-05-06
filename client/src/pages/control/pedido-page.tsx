@@ -1565,12 +1565,18 @@ export default function ControlPedidoPage() {
     p.controlado === p.cantidad
   );
   
-  // Actualizar temporizador cada segundo
+  // Actualizar temporizador cada segundo usando useRef para evitar reinicializaciones
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
+    // Limpiar cualquier intervalo existente para prevenir duplicados
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     
+    // Solo crear un nuevo intervalo si el control está activo
     if (controlState.isRunning && controlState.startTime) {
-      interval = setInterval(() => {
+      console.log("✓ Iniciando contador de tiempo (una sola vez)");
+      intervalRef.current = setInterval(() => {
         setControlState(prev => ({
           ...prev,
           segundos: Math.floor((Date.now() - (prev.startTime || 0)) / 1000)
@@ -1578,10 +1584,15 @@ export default function ControlPedidoPage() {
       }, 1000);
     }
     
+    // Limpieza al desmontar
     return () => {
-      if (interval) clearInterval(interval);
+      if (intervalRef.current) {
+        console.log("✓ Limpiando intervalo de temporizador");
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [controlState.isRunning, controlState.startTime]);
+  }, [controlState.isRunning]); // Solo depende de isRunning, no de startTime
   
   // Referencia para el seguimiento de inicio automático
   const inicioAutomaticoRealizado = useRef(false);
