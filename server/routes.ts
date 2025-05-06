@@ -610,6 +610,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Obtener pausas activas
             const pausasActivas = await storage.getPausasActivasByPedidoId(pedido.id, true);
             
+            // Filtrar solo las pausas de tipo "control"
+            const pausasControlActivas = pausasActivas.filter(pausa => 
+              pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+            );
+            
+            console.log(`Pedido ${pedido.id}: pausas activas=${pausasActivas.length}, pausas de control=${pausasControlActivas.length}`);
+            
             return {
               ...pedido,
               controlInicio: controlEnCurso?.inicio,
@@ -624,7 +631,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 firstName: controlador.firstName,
                 lastName: controlador.lastName,
               } : null,
-              pausasActivas
+              pausasActivas: pausasControlActivas
             };
           } catch (err) {
             console.error(`Error al procesar pedido en control ${pedido.id}:`, err);
