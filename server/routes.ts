@@ -811,8 +811,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Verificar si el pedido está en un estado válido para iniciar control
-      // Ahora permitimos tanto 'armado' como 'armado-pendiente-stock'
-      const estadosValidosParaControl = ['armado', 'armado-pendiente-stock'];
+      // Solo permitimos iniciar control de pedidos en estado 'armado'
+      const estadosValidosParaControl = ['armado'];
       
       if (!estadosValidosParaControl.includes(pedido.estado)) {
         if (pedido.estado === 'controlado') {
@@ -822,6 +822,10 @@ export async function registerRoutes(app: Application): Promise<Server> {
         } else if (pedido.estado === 'controlando') {
           return res.status(400).json({ 
             error: 'PEDIDO_YA_CONTROLADO: Este pedido ya está siendo controlado' 
+          });
+        } else if (pedido.estado === 'armado-pendiente-stock') {
+          return res.status(400).json({ 
+            error: 'PEDIDO_PENDIENTE_STOCK: Este pedido tiene problemas de stock pendientes y no puede ser controlado' 
           });
         } else {
           return res.status(400).json({ 
