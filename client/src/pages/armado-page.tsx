@@ -414,10 +414,11 @@ export default function ArmadoPage() {
     }
   });
   
-  // Finalizar pausa mutation
+  // Finalizar pausa mutation con manejo de estado mejorado
   const finalizarPausaMutation = useMutation({
     mutationFn: async (pausaId: number) => {
       try {
+        console.log(`API - Finalizando pausa ID: ${pausaId}`);
         const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
         
         // Verificar que la respuesta es JSON antes de procesarla
@@ -427,51 +428,67 @@ export default function ArmadoPage() {
           throw new Error(`Error al finalizar pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
         }
         
-        return await res.json();
+        const data = await res.json();
+        console.log(`API - Pausa ${pausaId} finalizada correctamente`);
+        return data;
       } catch (err: any) {
-        console.error("Error al finalizar pausa:", err);
+        console.error("Error en API al finalizar pausa:", err);
         throw new Error(err.message || "No se pudo finalizar la pausa");
       }
     },
-    onSuccess: () => {
-      console.log("Pausa finalizada con éxito, actualizando estado local");
+    // La lógica principal de onSuccess está ahora en los callbacks
+    // de las llamadas individuales para permitir diferentes comportamientos
+    // según el contexto de la UI
+    onSuccess: (data) => {
+      console.log("Pausa finalizada en la base de datos con éxito");
       
-      // Actualizar estado local inmediatamente (no esperar a la invalidación de la consulta)
+      // Actualizar estado local inmediatamente
       setPausaActiva(false);
       setPausaActualId(null);
       
-      // Forzar actualización completa del estado con retrasos para garantizar sincronización
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-        
-        // Forzar refetching de productos después de la invalidación
-        setTimeout(() => {
-          if (currentPedido?.id) {
-            queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${currentPedido.id}`] });
-            
-            // Recargar la lista de productos explícitamente para actualizar la interfaz
-            apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
-              .then(res => res.json())
-              .then(productos => {
-                console.log("Productos recargados después de finalizar pausa:", productos.length);
-                setProductos(productos);
-              })
-              .catch(err => console.error("Error al recargar productos:", err));
-          }
-        }, 300);
-      }, 200);
+      // Actualizar los datos del pedido actual
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/pedido-para-armador"],
+        exact: true
+      });
       
+      // Actualizar productos con un pequeño retraso para asegurar sincronización
+      if (currentPedido?.id) {
+        setTimeout(() => {
+          queryClient.invalidateQueries({ 
+            queryKey: [`/api/productos/pedido/${currentPedido.id}`],
+            refetchType: 'all'
+          });
+          
+          console.log(`Solicitando actualización explícita de productos para pedido ${currentPedido.id}`);
+          apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
+            .then(res => res.json())
+            .then(productosActualizados => {
+              console.log(`Productos recargados después de finalizar pausa: ${productosActualizados.length}`);
+              setProductos(productosActualizados);
+            })
+            .catch(err => console.error("Error al recargar productos:", err));
+        }, 500);
+      }
+      
+      // Mostrar notificación de éxito
       toast({
         title: "Pedido reanudado",
         description: "Has reanudado el armado del pedido correctamente",
       });
     },
     onError: (error: Error) => {
+      console.error("Error en mutation al finalizar pausa:", error);
+      
+      // Mostrar un mensaje de error más descriptivo
       toast({
         title: "Error al finalizar pausa",
-        description: error.message,
+        description: `No se pudo reanudar la pausa: ${error.message}. Intente nuevamente.`,
         variant: "destructive",
       });
+      
+      // En caso de error, refrescar datos para asegurar consistencia
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     }
   });
   
@@ -1984,8 +2001,12 @@ export default function ArmadoPage() {
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-600">Estado: 
-                <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                  En proceso
+                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                  pausaActiva 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {pausaActiva ? 'Pausado' : 'En proceso'}
                 </span>
               </p>
               {productos.length > 0 && (
@@ -1995,6 +2016,117 @@ export default function ArmadoPage() {
               )}
             </div>
           </div>
+          
+          {/* Mostrar mensaje de pausa */}
+          {pausaActiva && (
+            <div className="mt-4 border-t border-blue-200 pt-4">
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-md">
+                <div className="flex items-center text-amber-800 mb-2">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-amber-600" />
+                  <h3 className="font-medium">Armado pausado</h3>
+                </div>
+                <p className="text-sm text-amber-700 mb-3">
+                  No puedes continuar con el armado hasta que reanudes la pausa actual.
+                </p>
+                <Button
+                  onClick={() => {
+                    if (pausaActualId) {
+                      // Mostrar mensaje de procesamiento
+                      toast({
+                        title: "Procesando...",
+                        description: "Finalizando pausa, espere un momento",
+                      });
+                      
+                      console.log(`Finalizando pausa con ID: ${pausaActualId}`);
+                      
+                      // Optimista: actualizar estado local inmediatamente para evitar el bucle
+                      const prevPausaActiva = pausaActiva;
+                      const prevPausaId = pausaActualId;
+                      
+                      // Cambiar estado local inmediatamente para mejorar respuesta UI
+                      setPausaActiva(false);
+                      setPausaActualId(null);
+                      
+                      // Ejecutar la finalización de pausa
+                      finalizarPausaMutation.mutate(pausaActualId, {
+                        onSuccess: (data) => {
+                          console.log("Pausa finalizada con éxito, refrescando datos");
+                          
+                          // Primero actualizamos los datos del pedido
+                          queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+                          
+                          // Luego, tras un breve retraso, actualizamos los productos 
+                          setTimeout(() => {
+                            if (currentPedido?.id) {
+                              console.log(`Refrescando productos del pedido ${currentPedido.id}`);
+                              
+                              // Intentar 2 veces para garantizar actualización
+                              queryClient.invalidateQueries({ 
+                                queryKey: [`/api/productos/pedido/${currentPedido.id}`],
+                                refetchType: 'all' 
+                              });
+                              
+                              // Recargar explícitamente 
+                              apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                  console.log(`Productos recargados (${data.length})`);
+                                  setProductos(data);
+                                  
+                                  // Notificación de éxito tras garantizar que los datos se han actualizado
+                                  toast({
+                                    title: "Pausa finalizada",
+                                    description: "El armado se ha reanudado correctamente",
+                                  });
+                                });
+                            }
+                          }, 500);
+                        },
+                        onError: (error) => {
+                          console.error("Error al finalizar pausa:", error);
+                          
+                          // Restaurar estado anterior si hay error
+                          setPausaActiva(prevPausaActiva);
+                          setPausaActualId(prevPausaId);
+                          
+                          // Notificar error
+                          toast({
+                            title: "Error al reanudar",
+                            description: "No se pudo finalizar la pausa. Intente nuevamente.",
+                            variant: "destructive"
+                          });
+                          
+                          // Intentar refrescar datos para recuperar el estado correcto
+                          queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+                        }
+                      });
+                    } else {
+                      // Intentar recuperar el ID de la pausa
+                      toast({
+                        title: "Recuperando información...",
+                        description: "Intentando identificar la pausa activa",
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+                    }
+                  }}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  disabled={finalizarPausaMutation.isPending}
+                >
+                  {finalizarPausaMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-4 w-4" />
+                      Reanudar armado
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Producto actual */}
