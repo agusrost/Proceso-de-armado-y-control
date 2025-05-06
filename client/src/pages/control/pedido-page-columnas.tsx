@@ -655,7 +655,7 @@ export default function ControlPedidoColumnasPage() {
                     Este pedido tiene productos con faltantes de stock y no puede ser controlado hasta que se resuelvan.
                   </AlertDescription>
                 </Alert>
-              ) : !controlState.isRunning ? (
+              ) : !controlState.isRunning && pausaActiva ? (
                 <Alert className="mb-4">
                   <InfoIcon className="h-4 w-4" />
                   <AlertTitle>Control pausado</AlertTitle>
