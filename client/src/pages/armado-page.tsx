@@ -20,11 +20,11 @@ function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: {
   return (
     <div className={`border p-4 rounded mb-2 ${
       isActive 
-        ? 'border-blue-600 bg-blue-50' 
+        ? 'border-green-700 bg-green-200' // Producto actual - Verde más fuerte
         : isCompleted 
-          ? 'border-green-600 bg-green-50' 
+          ? 'border-green-300 bg-green-50' // Productos ya recolectados - Verde claro pastel
           : isPending 
-            ? 'border-gray-300 bg-gray-50' 
+            ? 'border-pink-300 bg-pink-50' // Productos pendientes - Rosa claro
             : 'border-gray-300'
     }`}>
       <div className="flex justify-between items-center">
@@ -496,25 +496,25 @@ export default function ArmadoPage() {
           
           console.log(`INICIO DE CARGA: Pedido ${currentPedido.pedidoId} - Total productos: ${data.length}`);
           
-          // CASO ESPECIAL PARA PEDIDO 53 (EL PROBLEMÁTICO)
-          if (currentPedido.id === 53) {
-            console.log("⚠️ PEDIDO PROBLEMA DETECTADO (ID 53) - FORZANDO SELECCIÓN DEL PRODUCTO 18001");
+          // SOLUCIÓN FORZADA: SIEMPRE MOSTRAR EL PRIMER PRODUCTO SIN RECOLECTAR
+          console.log("🔍 PRIORIDAD ABSOLUTA: Buscando productos pendientes (no procesados)");
+          
+          // Obtener productos sin procesar
+          const productosSinProcesar = data.filter(p => p.recolectado === null);
+          console.log(`📊 Productos sin procesar: ${productosSinProcesar.length}`);
+          
+          if (productosSinProcesar.length > 0) {
+            // Ordenar los productos no procesados por ID para asegurar FIFO
+            productosSinProcesar.sort((a, b) => a.id - b.id);
             
-            // Buscar específicamente el producto con código 18001
-            const producto18001Index = data.findIndex(p => p.codigo === "18001");
+            const primerProductoSinProcesar = productosSinProcesar[0];
+            const primerProductoSinProcesarIndex = data.findIndex(p => p.id === primerProductoSinProcesar.id);
             
-            if (producto18001Index !== -1) {
-              const producto18001 = data[producto18001Index];
-              console.log(`✅ PRODUCTO 18001 ENCONTRADO EN ÍNDICE ${producto18001Index}`);
-              console.log(`Estado del producto: recolectado=${producto18001.recolectado}, cantidad=${producto18001.cantidad}`);
-              
-              // Seleccionar directamente este producto
-              setCurrentProductoIndex(producto18001Index);
-              setRecolectados(producto18001.cantidad);
-              return;
-            } else {
-              console.log("❌ ERROR: NO SE ENCONTRÓ EL PRODUCTO 18001");
-            }
+            console.log(`✅ SELECCIONANDO PRODUCTO NO PROCESADO: ${primerProductoSinProcesar.codigo} (ID: ${primerProductoSinProcesar.id})`);
+            
+            setCurrentProductoIndex(primerProductoSinProcesarIndex);
+            setRecolectados(primerProductoSinProcesar.cantidad);
+            return;
           }
           
           // LÓGICA NORMAL PARA OTROS PEDIDOS: Siempre buscar primero el primer producto no procesado
@@ -928,6 +928,15 @@ export default function ArmadoPage() {
               <>, del cliente <span className="font-bold">{currentPedido.clienteId}</span></>
             )}
           </p>
+          
+          {/* Indicador de pedido pausado */}
+          {pausaActiva && (
+            <div className="mt-2 text-center">
+              <span className="bg-amber-300 text-blue-900 px-3 py-1 rounded-full text-sm font-semibold animate-pulse">
+                ARMADO PAUSADO - PENDIENTE DE REANUDAR
+              </span>
+            </div>
+          )}
         </div>
         
         <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
