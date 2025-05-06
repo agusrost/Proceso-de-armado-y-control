@@ -247,22 +247,27 @@ export default function ControlPedidoPage() {
     queryFn: async () => {
       try {
         const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
+        
+        if (!res.ok) {
+          throw new Error("Error al obtener control activo");
+        }
+        
         const data = await res.json();
         console.log("Control activo encontrado:", data);
         
-        // Verificar si hay una pausa activa
-        if (data.pausaActiva) {
-          console.log("Se detectó una pausa activa para este pedido:", data.pausaId);
-          setPausaActiva(true);
-          setPausaActualId(data.pausaId);
-        } else {
-          setPausaActiva(false);
-          setPausaActualId(null);
-        }
+        // Verificar estado de pausa de forma explícita
+        const pausaActiva = data.pausaActiva === true;
+        const pausaId = data.pausaId || null;
+        
+        console.log("Estado de pausa:", pausaActiva ? "ACTIVA" : "INACTIVA", pausaId ? `(ID: ${pausaId})` : "");
+        
+        // Actualizar estado de pausa
+        setPausaActiva(pausaActiva);
+        setPausaActualId(pausaId);
         
         // Inicializar estado del control con los datos cargados
         setControlState({
-          isRunning: !data.pausaActiva, // Si hay pausa activa, no está corriendo
+          isRunning: !pausaActiva, // Si hay pausa activa, no está corriendo
           startTime: new Date(data.control.fecha).getTime(),
           pedidoId: pedidoId,
           pedidoYaControlado: false,
