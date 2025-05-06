@@ -50,6 +50,9 @@ export default function ControlPedidoColumnasPage() {
   const { toast } = useToast();
   const pedidoId = parseInt(id);
   
+  // Estado para controlar si el pedido está pausado
+  const [pausaActiva, setPausaActiva] = useState(false);
+  
   // Estado local
   const [controlState, setControlState] = useState<ControlState>({
     isRunning: false,
@@ -107,20 +110,26 @@ export default function ControlPedidoColumnasPage() {
     queryKey: ['/api/control/pedidos', pedidoId, 'activo'],
     refetchInterval: controlState.isRunning ? 3000 : false,
     retry: false,
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       // Actualizar estado local con datos del servidor
-      const productosOrdenados = [...data.productos].sort((a, b) => a.codigo.localeCompare(b.codigo));
+      const productosOrdenados = [...data.productos].sort((a: any, b: any) => a.codigo.localeCompare(b.codigo));
+      
+      // Verificar si hay una pausa activa
+      const tienePausaActiva = data.pausaActiva === true;
+      console.log("Estado de pausa recibido:", tienePausaActiva ? "ACTIVA" : "INACTIVA");
+      setPausaActiva(tienePausaActiva);
       
       setControlState(prev => ({
         ...prev,
-        isRunning: data.control.estado === 'activo',
-        startTime: new Date(data.control.inicio),
+        isRunning: data.control.estado === 'activo' && !tienePausaActiva,
+        startTime: data.control.inicio ? new Date(data.control.inicio).getTime() : null,
         pedidoId: data.pedidoId,
         codigoPedido: data.codigoPedido,
         productosControlados: productosOrdenados,
         segundos: data.segundos || 0,
         pedidoYaControlado: data.pedidoYaControlado || false,
-        mensajeError: null
+        mensajeError: null,
+        historialEscaneos: prev.historialEscaneos // Mantener el historial de escaneos local
       }));
     },
     onError: (error: Error) => {
@@ -271,6 +280,9 @@ export default function ControlPedidoColumnasPage() {
         description: "El control ha sido pausado correctamente",
       });
       
+      // Actualizar el estado de pausa
+      setPausaActiva(true);
+      
       // Actualizar el estado local
       setControlState(prev => ({
         ...prev,
@@ -308,6 +320,9 @@ export default function ControlPedidoColumnasPage() {
         title: "Control reanudado",
         description: "El control ha sido reanudado correctamente",
       });
+      
+      // Actualizar el estado de pausa
+      setPausaActiva(false);
       
       // Actualizar el estado local
       setControlState(prev => ({
@@ -585,12 +600,14 @@ export default function ControlPedidoColumnasPage() {
               <CardTitle className="text-2xl flex items-center">
                 Control de pedido {controlState.codigoPedido}
               </CardTitle>
-              <p className="text-gray-500 mt-1">
-                Cliente: {pedidoQuery.data?.clienteId}
-              </p>
+              {pedidoQuery.data && (
+                <p className="text-gray-500 mt-1">
+                  Cliente: {pedidoQuery.data.clienteId || 'No especificado'}
+                </p>
+              )}
               {controlArminfoQuery.data && (
                 <p className="text-sm text-gray-500 mt-1">
-                  Armado por: {controlArminfoQuery.data}
+                  Armado por: {typeof controlArminfoQuery.data === 'string' ? controlArminfoQuery.data : 'No especificado'}
                 </p>
               )}
             </div>
