@@ -435,9 +435,31 @@ export default function ArmadoPage() {
     },
     onSuccess: () => {
       console.log("Pausa finalizada con éxito, actualizando estado local");
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      
+      // Actualizar estado local inmediatamente (no esperar a la invalidación de la consulta)
       setPausaActiva(false);
       setPausaActualId(null);
+      
+      // Forzar actualización completa del estado con retrasos para garantizar sincronización
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+        
+        // Forzar refetching de productos después de la invalidación
+        setTimeout(() => {
+          if (currentPedido?.id) {
+            queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${currentPedido.id}`] });
+            
+            // Recargar la lista de productos explícitamente para actualizar la interfaz
+            apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
+              .then(res => res.json())
+              .then(productos => {
+                console.log("Productos recargados después de finalizar pausa:", productos.length);
+                setProductos(productos);
+              })
+              .catch(err => console.error("Error al recargar productos:", err));
+          }
+        }, 300);
+      }, 200);
       
       toast({
         title: "Pedido reanudado",
