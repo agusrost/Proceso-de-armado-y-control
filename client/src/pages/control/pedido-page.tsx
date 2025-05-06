@@ -1544,12 +1544,19 @@ export default function ControlPedidoPage() {
       // Verificar si el pedido está en estado de control
       const esEnControl = pedido.estado?.toLowerCase().includes('controlando');
       
+      // Verificar si el pedido está pendiente de stock
+      const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
+      
       // También iniciar si venimos de la página de controles en curso
       const referer = document.referrer;
       const vieneDePaginaControl = referer.includes('/control') && !referer.includes('/historial');
       
+      // NUNCA iniciar si está pendiente de stock
+      if (esPendienteStock) {
+        console.log("No se inicia control automáticamente - pedido pendiente de stock");
+      }
       // Solo iniciar si está en estado de control o viene de la página de controles
-      if (esEnControl || vieneDePaginaControl) {
+      else if (esEnControl || vieneDePaginaControl) {
         console.log("Iniciando control automáticamente - condición válida");
         setCargandoControl(true);
         setTimeout(() => {
@@ -1643,8 +1650,9 @@ export default function ControlPedidoPage() {
                       ${pedido.estado === 'finalizado' ? 'bg-green-500' : ''}
                       ${pedido.estado === 'controlando' ? 'bg-purple-500' : ''}
                       ${pedido.estado === 'pre-finalizado' ? 'bg-amber-500' : ''}
+                      ${pedido.estado === 'armado-pendiente-stock' ? 'bg-amber-500' : ''}
                     `}>
-                      {pedido.estado.toUpperCase()}
+                      {pedido.estado === 'armado-pendiente-stock' ? 'PENDIENTE STOCK' : pedido.estado.toUpperCase()}
                     </Badge>
                   )}
                 </div>
@@ -1669,8 +1677,15 @@ export default function ControlPedidoPage() {
             </CardContent>
             <CardFooter className="flex justify-end">
               {!controlState.isRunning && !controlState.pedidoYaControlado && (
-                <Button onClick={handleIniciarControl} disabled={isLoading}>
-                  {isLoading ? 'Cargando...' : pedido.estado === 'controlando' ? 'Continuar Control' : 'Iniciar Control'}
+                <Button 
+                  onClick={handleIniciarControl} 
+                  disabled={isLoading || pedido.estado === 'armado-pendiente-stock'}
+                  title={pedido.estado === 'armado-pendiente-stock' ? 'No se puede iniciar control para un pedido con stock pendiente' : ''}
+                >
+                  {isLoading ? 'Cargando...' : 
+                   pedido.estado === 'controlando' ? 'Continuar Control' : 
+                   pedido.estado === 'armado-pendiente-stock' ? 'Stock Pendiente' : 
+                   'Iniciar Control'}
                 </Button>
               )}
               
