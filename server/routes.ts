@@ -1236,9 +1236,16 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Buscar pausas activas para este pedido
       const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
       
-      // Si no hay pausas activas, creamos un nuevo control directamente
-      if (pausasActivas.length === 0) {
-        console.log(`No hay pausas activas para el pedido ${pedidoId}, iniciando un nuevo control...`);
+      // Filtrar solo las pausas de tipo "control"
+      const pausasControlActivas = pausasActivas.filter(pausa => 
+        pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+      );
+      
+      console.log(`Reanudando control para pedido ${pedidoId}: pausas activas=${pausasActivas.length}, pausas de control=${pausasControlActivas.length}`);
+      
+      // Si no hay pausas de control activas, creamos un nuevo control directamente
+      if (pausasControlActivas.length === 0) {
+        console.log(`No hay pausas de control activas para el pedido ${pedidoId}, iniciando un nuevo control...`);
         
         // Obtener el control activo o crear uno nuevo si no existe
         const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
@@ -1279,8 +1286,27 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
       }
       
-      // Finalizar la pausa más reciente
-      const pausaActiva = pausasActivas[0]; // Tomar la primera pausa activa
+      // Finalizar la pausa de control más reciente
+      const pausaActiva = pausasControlActivas.length > 0 ? pausasControlActivas[0] : null;
+      
+      // Si no hay pausa de control activa pero hay otras pausas, lo informamos
+      if (!pausaActiva && pausasActivas.length > 0) {
+        console.log(`ADVERTENCIA: No hay pausas de tipo 'control' activas, pero hay ${pausasActivas.length} pausas de otro tipo.`);
+        return res.status(200).json({
+          success: true,
+          message: "Control reanudado (sin pausas de control activas)",
+          pausaActiva: false
+        });
+      }
+      
+      if (!pausaActiva) {
+        console.log(`Error: No se encontró ninguna pausa activa para finalizar`);
+        return res.status(404).json({
+          success: false,
+          message: "No se encontró ninguna pausa activa para finalizar"
+        });
+      }
+      
       const ahora = new Date();
       
       // Verificar si la pausa fue por "fin de turno"
@@ -1362,8 +1388,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Finalizar pausas activas si existen
       const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
       
-      for (const pausa of pausasActivas) {
-        console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control`);
+      // Filtrar solo las pausas de tipo "control"
+      const pausasControlActivas = pausasActivas.filter(pausa => 
+        pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+      );
+      
+      console.log(`Finalización de control, pedido ${pedidoId}: pausas activas=${pausasActivas.length}, pausas de control=${pausasControlActivas.length}`);
+      
+      for (const pausa of pausasControlActivas) {
+        console.log(`Finalizando pausa de control activa ${pausa.id} antes de finalizar control`);
         const inicio = new Date(pausa.inicio);
         const ahora = new Date();
         const duracionMs = ahora.getTime() - inicio.getTime();
@@ -1608,8 +1641,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
           // Finalizar pausas activas si existen
           const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
           
-          for (const pausa of pausasActivas) {
-            console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control automáticamente`);
+          // Filtrar solo las pausas de tipo "control"
+          const pausasControlActivas = pausasActivas.filter(pausa => 
+            pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+          );
+          
+          console.log(`Finalización automática de control, pedido ${pedidoId}: pausas activas=${pausasActivas.length}, pausas de control=${pausasControlActivas.length}`);
+          
+          for (const pausa of pausasControlActivas) {
+            console.log(`Finalizando pausa de control activa ${pausa.id} antes de finalizar control automáticamente`);
             const inicio = new Date(pausa.inicio);
             const ahora = new Date();
             const duracionMs = ahora.getTime() - inicio.getTime();
@@ -1806,8 +1846,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
           // Finalizar pausas activas si existen
           const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
           
-          for (const pausa of pausasActivas) {
-            console.log(`Finalizando pausa activa ${pausa.id} antes de finalizar control automáticamente después de retirar excedentes`);
+          // Filtrar solo las pausas de tipo "control"
+          const pausasControlActivas = pausasActivas.filter(pausa => 
+            pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+          );
+          
+          console.log(`Finalización automática de control después de retirar excedentes, pedido ${pedidoId}: pausas activas=${pausasActivas.length}, pausas de control=${pausasControlActivas.length}`);
+          
+          for (const pausa of pausasControlActivas) {
+            console.log(`Finalizando pausa de control activa ${pausa.id} antes de finalizar control automáticamente después de retirar excedentes`);
             const inicio = new Date(pausa.inicio);
             const ahora = new Date();
             const duracionMs = ahora.getTime() - inicio.getTime();
