@@ -6,7 +6,7 @@ import {
   ControlHistorico, InsertControlHistorico, ControlDetalle, InsertControlDetalle,
   Configuracion, InsertConfiguracion
 } from '@shared/schema';
-import { asc, eq, desc, and, like, gte, lte, isNull, or, sql, count } from 'drizzle-orm';
+import { asc, eq, desc, and, like, gte, lte, isNull, or, not, sql, count } from 'drizzle-orm';
 import { 
   users, pedidos, productos, pausas, stockSolicitudes,
   controlHistorico, controlDetalle, configuracion
@@ -744,14 +744,30 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPausasActivasByPedidoId(pedidoId: number, esControl: boolean = false): Promise<Pausa[]> {
+    const conditions = [
+      eq(pausas.pedidoId, pedidoId),
+      isNull(pausas.fin)
+    ];
+    
+    // Si esControl es true, buscamos pausas de tipo 'control' o null (para compatibilidad con datos antiguos)
+    // Si esControl es false, buscamos pausas que NO sean 'control'
+    if (esControl) {
+      conditions.push(or(
+        eq(pausas.tipo, 'control'),
+        isNull(pausas.tipo) // Para pausas antiguas que no tengan tipo
+      ));
+    } else {
+      conditions.push(or(
+        eq(pausas.tipo, 'armado'),
+        not(eq(pausas.tipo, 'control')) // Cualquier otro tipo excepto 'control'
+      ));
+    }
+    
+    console.log(`Buscando pausas ${esControl ? 'de control' : 'de armado'} para pedido ${pedidoId}`);
     return db
       .select()
       .from(pausas)
-      .where(and(
-        eq(pausas.pedidoId, pedidoId),
-        isNull(pausas.fin),
-        esControl ? eq(pausas.tipo, 'control') : eq(pausas.tipo, 'armado')
-      ));
+      .where(and(...conditions));
   }
   
   async updatePausa(id: number, pausaData: Partial<Pausa>): Promise<Pausa | undefined> {

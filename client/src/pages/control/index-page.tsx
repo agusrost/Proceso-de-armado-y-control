@@ -148,12 +148,20 @@ export default function ControlIndexPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-neutral-200">
                     {pedidosEnCurso.map((pedido: any) => {
-                      // Verificar si el pedido está pendiente de stock
+                      // Verificar el estado del pedido
                       const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
                       const estaControlando = pedido.estado === 'controlando';
                       
+                      // Verificar si el pedido tiene pausas de control activas
+                      const tienePausaControl = pedido.pausasActivas && pedido.pausasActivas.length > 0;
+                      
                       return (
-                        <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : estaControlando ? 'bg-blue-50' : ''}`}>
+                        <tr key={pedido.id} className={`hover:bg-neutral-50 ${
+                          esPendienteStock ? 'bg-amber-50' : 
+                          (estaControlando && tienePausaControl) ? 'bg-orange-50' : 
+                          estaControlando ? 'bg-blue-50' : 
+                          ''
+                        }`}>
                           <td className="px-3 py-2 text-sm font-medium text-neutral-900">
                             {pedido.pedidoId}
                             {/* Mostrar el estado del pedido como una insignia colorida */}
@@ -164,7 +172,13 @@ export default function ControlIndexPage() {
                                   Pendiente Stock
                                 </span>
                               )}
-                              {estaControlando && (
+                              {estaControlando && tienePausaControl && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  <PauseCircle className="mr-1 h-3 w-3" />
+                                  Control Pausado
+                                </span>
+                              )}
+                              {estaControlando && !tienePausaControl && (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                   <Eye className="mr-1 h-3 w-3" />
                                   En Control
@@ -188,8 +202,6 @@ export default function ControlIndexPage() {
                             {pedido.armadorNombre || "-"}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            {/* Permitimos controlar incluso si está pendiente de stock,
-                                pero mostramos una advertencia para que el usuario sepa */}
                             <div className="flex flex-col items-end gap-1">
                               {esPendienteStock && (
                                 <div className="flex items-center text-amber-700 text-xs mb-1">
@@ -201,7 +213,9 @@ export default function ControlIndexPage() {
                                 to={`/control/pedido/${pedido.id}`} 
                                 className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                               >
-                                {estaControlando ? "Continuar control" : "Iniciar control"}
+                                {estaControlando && tienePausaControl ? "Reanudar control" : 
+                                 estaControlando ? "Continuar control" : 
+                                 "Iniciar control"}
                               </Link>
                             </div>
                           </td>
