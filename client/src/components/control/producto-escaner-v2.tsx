@@ -22,7 +22,6 @@ export function ProductoEscanerSeguroV2({
   disabled = false,
   className = ""
 }: ProductoEscanerSeguroProps) {
-  console.log("ProductoEscanerSeguroV2 montado, onEscaneo:", !!onEscaneo, "disabled:", disabled);
   const [codigo, setCodigo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

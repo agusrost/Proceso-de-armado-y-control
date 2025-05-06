@@ -85,16 +85,15 @@ export default function ControlPedidoColumnasPage() {
     mensajeError: null
   });
   
-  // Verificar que historialEscaneos siempre sea un array
+  // Log para verificar estructura del estado
   useEffect(() => {
-    if (!Array.isArray(controlState.historialEscaneos)) {
-      console.error("⚠️ historialEscaneos no es un array, inicializando...");
-      setControlState(prev => ({
-        ...prev,
-        historialEscaneos: []
-      }));
-    }
-  }, [controlState.historialEscaneos]);
+    console.log("Estado del control:", JSON.stringify({
+      isRunning: controlState.isRunning,
+      pedidoId: controlState.pedidoId,
+      clienteId: controlState.clienteId,
+      historialLength: controlState.historialEscaneos?.length || 0
+    }));
+  }, [controlState.isRunning, controlState.pedidoId]);
   
   // Estado para el diálogo de excedentes
   const [excedentesDialog, setExcedentesDialog] = useState<{
@@ -153,13 +152,9 @@ export default function ControlPedidoColumnasPage() {
     refetchInterval: controlState.isRunning ? 3000 : false,
     retry: false,
     onSuccess: (data: any) => {
-      // Log de datos para depuración
-      console.log("⚠️ DATOS CONTROL RECIBIDOS:", JSON.stringify(data, null, 2));
-      console.log("⚠️ ID del pedido:", pedidoId);
-      
       // Verificar si hay datos nulos
       if (!data || !data.productos) {
-        console.error("⚠️ ERROR: Datos de control inválidos o nulos:", data);
+        console.error("⚠️ ERROR: Datos de control inválidos o nulos");
         return;
       }
       
@@ -168,7 +163,6 @@ export default function ControlPedidoColumnasPage() {
       
       // Verificar si hay una pausa activa
       const tienePausaActiva = data.pausaActiva === true;
-      console.log("Estado de pausa recibido:", tienePausaActiva ? "ACTIVA" : "INACTIVA");
       setPausaActiva(tienePausaActiva);
       
       setControlState(prev => ({
@@ -484,14 +478,11 @@ export default function ControlPedidoColumnasPage() {
   
   // Manejar escaneo de productos
   const handleEscaneo = async (codigo: string) => {
-    console.log("⚠️ handleEscaneo ejecutado con codigo:", codigo);
-    console.log("⚠️ Estado del control:", controlState.isRunning ? "Ejecutando" : "Detenido");
-    console.log("⚠️ Pausa activa:", pausaActiva ? "Sí" : "No");
-    console.log("⚠️ Pedido ya controlado:", controlState.pedidoYaControlado ? "Sí" : "No");
+    console.log("⚠️ Intento de escaneo:", codigo);
     
     // Evitar escaneo si el control no está en ejecución, está pausado, o ya fue controlado
     if (!controlState.isRunning || pausaActiva || controlState.pedidoYaControlado) {
-      console.log("⚠️ Escaneo bloqueado - isRunning:", controlState.isRunning, "pausaActiva:", pausaActiva, "pedidoYaControlado:", controlState.pedidoYaControlado);
+      console.log("⚠️ Escaneo bloqueado:", !controlState.isRunning ? "control detenido" : pausaActiva ? "pausa activa" : "pedido ya controlado");
       if (pausaActiva) {
         toast({
           title: "Control pausado",
@@ -503,7 +494,6 @@ export default function ControlPedidoColumnasPage() {
     }
     
     try {
-      console.log(`⚠️ Enviando petición a /api/control/pedidos/${pedidoId}/escanear con código ${codigo}`);
       const response = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
         method: 'POST',
         headers: {
@@ -512,10 +502,7 @@ export default function ControlPedidoColumnasPage() {
         body: JSON.stringify({ codigo })
       });
       
-      console.log("⚠️ Respuesta recibida - status:", response.status);
-      
       const data = await response.json();
-      console.log("⚠️ Datos recibidos del escaneo:", data);
       
       if (!response.ok) {
         toast({
@@ -529,27 +516,8 @@ export default function ControlPedidoColumnasPage() {
       // Recargar los datos del control
       queryClient.invalidateQueries({ queryKey: ['/api/control/pedidos', pedidoId, 'activo'] });
       
-      // Actualizar el historial de escaneos
-      setControlState(prev => {
-        // Crear un objeto de escaneo con todos los campos requeridos de ProductoControlado
-        const nuevoEscaneo: ProductoControlado & { timestamp?: Date, escaneado?: boolean } = {
-          codigo,
-          cantidad: 0, // Valor por defecto
-          controlado: 0, // Valor por defecto
-          descripcion: 'Producto escaneado', // Valor por defecto
-          estado: '', // Valor por defecto
-          timestamp: new Date(),
-          escaneado: true
-        };
-        
-        return {
-          ...prev,
-          historialEscaneos: [
-            nuevoEscaneo,
-            ...prev.historialEscaneos
-          ]
-        };
-      });
+      // Registrar en la consola que se escaneó un producto correctamente
+      console.log(`✅ Producto escaneado correctamente: ${codigo}`);
       
       // Si el escaneo ha causado un excedente, mostrar toast
       if (data.excedente) {
