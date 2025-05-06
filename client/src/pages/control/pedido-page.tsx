@@ -240,9 +240,19 @@ export default function ControlPedidoPage() {
         const data = await res.json();
         console.log("Control activo encontrado:", data);
         
+        // Verificar si hay una pausa activa
+        if (data.pausaActiva) {
+          console.log("Se detectó una pausa activa para este pedido:", data.pausaId);
+          setPausaActiva(true);
+          setPausaActualId(data.pausaId);
+        } else {
+          setPausaActiva(false);
+          setPausaActualId(null);
+        }
+        
         // Inicializar estado del control con los datos cargados
         setControlState({
-          isRunning: true,
+          isRunning: !data.pausaActiva, // Si hay pausa activa, no está corriendo
           startTime: new Date(data.control.fecha).getTime(),
           pedidoId: pedidoId,
           pedidoYaControlado: false,
@@ -476,6 +486,22 @@ export default function ControlPedidoPage() {
         title: "Control iniciado",
         description: "El control del pedido ha sido iniciado correctamente",
       });
+
+      // Verificar si hay pausas activas
+      if (data.pausaActiva) {
+        console.log("Se detectó una pausa activa al iniciar control:", data.pausaId);
+        setPausaActiva(true);
+        setPausaActualId(data.pausaId);
+      } else {
+        setPausaActiva(false);
+        setPausaActualId(null);
+      }
+      
+      // Almacenar información del cliente si está disponible
+      if (data.cliente) {
+        console.log("Información del cliente recibida:", data.cliente);
+        // Aquí podrías guardar la información del cliente en un estado si la necesitas mostrar
+      }
       
       // Mostramos información de depuración sobre los productos cargados
       console.log("PRODUCTOS CARGADOS:", data.productos?.length || 0);
