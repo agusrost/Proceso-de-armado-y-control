@@ -25,9 +25,11 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
 
   // Query para obtener todos los pedidos listos para control
   const { data: pedidosCompletados = [], isLoading: isLoadingPedidos, refetch } = useQuery({
-    queryKey: ["/api/pedidos", { estado: "armado" }],
+    queryKey: ["/api/pedidos", { estadosControl: true }],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/pedidos?estado=armado");
+      // Obtenemos los pedidos en estado 'armado' y 'armado-pendiente-stock', 
+      // usando el endpoint específico para pedidos en control
+      const res = await apiRequest("GET", "/api/control/en-curso");
       if (!res.ok) return [];
       const pedidos = await res.json();
       
