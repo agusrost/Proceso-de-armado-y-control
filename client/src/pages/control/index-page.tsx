@@ -188,19 +188,22 @@ export default function ControlIndexPage() {
                             {pedido.armadorNombre || "-"}
                           </td>
                           <td className="px-3 py-2 text-right">
-                            {esPendienteStock ? (
-                              <div className="flex items-center justify-end text-amber-700 text-xs">
-                                <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                                <span>No disponible - Stock pendiente</span>
-                              </div>
-                            ) : (
+                            {/* Permitimos controlar incluso si está pendiente de stock,
+                                pero mostramos una advertencia para que el usuario sepa */}
+                            <div className="flex flex-col items-end gap-1">
+                              {esPendienteStock && (
+                                <div className="flex items-center text-amber-700 text-xs mb-1">
+                                  <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                                  <span>Advertencia: Marcado como pendiente de stock</span>
+                                </div>
+                              )}
                               <Link 
                                 to={`/control/pedido/${pedido.id}`} 
                                 className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                               >
                                 {estaControlando ? "Continuar control" : "Iniciar control"}
                               </Link>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       );

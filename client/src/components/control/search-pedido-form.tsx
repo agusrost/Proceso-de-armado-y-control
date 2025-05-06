@@ -273,9 +273,17 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                               </Link>
                             </Button>
                           ) : pedido.estado === 'armado-pendiente-stock' ? (
-                            <div className="flex items-center justify-end text-amber-700 text-xs">
-                              <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                              <span>No disponible - Stock pendiente</span>
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center text-amber-700 text-xs mb-1">
+                                <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                                <span>Advertencia: Marcado como pendiente de stock</span>
+                              </div>
+                              <Button size="sm" variant="outline" asChild>
+                                <Link to={`/control/pedido/${pedido.id}`}>
+                                  <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                                  Iniciar Control
+                                </Link>
+                              </Button>
                             </div>
                           ) : (
                             <span className="text-xs text-amber-600">No disponible</span>
