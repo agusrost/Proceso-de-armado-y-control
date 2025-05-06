@@ -701,12 +701,29 @@ export async function registerRoutes(app: Application): Promise<Server> {
         console.log(`Pedido ${pedidoNumId} (${pedido.pedidoId}) en estado "${pedido.estado}", verificando si puede iniciar control...`);
         
         if (pedido.estado === 'armado-pendiente-stock') {
-          // No permitir control para pedidos con pendientes de stock
-          console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}", no se puede iniciar control.`);
-          return res.status(400).json({ 
-            error: 'PEDIDO_PENDIENTE_STOCK', 
-            message: `No se puede iniciar control para un pedido con faltantes de stock. Espere a que se resuelvan los problemas de stock.`
-          });
+          // Permitir control para pedidos con pendientes de stock, pero avisar que hay que tener cuidado
+          console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}", iniciando control con advertencia...`);
+          try {
+            // Cambiar el estado del pedido a "controlando"
+            await storage.updatePedido(pedidoNumId, {
+              estado: 'controlando',
+              controladorId: req.user.id,
+              controlInicio: new Date()
+            });
+            
+            // Actualizar la variable pedido para el resto del flujo
+            pedido.estado = 'controlando';
+            pedido.controladorId = req.user.id;
+            pedido.controlInicio = new Date().toISOString();
+            
+            console.log(`Pedido ${pedidoNumId} actualizado exitosamente a estado 'controlando' (desde armado-pendiente-stock)`);
+          } catch (error) {
+            console.error(`Error al actualizar el estado del pedido ${pedidoNumId} a 'controlando':`, error);
+            return res.status(500).json({ 
+              error: 'Error al iniciar el control automático', 
+              detalle: error.message 
+            });
+          }
         }
         else if (pedido.estado === 'armado') {
           console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}", iniciando control automáticamente...`);
@@ -824,9 +841,35 @@ export async function registerRoutes(app: Application): Promise<Server> {
             error: 'PEDIDO_YA_CONTROLADO: Este pedido ya está siendo controlado' 
           });
         } else if (pedido.estado === 'armado-pendiente-stock') {
-          return res.status(400).json({ 
-            error: 'PEDIDO_PENDIENTE_STOCK: Este pedido tiene problemas de stock pendientes y no puede ser controlado' 
+          // Permitir el control de pedidos con pendientes de stock
+          // Cambiar el estado del pedido a "controlando"
+          await storage.updatePedido(pedidoNumId, {
+            estado: 'controlando',
+            controladorId: req.user.id,
+            controlInicio: new Date()
           });
+          
+          // Crear un registro en el historial de control
+          const ahora = new Date();
+          const control = await storage.createControlHistorico({
+            pedidoId: pedidoNumId,
+            controladoPor: req.user.id,
+            fecha: ahora,
+            inicio: ahora,
+            resultado: 'pendiente'
+          });
+          
+          res.status(200).json({
+            success: true,
+            message: 'Control iniciado correctamente (desde pendiente stock)',
+            control,
+            pedido: {
+              id: pedido.id,
+              pedidoId: pedido.pedidoId,
+              estado: 'controlando'
+            }
+          });
+          return;
         } else {
           return res.status(400).json({ 
             error: `No se puede iniciar el control de un pedido en estado "${pedido.estado}"` 
