@@ -15,11 +15,13 @@ import {
   Package,
   AlertTriangle,
   Eye,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from "lucide-react";
 import { Link } from "wouter";
 import { SearchPedidoForm } from "@/components/control/search-pedido-form";
 import { ControlNav } from "@/components/control/control-nav";
+import { Button } from "@/components/ui/button";
 
 export default function ControlIndexPage() {
   const { toast } = useToast();
@@ -31,7 +33,7 @@ export default function ControlIndexPage() {
   });
   
   // Query para obtener pedidos en curso de control
-  const { data: pedidosEnCurso = [], isLoading: isLoadingEnCurso } = useQuery({
+  const { data: pedidosEnCurso = [], isLoading: isLoadingEnCurso, refetch: refetchPedidos } = useQuery({
     queryKey: ["/api/control/en-curso"],
     enabled: true,
   });
@@ -41,8 +43,6 @@ export default function ControlIndexPage() {
     // Obtener la fecha actual y restarle 24 horas para obtener el límite
     const oneDayAgo = new Date();
     oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-    
-    console.log("Historial de controles:", historialControlesRaw);
     
     return historialControlesRaw
       .filter((control: any) => {
@@ -55,8 +55,6 @@ export default function ControlIndexPage() {
           control.resultado === 'faltante';
         
         if (!esControlFinalizado) {
-          console.log(`Control ${control.id} (${control.pedido?.pedidoId}) NO finalizado:`, 
-                    `fin=${control.fin}, resultado=${control.resultado}`);
           return false;
         }
         
@@ -106,7 +104,7 @@ export default function ControlIndexPage() {
           </CardContent>
         </Card>
         
-        {/* Pedidos pendientes de control */}
+        {/* Pedidos pendientes de control - Combinados con los controles en curso */}
         <Card className="mb-6">
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -116,10 +114,16 @@ export default function ControlIndexPage() {
                   Pedidos listos para ser controlados
                 </CardDescription>
               </div>
-              <div className="text-sm">
-                <Link to="/control/historial" className="text-primary hover:underline">
-                  Ver todos
-                </Link>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => refetchPedidos()}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Actualizar</span>
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -208,13 +212,22 @@ export default function ControlIndexPage() {
           </CardContent>
         </Card>
         
-        {/* Últimos controles */}
+        {/* Controles Recientes */}
         <Card>
           <CardHeader>
-            <CardTitle>Controles Recientes</CardTitle>
-            <CardDescription>
-              Controles finalizados en las últimas 24 horas
-            </CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Controles Recientes</CardTitle>
+                <CardDescription>
+                  Controles finalizados en las últimas 24 horas
+                </CardDescription>
+              </div>
+              <div className="text-sm">
+                <Link to="/control/historial" className="text-primary hover:underline">
+                  Ver todos
+                </Link>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoadingHistorial ? (
@@ -280,14 +293,6 @@ export default function ControlIndexPage() {
                     ))}
                   </tbody>
                 </table>
-                
-                {historialControles.length > 5 && (
-                  <div className="text-center mt-4">
-                    <Link to="/control/historial" className="text-sm text-primary hover:underline">
-                      Ver todos los controles
-                    </Link>
-                  </div>
-                )}
               </div>
             )}
           </CardContent>
