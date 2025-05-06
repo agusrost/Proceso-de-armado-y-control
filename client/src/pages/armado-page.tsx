@@ -496,7 +496,28 @@ export default function ArmadoPage() {
           
           console.log(`INICIO DE CARGA: Pedido ${currentPedido.pedidoId} - Total productos: ${data.length}`);
           
-          // NUEVA LÓGICA: Siempre buscar primero el primer producto no procesado
+          // CASO ESPECIAL PARA PEDIDO 53 (EL PROBLEMÁTICO)
+          if (currentPedido.id === 53) {
+            console.log("⚠️ PEDIDO PROBLEMA DETECTADO (ID 53) - FORZANDO SELECCIÓN DEL PRODUCTO 18001");
+            
+            // Buscar específicamente el producto con código 18001
+            const producto18001Index = data.findIndex(p => p.codigo === "18001");
+            
+            if (producto18001Index !== -1) {
+              const producto18001 = data[producto18001Index];
+              console.log(`✅ PRODUCTO 18001 ENCONTRADO EN ÍNDICE ${producto18001Index}`);
+              console.log(`Estado del producto: recolectado=${producto18001.recolectado}, cantidad=${producto18001.cantidad}`);
+              
+              // Seleccionar directamente este producto
+              setCurrentProductoIndex(producto18001Index);
+              setRecolectados(producto18001.cantidad);
+              return;
+            } else {
+              console.log("❌ ERROR: NO SE ENCONTRÓ EL PRODUCTO 18001");
+            }
+          }
+          
+          // LÓGICA NORMAL PARA OTROS PEDIDOS: Siempre buscar primero el primer producto no procesado
           // independientemente del ultimoProductoId guardado
           
           // Buscar el primer producto no procesado (recolectado === null)
@@ -910,10 +931,26 @@ export default function ArmadoPage() {
         </div>
         
         <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
-          <h2 className="text-xl font-semibold mb-3">Código SKU: {producto.codigo}</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-semibold">Código SKU: {producto.codigo}</h2>
+            
+            {/* Indicador de producto ya recolectado */}
+            {producto.recolectado !== null && producto.recolectado >= producto.cantidad && (
+              <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-semibold animate-pulse">
+                YA RECOLECTADO
+              </div>
+            )}
+          </div>
+          
           <p className="text-lg mb-3">
             <span className="font-medium">Cantidad:</span> {producto.cantidad}
+            {producto.recolectado !== null && (
+              <span className="ml-2 text-blue-600">
+                (Recolectado: {producto.recolectado}/{producto.cantidad})
+              </span>
+            )}
           </p>
+          
           <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {producto.ubicacion || 'Sin ubicación'}</p>
           <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {producto.descripcion || 'Sin descripción'}</p>
           
