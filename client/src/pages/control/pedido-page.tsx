@@ -24,7 +24,8 @@ import {
   AlertTriangle, 
   StopCircle,
   ClipboardList,
-  Eye
+  Eye,
+  PauseCircle
 } from "lucide-react";
 import { formatDate, formatTimestamp } from "@/lib/utils";
 import { Pedido, Producto, User } from "@shared/schema";
@@ -1743,7 +1744,7 @@ export default function ControlPedidoPage() {
               )}
             </CardContent>
             <CardFooter className="flex justify-end">
-              {!controlState.isRunning && !controlState.pedidoYaControlado && (
+              {!pausaActiva && !controlState.isRunning && !controlState.pedidoYaControlado && (
                 <Button 
                   onClick={handleIniciarControl} 
                   disabled={isLoading || pedido.estado === 'armado-pendiente-stock'}
@@ -1756,30 +1757,36 @@ export default function ControlPedidoPage() {
                 </Button>
               )}
               
-              {controlState.isRunning && (
+              {pausaActiva && (
                 <div className="flex gap-2">
                   <Button variant="destructive" onClick={handleCancelarControl}>
                     Cancelar Control
                   </Button>
                   
-                  {/* Botón de Pausar o Reanudar control */}
-                  {pausaActiva ? (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => reanudarControlMutation.mutate()}
-                      disabled={reanudarControlMutation.isPending}
-                    >
-                      {reanudarControlMutation.isPending ? 'Reanudando...' : 'Reanudar Control'}
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setPausaModalOpen(true)}
-                      disabled={pausarControlMutation.isPending}
-                    >
-                      {pausarControlMutation.isPending ? 'Procesando...' : 'Pausar Control'}
-                    </Button>
-                  )}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => reanudarControlMutation.mutate()}
+                    disabled={reanudarControlMutation.isPending}
+                    className="bg-amber-500 text-white hover:bg-amber-600"
+                  >
+                    {reanudarControlMutation.isPending ? 'Reanudando...' : 'Reanudar Control'}
+                  </Button>
+                </div>
+              )}
+              
+              {!pausaActiva && controlState.isRunning && (
+                <div className="flex gap-2">
+                  <Button variant="destructive" onClick={handleCancelarControl}>
+                    Cancelar Control
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setPausaModalOpen(true)}
+                    disabled={pausarControlMutation.isPending}
+                  >
+                    {pausarControlMutation.isPending ? 'Procesando...' : 'Pausar Control'}
+                  </Button>
                   
                   <Button onClick={() => setFinalizarOpen(true)}>
                     Finalizar Control
