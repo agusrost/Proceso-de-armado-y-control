@@ -112,6 +112,14 @@ export default function ArmadoPage() {
   const iniciarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
       try {
+        console.log(`Iniciando pedido ${pedidoId}...`);
+        // Verificar si hay pausas activas
+        if (pedidoArmador?.pausaActiva) {
+          console.log(`El pedido ${pedidoId} tiene pausas activas, reanudando...`);
+        } else {
+          console.log(`El pedido ${pedidoId} NO tiene pausas activas, iniciando normalmente...`);
+        }
+        
         const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/iniciar`, {});
         
         // Si la respuesta no es exitosa, extraemos el mensaje de error
@@ -121,7 +129,9 @@ export default function ArmadoPage() {
           throw new Error(errorData.message || "El pedido ya no está disponible para iniciar");
         }
         
-        return await res.json();
+        const responseData = await res.json();
+        console.log("Respuesta del servidor:", responseData);
+        return responseData;
       } catch (err: any) {
         // Personalizar el mensaje de error para que sea más amigable
         if (err.message.includes("ya no está disponible") || 
@@ -139,6 +149,21 @@ export default function ArmadoPage() {
       if (data.ultimoProductoId) {
         console.log(`Pedido iniciado con ultimo producto ID: ${data.ultimoProductoId}`);
         // Este valor será usado en el useEffect cuando se carguen los productos
+      }
+      
+      // Establecer la bandera de pausa si es necesario
+      if (pedidoArmador?.pausaActiva) {
+        console.log("Estableciendo pausaActiva a true desde onSuccess de iniciarPedidoMutation");
+        setPausaActiva(true);
+        
+        // Si hay pausas, obtener el ID de la pausa activa
+        if (pedidoArmador.pausas && pedidoArmador.pausas.length > 0) {
+          const pausaActual = pedidoArmador.pausas.find(p => !p.fin);
+          if (pausaActual) {
+            setPausaActualId(pausaActual.id);
+            console.log(`Establecido ID de pausa actual: ${pausaActual.id}`);
+          }
+        }
       }
       
       // Actualizar el state local con los datos del pedido iniciado

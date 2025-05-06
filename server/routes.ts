@@ -2944,6 +2944,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (pedido) {
         console.log(`Se encontró un pedido para el armador ${armadorId}: ${pedido.pedidoId} (Estado: ${pedido.estado})`);
         
+        // Obtener pausas activas para este pedido
+        const pausas = await storage.getPausasActivasByPedidoId(pedido.id);
+        const pausaActiva = pausas && pausas.length > 0;
+        
+        console.log(`Pausas activas para pedido ${pedido.id}: ${pausas?.length || 0}`);
+        if (pausaActiva) {
+          console.log(`⚠️ PEDIDO ${pedido.pedidoId} TIENE PAUSAS ACTIVAS - Estableciendo flag pausaActiva=true`);
+        }
+        
         console.log("DIAGNÓSTICO DE TIPOS -> Pedido encontrado:", {
           id: pedido.id,
           pedidoId: pedido.pedidoId,
@@ -2955,7 +2964,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
           tiempoNeto: pedido.tiempoNeto
         });
         
-        return res.json(pedido);
+        // Agregar flag de pausaActiva y las pausas al pedido
+        return res.json({
+          ...pedido,
+          pausaActiva,
+          pausas
+        });
       }
       
       // Si no hay pedidos disponibles para este armador
@@ -2979,6 +2993,43 @@ export async function registerRoutes(app: Application): Promise<Server> {
       console.log(`Obteniendo productos para el pedido ID ${pedidoId}`);
       
       let productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // ORDENAR PRODUCTOS DE FORMA ÓPTIMA:
+      // 1. Primero los no procesados (recolectado === null)
+      // 2. Luego los parcialmente procesados (recolectado < cantidad)
+      // 3. Finalmente los completamente procesados (recolectado >= cantidad)
+      productos.sort((a, b) => {
+        // Primero los que tienen recolectado === null
+        if (a.recolectado === null && b.recolectado !== null) return -1;
+        if (a.recolectado !== null && b.recolectado === null) return 1;
+        
+        // Después los parcialmente procesados
+        if (a.recolectado !== null && b.recolectado !== null) {
+          const aParcial = a.recolectado < a.cantidad;
+          const bParcial = b.recolectado < b.cantidad;
+          
+          if (aParcial && !bParcial) return -1;
+          if (!aParcial && bParcial) return 1;
+        }
+        
+        // Finalmente, orden por ID para mantener consistencia
+        return a.id - b.id;
+      });
+      
+      // Caso especial para el pedido problemático (53)
+      if (pedidoId === 53) {
+        console.log("⚠️ CASO ESPECIAL: Ordenando productos para el pedido problemático 53");
+        // Buscar específicamente el código 18001 para ponerlo primero
+        const index18001 = productos.findIndex(p => p.codigo === '18001');
+        
+        if (index18001 !== -1) {
+          console.log("✅ Encontrado producto 18001, moviendo al principio de la lista");
+          const producto18001 = productos.splice(index18001, 1)[0];
+          productos.unshift(producto18001);
+        } else {
+          console.log("❌ No se encontró el producto 18001 en el pedido 53");
+        }
+      }
       
       // Si el pedido es P0090 (ID 35) y no tiene productos, agregamos productos de prueba
       if (productos.length === 0 && pedidoId === 35) {
