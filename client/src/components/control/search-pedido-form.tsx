@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Pedido } from "@shared/schema";
-import { Search, X, ClipboardCheck, Package, AlertTriangle, Eye, CheckCircle2 } from "lucide-react";
+import { Search, X, ClipboardCheck, Package, AlertTriangle, Eye, CheckCircle2, PauseCircle, PlayCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";

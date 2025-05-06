@@ -240,11 +240,11 @@ export default function ControlPedidoPage() {
     data: controlActivoData
   } = useQuery({
     queryKey: ["/api/control/pedidos", pedidoId, "activo"],
-    // Configuración más controlada de actualizaciones
+    // Configuración más controlada de actualizaciones - evitar autorefresh excesivo
     refetchOnMount: true,
-    refetchOnWindowFocus: !estaRetirandoExcedentes, // No refrescar durante retiro de excedentes
-    refetchInterval: estaRetirandoExcedentes ? false : 5000, // Deshabilitar durante retiro de excedentes
-    refetchOnReconnect: !estaRetirandoExcedentes, // No refrescar durante retiro de excedentes
+    refetchOnWindowFocus: false, // Evitar actualizaciones constantes al enfocar
+    refetchInterval: false, // Deshabilitar el refetch automático para evitar bucles
+    refetchOnReconnect: false, // No refrescar automáticamente en reconexión
     queryFn: async () => {
       try {
         const res = await apiRequest("GET", `/api/control/pedidos/${pedidoId}/activo`);
