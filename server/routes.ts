@@ -559,8 +559,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
         estado: 'armado'
       });
       
-      // Combinar ambos conjuntos de pedidos
-      const todosPedidos = [...pedidosControlando, ...pedidosArmados];
+      // Obtener pedidos en estado 'armado-pendiente-stock' para mostrarlos pero no permitir control
+      const pedidosPendienteStock = await storage.getPedidos({
+        estado: 'armado-pendiente-stock'
+      });
+      
+      // Combinar todos los conjuntos de pedidos
+      const todosPedidos = [...pedidosControlando, ...pedidosArmados, ...pedidosPendienteStock];
       
       console.log(`Muestra diagnóstica del primer pedido: ${JSON.stringify({
         id: pedidosControlando[0]?.id,
@@ -631,7 +636,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Ya no filtramos los nulos, mostramos todos los pedidos tanto en estado "controlando" como "armado"
       const pedidosFinales = pedidosEnriquecidos;
       
-      console.log(`Se encontraron ${pedidosFinales.length} pedidos disponibles para control, combinando los pedidos en estado 'controlando' (${pedidosControlando.length}) y los pedidos en estado 'armado' (${pedidosArmados.length})`);
+      console.log(`Se encontraron ${pedidosFinales.length} pedidos disponibles para control, combinando los pedidos en estado 'controlando' (${pedidosControlando.length}), los pedidos en estado 'armado' (${pedidosArmados.length}) y los pedidos en estado 'armado-pendiente-stock' (${pedidosPendienteStock.length})`);
       res.json(pedidosFinales);
     } catch (error) {
       console.error("Error al obtener pedidos en control:", error);
@@ -695,7 +700,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
         // Si está en estado armado, intentar iniciarlo automáticamente
         console.log(`Pedido ${pedidoNumId} (${pedido.pedidoId}) en estado "${pedido.estado}", verificando si puede iniciar control...`);
         
-        if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock') {
+        if (pedido.estado === 'armado-pendiente-stock') {
+          // No permitir control para pedidos con pendientes de stock
+          console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}", no se puede iniciar control.`);
+          return res.status(400).json({ 
+            error: 'PEDIDO_PENDIENTE_STOCK', 
+            message: `No se puede iniciar control para un pedido con faltantes de stock. Espere a que se resuelvan los problemas de stock.`
+          });
+        }
+        else if (pedido.estado === 'armado') {
           console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}", iniciando control automáticamente...`);
           try {
             // Cambiar el estado del pedido a "controlando"
@@ -723,7 +736,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
           console.log(`Pedido ${pedidoNumId} en estado "${pedido.estado}" no compatible para control`);
           return res.status(400).json({ 
             error: 'ESTADO_INCOMPATIBLE', 
-            message: `No se puede iniciar control para un pedido en estado "${pedido.estado}". El pedido debe estar en estado "armado" o "armado-pendiente-stock".`
+            message: `No se puede iniciar control para un pedido en estado "${pedido.estado}". El pedido debe estar en estado "armado".`
           });
         }
       }
