@@ -110,11 +110,21 @@ export default function ControlPedidoPage() {
       console.log("Control reanudado correctamente:", data);
       setPausaActiva(false);
       setPausaActualId(null);
+      
+      // Actualizar estado del control para indicar que está corriendo
+      setControlState(prev => ({
+        ...prev,
+        isRunning: true
+      }));
+      
       toast({
         title: "Control reanudado",
         description: "El control del pedido ha sido reanudado",
       });
+      
+      // Refrescar los datos del pedido y del control
       queryClient.invalidateQueries({ queryKey: [`/api/pedidos/${pedidoId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/control/pedidos/${pedidoId}/activo`] });
     },
     onError: (error: Error) => {
       console.error("Error al reanudar control:", error);
@@ -1713,6 +1723,19 @@ export default function ControlPedidoPage() {
 
                 </div>
               </div>
+              
+              {/* Aviso de pausa activa */}
+              {pausaActiva && (
+                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-md p-4 flex items-start">
+                  <PauseCircle className="h-5 w-5 text-amber-600 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-amber-800 text-sm">Control Pausado</h3>
+                    <p className="text-amber-700 text-sm mt-1">
+                      Este control se encuentra pausado. Debe reanudar el control para continuar con el proceso.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
             <CardFooter className="flex justify-end">
               {!controlState.isRunning && !controlState.pedidoYaControlado && (
@@ -1875,7 +1898,7 @@ export default function ControlPedidoPage() {
                       });
                     }
                   }}
-                  isDisabled={!controlState.isRunning || finalizarOpen}
+                  isDisabled={!controlState.isRunning || finalizarOpen || pausaActiva}
                   inputRef={escanerInputRef}
                 />
               </CardContent>
