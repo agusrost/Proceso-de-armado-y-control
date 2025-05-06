@@ -2698,18 +2698,34 @@ export async function registerRoutes(app: Application): Promise<Server> {
         
         if (esPausaFinTurno) {
           console.log("Pausa por fin de turno detectada, actualizando con timestamp actual");
-          await db.execute(sql`
-            UPDATE pausas
-            SET fin = NOW(), duracion = ${duracionFormateada}
-            WHERE id = ${pausaId}
-          `);
         } else {
           console.log("Pausa regular, actualizando normalmente");
+        }
+        
+        // Usar un método más directo para actualizar la pausa
+        await db.execute(sql`
+          UPDATE pausas
+          SET fin = NOW(), duracion = ${duracionFormateada}
+          WHERE id = ${pausaId}
+        `);
+        
+        // Verificar si la actualización fue exitosa
+        const verificacion = await db.execute(sql`
+          SELECT fin FROM pausas WHERE id = ${pausaId}
+        `);
+        
+        if (verificacion.rows.length > 0 && verificacion.rows[0].fin) {
+          console.log("Verificación exitosa: la pausa tiene ahora un valor fin:", verificacion.rows[0].fin);
+        } else {
+          console.error("ADVERTENCIA: La pausa no se actualizó correctamente");
+          
+          // Intentar actualizar de otra manera como última opción
           await db.execute(sql`
-            UPDATE pausas
+            UPDATE pausas 
             SET fin = NOW(), duracion = ${duracionFormateada}
             WHERE id = ${pausaId}
           `);
+          console.log("Ejecutada actualización alternativa como fallback");
         }
         
         console.log("SQL para finalizar pausa ejecutado correctamente");
