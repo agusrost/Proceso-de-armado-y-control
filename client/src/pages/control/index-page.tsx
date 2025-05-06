@@ -106,105 +106,107 @@ export default function ControlIndexPage() {
           </CardContent>
         </Card>
         
-        {/* Pedidos en curso de control */}
-        {pedidosEnCurso.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Controles en Curso</CardTitle>
-                  <CardDescription>
-                    Pedidos disponibles para control
-                  </CardDescription>
-                </div>
-                <div className="text-sm">
-                  <Link to="/control/historial" className="text-primary hover:underline">
-                    Ver todos
-                  </Link>
-                </div>
+        {/* Pedidos pendientes de control */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Pedidos pendientes de control</CardTitle>
+                <CardDescription>
+                  Pedidos listos para ser controlados
+                </CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
-              {isLoadingEnCurso ? (
-                <div className="text-center py-4">Cargando...</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-neutral-200">
-                    <thead className="bg-neutral-50">
-                      <tr>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">ID</th>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Finalizado</th>
-                        <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Armado por</th>
-                        <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-neutral-500">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-neutral-200">
-                      {pedidosEnCurso.map((pedido: any) => {
-                        // Verificar si el pedido está pendiente de stock
-                        const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
-                        const estaControlando = pedido.estado === 'controlando';
-                        
-                        return (
-                          <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : estaControlando ? 'bg-blue-50' : ''}`}>
-                            <td className="px-3 py-2 text-sm font-medium text-neutral-900">
-                              {pedido.pedidoId}
-                              {/* Mostrar el estado del pedido como una insignia colorida */}
-                              <div className="mt-1">
-                                {esPendienteStock && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                    <Package className="mr-1 h-3 w-3" />
-                                    Pendiente Stock
-                                  </span>
-                                )}
-                                {estaControlando && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <Eye className="mr-1 h-3 w-3" />
-                                    En Control
-                                  </span>
-                                )}
-                                {!esPendienteStock && !estaControlando && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                                    Listo
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-sm text-neutral-700">
-                              {pedido.clienteId || "-"}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-neutral-700">
-                              {formatDate(pedido.fecha)}
-                            </td>
-                            <td className="px-3 py-2 text-sm text-neutral-700">
-                              {pedido.armadorNombre || "-"}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              {esPendienteStock ? (
-                                <div className="flex items-center justify-end text-amber-700 text-xs">
-                                  <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                                  <span>No disponible - Stock pendiente</span>
-                                </div>
-                              ) : (
-                                <Link 
-                                  to={`/control/pedido/${pedido.id}`} 
-                                  className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
-                                >
-                                  {estaControlando ? "Continuar control" : "Iniciar control"}
-                                </Link>
+              <div className="text-sm">
+                <Link to="/control/historial" className="text-primary hover:underline">
+                  Ver todos
+                </Link>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoadingEnCurso ? (
+              <div className="text-center py-4">Cargando...</div>
+            ) : pedidosEnCurso.length === 0 ? (
+              <div className="text-center py-4 text-neutral-500">
+                No hay pedidos pendientes de control
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-neutral-200">
+                  <thead className="bg-neutral-50">
+                    <tr>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">ID</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Cliente</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Finalizado</th>
+                      <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-neutral-500">Armado por</th>
+                      <th scope="col" className="px-3 py-2 text-right text-xs font-medium text-neutral-500">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-neutral-200">
+                    {pedidosEnCurso.map((pedido: any) => {
+                      // Verificar si el pedido está pendiente de stock
+                      const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
+                      const estaControlando = pedido.estado === 'controlando';
+                      
+                      return (
+                        <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : estaControlando ? 'bg-blue-50' : ''}`}>
+                          <td className="px-3 py-2 text-sm font-medium text-neutral-900">
+                            {pedido.pedidoId}
+                            {/* Mostrar el estado del pedido como una insignia colorida */}
+                            <div className="mt-1">
+                              {esPendienteStock && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                  <Package className="mr-1 h-3 w-3" />
+                                  Pendiente Stock
+                                </span>
                               )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                              {estaControlando && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  <Eye className="mr-1 h-3 w-3" />
+                                  En Control
+                                </span>
+                              )}
+                              {!esPendienteStock && !estaControlando && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                  Listo
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-sm text-neutral-700">
+                            {pedido.clienteId || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-neutral-700">
+                            {formatDate(pedido.fecha)}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-neutral-700">
+                            {pedido.armadorNombre || "-"}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {esPendienteStock ? (
+                              <div className="flex items-center justify-end text-amber-700 text-xs">
+                                <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                                <span>No disponible - Stock pendiente</span>
+                              </div>
+                            ) : (
+                              <Link 
+                                to={`/control/pedido/${pedido.id}`} 
+                                className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
+                              >
+                                {estaControlando ? "Continuar control" : "Iniciar control"}
+                              </Link>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         
         {/* Últimos controles */}
         <Card>
