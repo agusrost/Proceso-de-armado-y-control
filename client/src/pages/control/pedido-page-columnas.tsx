@@ -77,6 +77,7 @@ export default function ControlPedidoColumnasPage() {
     startTime: null,
     pedidoId: null,
     codigoPedido: null,
+    clienteId: null,
     productosControlados: [],
     historialEscaneos: [],
     segundos: 0,
@@ -141,6 +142,9 @@ export default function ControlPedidoColumnasPage() {
     refetchInterval: controlState.isRunning ? 3000 : false,
     retry: false,
     onSuccess: (data: any) => {
+      // Log de datos para depuración
+      console.log("⚠️ DATOS CONTROL RECIBIDOS:", JSON.stringify(data, null, 2));
+      
       // Actualizar estado local con datos del servidor
       const productosOrdenados = [...data.productos].sort((a: any, b: any) => a.codigo.localeCompare(b.codigo));
       
@@ -155,6 +159,7 @@ export default function ControlPedidoColumnasPage() {
         startTime: data.control.inicio ? new Date(data.control.inicio).getTime() : null,
         pedidoId: data.pedidoId,
         codigoPedido: data.codigoPedido,
+        clienteId: data.clienteId,  // Almacenar clienteId aquí
         productosControlados: productosOrdenados,
         segundos: data.segundos || 0,
         pedidoYaControlado: data.pedidoYaControlado || false,
@@ -622,27 +627,29 @@ export default function ControlPedidoColumnasPage() {
         
         <div className="flex items-center gap-2">
           {/* Botón para pausar/reanudar el control */}
-          {(!pausaActiva && controlState.isRunning) && (
-            <Button
-              variant="outline"
-              onClick={handlePausarControl}
-              disabled={isLoadingControl || controlState.pedidoYaControlado}
-              className="flex items-center gap-1"
-            >
-              <PauseCircle className="h-4 w-4" />
-              Pausar control
-            </Button>
-          )}
-          
-          {pausaActiva && !controlState.pedidoYaControlado && (
-            <Button
-              onClick={handleReanudarControl}
-              disabled={isLoadingControl}
-              className="flex items-center gap-1"
-            >
-              <PlayCircle className="h-4 w-4" />
-              Reanudar control
-            </Button>
+          {!controlState.pedidoYaControlado && (
+            <>
+              {!pausaActiva ? (
+                <Button
+                  variant="outline"
+                  onClick={handlePausarControl}
+                  disabled={isLoadingControl || !controlState.isRunning}
+                  className="flex items-center gap-1"
+                >
+                  <PauseCircle className="h-4 w-4" />
+                  Pausar control
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleReanudarControl}
+                  disabled={isLoadingControl}
+                  className="flex items-center gap-1"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  Reanudar control
+                </Button>
+              )}
+            </>
           )}
           
           {/* Botón para finalizar control */}
@@ -676,7 +683,7 @@ export default function ControlPedidoColumnasPage() {
               </CardTitle>
               {(
                 <p className="text-gray-500 mt-1">
-                  Cliente: {controlState.codigoPedido ? controlState.codigoPedido : 'No especificado'}
+                  Cliente: {pedidoQuery.data?.clienteId || controlState.clienteId || 'No especificado'}
                   {pedidoQuery.data?.cliente ? ` - ${pedidoQuery.data.cliente}` : ''}
                 </p>
               )}
