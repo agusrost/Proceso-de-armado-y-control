@@ -42,7 +42,7 @@ import {
   PlayCircle
 } from 'lucide-react';
 
-import { ProductoEscanerSeguro } from '@/components/control/producto-escaner-seguro';
+import { ProductoEscanerSeguroV2 } from '@/components/control/producto-escaner-v2';
 import { ProductosEscaneadosLista } from '@/components/control/productos-escaneados-lista';
 import { RetirarExcedenteDialogNuevo } from '@/components/control/retirar-excedente-dialog-nuevo';
 
@@ -756,7 +756,7 @@ export default function ControlPedidoColumnasPage() {
                   </AlertDescription>
                 </Alert>
               ) : (
-                <ProductoEscanerSeguro 
+                <ProductoEscanerSeguroV2 
                   onEscaneo={handleEscaneo} 
                   allowOverflow={true} 
                   buttonText="Escanear producto"
