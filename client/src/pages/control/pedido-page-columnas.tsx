@@ -138,9 +138,33 @@ export default function ControlPedidoColumnasPage() {
       try {
         if (controlState.mensajeError === "No se pudo cargar la información del control") {
           console.log("Intentando reiniciar el control...");
+          
+          // Verificar primero si el pedido tiene estado "armado-pendiente-stock"
+          const pedidoData = pedidoQuery.data;
+          if (pedidoData && pedidoData.estado === "armado-pendiente-stock") {
+            console.log("Pedido con stock pendiente, no se puede iniciar control");
+            toast({
+              title: "No se puede iniciar el control",
+              description: "Este pedido tiene productos con stock pendiente. Complete el stock antes de controlar.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
           const resp = await fetch(`/api/control/pedidos/${pedidoId}/activo`);
           if (resp.status === 404) {
             console.log("Control no encontrado, iniciando uno nuevo...");
+            
+            // Verificar nuevamente el estado del pedido antes de iniciar control
+            if (pedidoData && pedidoData.estado === "armado-pendiente-stock") {
+              toast({
+                title: "No se puede iniciar el control",
+                description: "Este pedido tiene productos con stock pendiente. Complete el stock antes de controlar.",
+                variant: "destructive"
+              });
+              return;
+            }
+            
             const initResp = await fetch(`/api/control/pedidos/${pedidoId}/iniciar`, {
               method: 'POST'
             });
@@ -160,10 +184,10 @@ export default function ControlPedidoColumnasPage() {
       }
     };
     
-    if (controlState.mensajeError) {
+    if (controlState.mensajeError && pedidoQuery.data) {
       handleError();
     }
-  }, [controlState.mensajeError, pedidoId, toast]);
+  }, [controlState.mensajeError, pedidoId, toast, pedidoQuery.data]);
   
   // Timer para el control
   useEffect(() => {
@@ -529,6 +553,16 @@ export default function ControlPedidoColumnasPage() {
           </Button>
         </div>
       </div>
+      
+      {pedidoQuery.data?.estado === "armado-pendiente-stock" && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Pedido con stock pendiente</AlertTitle>
+          <AlertDescription>
+            Este pedido tiene productos con stock pendiente. No se puede iniciar el control hasta que se complete el stock.
+          </AlertDescription>
+        </Alert>
+      )}
       
       <Card className="mb-6">
         <CardHeader className="pb-4">
