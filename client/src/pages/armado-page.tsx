@@ -1135,7 +1135,7 @@ export default function ArmadoPage() {
             }}
             disabled={actualizarProductoMutation.isPending}
           >
-            {currentProductoIndex >= productos.length - 1 ? 'FINALIZAR ARMADO' : 'CONTINUAR ARMADO'}
+            {currentProductoIndex >= productos.length - 1 ? 'FINALIZAR ARMADO' : 'CONTINUAR'}
           </button>
         </div>
         
@@ -1247,8 +1247,8 @@ export default function ArmadoPage() {
                   }}
                   className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
                 >
-                  <Pause size={16} className="mr-2" />
-                  {pausaActiva ? 'Continuar armado' : 'Pausar armado'}
+                  {pausaActiva ? <Play size={16} className="mr-2" /> : <Pause size={16} className="mr-2" />}
+                  {pausaActiva ? 'Reanudar armado' : 'Pausar armado'}
                 </button>
               )}
             </>
