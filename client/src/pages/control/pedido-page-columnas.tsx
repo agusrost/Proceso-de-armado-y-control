@@ -52,9 +52,13 @@ export default function ControlPedidoColumnasPage() {
   const { toast } = useToast();
   const pedidoId = id ? parseInt(id) : null;
   
+  // Debug info
+  console.log("⚠️ ControlPedidoColumnasPage - ID en URL:", id);
+  console.log("⚠️ ControlPedidoColumnasPage - pedidoId procesado:", pedidoId);
+  
   // Validación del pedidoId
   useEffect(() => {
-    if (!pedidoId || isNaN(pedidoId)) {
+    if (!id || !pedidoId || isNaN(pedidoId)) {
       toast({
         title: "Error de pedido",
         description: "El ID del pedido no es válido",
@@ -62,7 +66,7 @@ export default function ControlPedidoColumnasPage() {
       });
       navigate('/control');
     }
-  }, [pedidoId, navigate, toast]);
+  }, [id, pedidoId, navigate, toast]);
   
   // Estado para controlar si el pedido está pausado
   const [pausaActiva, setPausaActiva] = useState(false);
@@ -618,7 +622,7 @@ export default function ControlPedidoColumnasPage() {
         
         <div className="flex items-center gap-2">
           {/* Botón para pausar/reanudar el control */}
-          {controlState.isRunning && (
+          {(!pausaActiva && controlState.isRunning) && (
             <Button
               variant="outline"
               onClick={handlePausarControl}
@@ -630,7 +634,7 @@ export default function ControlPedidoColumnasPage() {
             </Button>
           )}
           
-          {!controlState.isRunning && pausaActiva && !controlState.pedidoYaControlado && (
+          {pausaActiva && !controlState.pedidoYaControlado && (
             <Button
               onClick={handleReanudarControl}
               disabled={isLoadingControl}
@@ -670,10 +674,10 @@ export default function ControlPedidoColumnasPage() {
               <CardTitle className="text-2xl flex items-center">
                 Control de pedido {controlState.codigoPedido}
               </CardTitle>
-              {pedidoQuery.data && (
+              {(
                 <p className="text-gray-500 mt-1">
-                  Cliente: {pedidoQuery.data.clienteId || 'No especificado'} 
-                  {pedidoQuery.data.cliente ? ` - ${pedidoQuery.data.cliente}` : ''}
+                  Cliente: {controlState.codigoPedido ? controlState.codigoPedido : 'No especificado'}
+                  {pedidoQuery.data?.cliente ? ` - ${pedidoQuery.data.cliente}` : ''}
                 </p>
               )}
               {controlArminfoQuery.data && (
