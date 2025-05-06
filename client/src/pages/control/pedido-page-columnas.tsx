@@ -599,6 +599,14 @@ export default function ControlPedidoColumnasPage() {
                     Este pedido ya ha sido controlado y finalizado.
                   </AlertDescription>
                 </Alert>
+              ) : pedidoQuery.data?.estado === 'armado-pendiente-stock' ? (
+                <Alert className="mb-4 bg-amber-50 border-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-800">Pedido con stock pendiente</AlertTitle>
+                  <AlertDescription className="text-amber-700">
+                    Este pedido tiene productos con faltantes de stock y no puede ser controlado hasta que se resuelvan.
+                  </AlertDescription>
+                </Alert>
               ) : !controlState.isRunning ? (
                 <Alert className="mb-4">
                   <InfoIcon className="h-4 w-4" />
