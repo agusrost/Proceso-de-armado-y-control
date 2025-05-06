@@ -48,7 +48,19 @@ export default function ControlPedidoColumnasPage() {
   const { id } = useParams<{ id: string }>();
   const [_, navigate] = useLocation();
   const { toast } = useToast();
-  const pedidoId = parseInt(id);
+  const pedidoId = id ? parseInt(id) : null;
+  
+  // Validación del pedidoId
+  useEffect(() => {
+    if (!pedidoId || isNaN(pedidoId)) {
+      toast({
+        title: "Error de pedido",
+        description: "El ID del pedido no es válido",
+        variant: "destructive"
+      });
+      navigate('/control');
+    }
+  }, [pedidoId, navigate, toast]);
   
   // Estado para controlar si el pedido está pausado
   const [pausaActiva, setPausaActiva] = useState(false);
@@ -89,6 +101,18 @@ export default function ControlPedidoColumnasPage() {
   const [showExitoDialog, setShowExitoDialog] = useState(false);
   const [finalizandoControl, setFinalizandoControl] = useState(false);
   const [permitirFinalizarConExcedentes, setPermitirFinalizarConExcedentes] = useState(false);
+  
+  // Estado para el diálogo de pausa
+  const [pausaDialogOpen, setPausaDialogOpen] = useState(false);
+  const [motivoPausa, setMotivoPausa] = useState("Pausa manual");
+  const opcionesPausa = [
+    "Pausa manual", 
+    "Producto dañado", 
+    "Falta de stock", 
+    "Verificación de datos", 
+    "Cambio de turno",
+    "Otro"
+  ];
   
   // Timer
   const [timer, setTimer] = useState<number | null>(null);
@@ -396,7 +420,15 @@ export default function ControlPedidoColumnasPage() {
   // Manejar clic en botón de pausar
   const handlePausarControl = () => {
     if (controlState.isRunning) {
-      pausarControlMutation.mutate("Pausa manual");
+      setPausaDialogOpen(true); // Abre el diálogo para seleccionar motivo
+    }
+  };
+  
+  // Manejar la confirmación de pausa con un motivo seleccionado
+  const handleConfirmarPausa = () => {
+    if (controlState.isRunning) {
+      pausarControlMutation.mutate(motivoPausa);
+      setPausaDialogOpen(false);
     }
   };
   
@@ -602,7 +634,8 @@ export default function ControlPedidoColumnasPage() {
               </CardTitle>
               {pedidoQuery.data && (
                 <p className="text-gray-500 mt-1">
-                  Cliente: {pedidoQuery.data.clienteId || 'No especificado'}
+                  Cliente: {pedidoQuery.data.clienteId || 'No especificado'} 
+                  {pedidoQuery.data.cliente ? ` - ${pedidoQuery.data.cliente}` : ''}
                 </p>
               )}
               {controlArminfoQuery.data && (
