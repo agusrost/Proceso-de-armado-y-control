@@ -1661,6 +1661,19 @@ export default function ControlPedidoPage() {
                 Nº {pedido.pedidoId || 'Sin ID'}
               </CardDescription>
             </CardHeader>
+            {pedido.estado === 'armado-pendiente-stock' && (
+              <div className="mx-6 my-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-4 flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-amber-800 text-sm">Pedido con stock pendiente</h3>
+                    <p className="text-amber-700 text-sm mt-1">
+                      Este pedido tiene productos con faltantes de stock y no puede ser controlado hasta que se resuelvan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
