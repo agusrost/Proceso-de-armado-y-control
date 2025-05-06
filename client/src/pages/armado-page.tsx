@@ -63,7 +63,7 @@ export default function ArmadoPage() {
   const [currentPedido, setCurrentPedido] = useState<Pedido | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
-  const [recolectados, setRecolectados] = useState<number | null>(null);
+  const [recolectados, setRecolectados] = useState<number | null>(2);
   const [motivo, setMotivo] = useState<string>("");
   const [motivoPersonalizado, setMotivoPersonalizado] = useState<string>("");
   
@@ -1002,7 +1002,7 @@ export default function ArmadoPage() {
             >
               −
             </button>
-            <span className="text-2xl font-semibold">{recolectados === null ? 0 : recolectados}</span>
+            <span className="text-2xl font-semibold">{recolectados !== null ? recolectados : 2}</span>
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
