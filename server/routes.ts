@@ -797,9 +797,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Obtener productos del pedido
       const productos = await storage.getProductosByPedidoId(pedidoNumId);
       
-      // Verificar si hay pausas activas para este pedido
+      // Verificar si hay pausas activas de tipo "control" para este pedido
       const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoNumId, true);
-      const tienePausaActiva = pausasActivas.length > 0;
+      
+      // Filtrar solo las pausas de tipo "control"
+      const pausasControl = pausasActivas.filter(pausa => 
+        pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+      );
+      
+      const tienePausaActiva = pausasControl.length > 0;
+      
+      console.log(`Pedido ${pedidoNumId} pausas activas: ${pausasActivas.length}, pausas de control: ${pausasControl.length}`);
       
       res.status(200).json({
         control: controlActivo,
@@ -807,7 +815,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         productos,
         pedido,
         pausaActiva: tienePausaActiva,
-        pausaId: tienePausaActiva ? pausasActivas[0].id : null
+        pausaId: tienePausaActiva ? pausasControl[0].id : null
       });
       
     } catch (error) {
@@ -900,9 +908,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
         resultado: 'pendiente' // Establecemos un valor por defecto que no sea null
       });
       
-      // Verificar si hay pausas activas para este pedido
+      // Verificar si hay pausas activas de tipo "control" para este pedido
       const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoNumId, true);
-      const tienePausaActiva = pausasActivas.length > 0;
+      
+      // Filtrar solo las pausas de tipo "control"
+      const pausasControl = pausasActivas.filter(pausa => 
+        pausa.tipo === "control" || pausa.tipo === null // algunas pausas antiguas pueden no tener tipo
+      );
+      
+      const tienePausaActiva = pausasControl.length > 0;
+      
+      console.log(`Al iniciar control de pedido ${pedidoNumId}: pausas activas=${pausasActivas.length}, pausas de control=${pausasControl.length}`);
       
       // Obtener información del cliente
       const cliente = await storage.getClienteById(pedido.clienteId);
@@ -919,7 +935,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         },
         cliente,
         pausaActiva: tienePausaActiva,
-        pausaId: tienePausaActiva ? pausasActivas[0].id : null
+        pausaId: tienePausaActiva ? pausasControl[0].id : null
       });
       
     } catch (error) {
