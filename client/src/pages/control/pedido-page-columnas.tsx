@@ -85,6 +85,17 @@ export default function ControlPedidoColumnasPage() {
     mensajeError: null
   });
   
+  // Verificar que historialEscaneos siempre sea un array
+  useEffect(() => {
+    if (!Array.isArray(controlState.historialEscaneos)) {
+      console.error("⚠️ historialEscaneos no es un array, inicializando...");
+      setControlState(prev => ({
+        ...prev,
+        historialEscaneos: []
+      }));
+    }
+  }, [controlState.historialEscaneos]);
+  
   // Estado para el diálogo de excedentes
   const [excedentesDialog, setExcedentesDialog] = useState<{
     open: boolean;
@@ -144,6 +155,13 @@ export default function ControlPedidoColumnasPage() {
     onSuccess: (data: any) => {
       // Log de datos para depuración
       console.log("⚠️ DATOS CONTROL RECIBIDOS:", JSON.stringify(data, null, 2));
+      console.log("⚠️ ID del pedido:", pedidoId);
+      
+      // Verificar si hay datos nulos
+      if (!data || !data.productos) {
+        console.error("⚠️ ERROR: Datos de control inválidos o nulos:", data);
+        return;
+      }
       
       // Actualizar estado local con datos del servidor
       const productosOrdenados = [...data.productos].sort((a: any, b: any) => a.codigo.localeCompare(b.codigo));
@@ -466,8 +484,14 @@ export default function ControlPedidoColumnasPage() {
   
   // Manejar escaneo de productos
   const handleEscaneo = async (codigo: string) => {
+    console.log("⚠️ handleEscaneo ejecutado con codigo:", codigo);
+    console.log("⚠️ Estado del control:", controlState.isRunning ? "Ejecutando" : "Detenido");
+    console.log("⚠️ Pausa activa:", pausaActiva ? "Sí" : "No");
+    console.log("⚠️ Pedido ya controlado:", controlState.pedidoYaControlado ? "Sí" : "No");
+    
     // Evitar escaneo si el control no está en ejecución, está pausado, o ya fue controlado
     if (!controlState.isRunning || pausaActiva || controlState.pedidoYaControlado) {
+      console.log("⚠️ Escaneo bloqueado - isRunning:", controlState.isRunning, "pausaActiva:", pausaActiva, "pedidoYaControlado:", controlState.pedidoYaControlado);
       if (pausaActiva) {
         toast({
           title: "Control pausado",
@@ -479,6 +503,7 @@ export default function ControlPedidoColumnasPage() {
     }
     
     try {
+      console.log(`⚠️ Enviando petición a /api/control/pedidos/${pedidoId}/escanear con código ${codigo}`);
       const response = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
         method: 'POST',
         headers: {
@@ -487,7 +512,10 @@ export default function ControlPedidoColumnasPage() {
         body: JSON.stringify({ codigo })
       });
       
+      console.log("⚠️ Respuesta recibida - status:", response.status);
+      
       const data = await response.json();
+      console.log("⚠️ Datos recibidos del escaneo:", data);
       
       if (!response.ok) {
         toast({
@@ -502,13 +530,26 @@ export default function ControlPedidoColumnasPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/control/pedidos', pedidoId, 'activo'] });
       
       // Actualizar el historial de escaneos
-      setControlState(prev => ({
-        ...prev,
-        historialEscaneos: [
-          { codigo, timestamp: new Date().toISOString() },
-          ...prev.historialEscaneos
-        ]
-      }));
+      setControlState(prev => {
+        // Crear un objeto de escaneo con todos los campos requeridos de ProductoControlado
+        const nuevoEscaneo: ProductoControlado & { timestamp?: Date, escaneado?: boolean } = {
+          codigo,
+          cantidad: 0, // Valor por defecto
+          controlado: 0, // Valor por defecto
+          descripcion: 'Producto escaneado', // Valor por defecto
+          estado: '', // Valor por defecto
+          timestamp: new Date(),
+          escaneado: true
+        };
+        
+        return {
+          ...prev,
+          historialEscaneos: [
+            nuevoEscaneo,
+            ...prev.historialEscaneos
+          ]
+        };
+      });
       
       // Si el escaneo ha causado un excedente, mostrar toast
       if (data.excedente) {
