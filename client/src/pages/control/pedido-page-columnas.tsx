@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -455,12 +457,20 @@ export default function ControlPedidoColumnasPage() {
   
   // Manejar escaneo de productos
   const handleEscaneo = async (codigo: string) => {
-    if (!controlState.isRunning || controlState.pedidoYaControlado) {
+    // Evitar escaneo si el control no está en ejecución, está pausado, o ya fue controlado
+    if (!controlState.isRunning || pausaActiva || controlState.pedidoYaControlado) {
+      if (pausaActiva) {
+        toast({
+          title: "Control pausado",
+          description: "No se pueden escanear productos mientras el control está pausado. Reanude el control para continuar.",
+          variant: "destructive",
+        });
+      }
       return;
     }
     
     try {
-      const response = await fetch(`/api/control/pedidos/${pedidoId}/productos/escanear`, {
+      const response = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -572,6 +582,34 @@ export default function ControlPedidoColumnasPage() {
   // Rendering principal
   return (
     <div className="container mx-auto py-6 max-w-7xl">
+      {/* Diálogo para seleccionar motivo de pausa */}
+      <Dialog open={pausaDialogOpen} onOpenChange={setPausaDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Seleccione motivo de pausa</DialogTitle>
+            <DialogDescription>
+              Indique el motivo por el cual está pausando el control del pedido.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <RadioGroup value={motivoPausa} onValueChange={setMotivoPausa} className="space-y-2">
+              {opcionesPausa.map((opcion) => (
+                <div key={opcion} className="flex items-center space-x-2">
+                  <RadioGroupItem value={opcion} id={`opcion-${opcion}`} />
+                  <Label htmlFor={`opcion-${opcion}`}>{opcion}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPausaDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmarPausa}>Pausar control</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <div className="flex justify-between items-center mb-6">
         <Button variant="ghost" onClick={volverALista} className="flex items-center gap-1 pl-0 hover:bg-transparent hover:pl-0">
           <ArrowLeft className="h-4 w-4" />
@@ -592,7 +630,7 @@ export default function ControlPedidoColumnasPage() {
             </Button>
           )}
           
-          {!controlState.isRunning && !controlState.pedidoYaControlado && (
+          {!controlState.isRunning && pausaActiva && !controlState.pedidoYaControlado && (
             <Button
               onClick={handleReanudarControl}
               disabled={isLoadingControl}
