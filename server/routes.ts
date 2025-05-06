@@ -2637,109 +2637,177 @@ export async function registerRoutes(app: Application): Promise<Server> {
   // Finalizar una pausa existente
   app.put("/api/pausas/:id/fin", requireAuth, async (req, res, next) => {
     try {
-      console.log("Recibida solicitud para finalizar pausa:", req.params.id);
+      console.log("🔄 SOLICITUD RECIBIDA para finalizar pausa:", req.params.id);
       
       const pausaId = parseInt(req.params.id);
       if (isNaN(pausaId)) {
-        console.log("Error: ID de pausa inválido:", req.params.id);
-        return res.status(400).json({ message: "ID de pausa inválido" });
+        console.log("❌ Error: ID de pausa inválido:", req.params.id);
+        return res.status(400).json({ 
+          success: false,
+          message: "ID de pausa inválido" 
+        });
       }
       
       // Verificar que la pausa existe
-      console.log("Buscando pausa con ID:", pausaId);
+      console.log("🔍 Buscando pausa con ID:", pausaId);
       const pausa = await storage.getPausaById(pausaId);
-      console.log("Pausa encontrada:", pausa);
       
       if (!pausa) {
-        console.log("Error: Pausa no encontrada con ID:", pausaId);
-        return res.status(404).json({ message: "Pausa no encontrada" });
+        console.log("❌ Error: Pausa no encontrada con ID:", pausaId);
+        return res.status(404).json({ 
+          success: false,
+          message: "Pausa no encontrada" 
+        });
       }
+      
+      console.log("✅ Pausa encontrada:", {
+        id: pausa.id,
+        pedidoId: pausa.pedidoId,
+        tipo: pausa.tipo,
+        motivo: pausa.motivo,
+        inicio: pausa.inicio,
+        fin: pausa.fin
+      });
       
       // Verificar que la pausa no esté ya finalizada
       if (pausa.fin) {
-        console.log("Error: La pausa ya está finalizada:", pausa);
-        return res.status(400).json({ message: "Esta pausa ya está finalizada" });
+        console.log("ℹ️ INFORMACIÓN: La pausa ya está finalizada anteriormente");
+        // En lugar de devolver un error, simplemente devolvemos la pausa ya finalizada
+        // para permitir que el cliente continúe con su flujo normal
+        return res.status(200).json({ 
+          success: true,
+          message: "Esta pausa ya estaba finalizada previamente",
+          pausa
+        });
       }
       
       // Verificar si la pausa fue por "fin de turno"
-      const esPausaFinTurno = pausa.motivo === "fin de turno" || 
-                            pausa.motivo === "Fin de turno" || 
-                            pausa.motivo === "FIN DE TURNO";
-      
-      console.log(`Finalizando pausa con motivo: "${pausa.motivo}". ¿Es pausa por fin de turno? ${esPausaFinTurno}`);
+      const esPausaFinTurno = pausa.motivo?.toLowerCase().includes("fin de turno");
+      console.log(`🕒 Tipo de pausa: "${pausa.motivo}". ¿Es fin de turno? ${esPausaFinTurno ? 'Sí' : 'No'}`);
       
       // Calcular la duración de la pausa
       const inicio = new Date(pausa.inicio);
       const fin = new Date();
       const duracionMs = fin.getTime() - inicio.getTime();
       
-      // Convertir ms a formato HH:MM
+      // Convertir ms a formato HH:MM:SS
       const duracionSegundos = Math.floor(duracionMs / 1000);
       const horas = Math.floor(duracionSegundos / 3600);
       const minutos = Math.floor((duracionSegundos % 3600) / 60);
       const segundos = duracionSegundos % 60;
       const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
       
-      console.log("Calculada duración de pausa:", {
+      console.log("⏱️ Duración calculada:", {
         inicio: inicio.toISOString(),
         fin: fin.toISOString(),
         duracionMs,
-        duracionSegundos,
         duracionFormateada
       });
       
-      // Actualizar la pausa
+      // Definir valores para la actualización
+      const ahora = new Date().toISOString();
+      
+      // Usar transacción para asegurar que la actualización sea atómica
       try {
-        console.log("Ejecutando SQL para finalizar pausa:", {
-          pausaId,
-          esPausaFinTurno,
-          duracionFormateada
+        console.log("🔄 Iniciando transacción para finalizar pausa...");
+        
+        // Actualización directa usando pool para evitar problemas de conexión
+        const resultado = await db.transaction(async (tx) => {
+          console.log("🔄 Ejecutando UPDATE en la transacción");
+          
+          // Primer intento con timestamp explícito
+          await tx.execute(sql`
+            UPDATE pausas
+            SET fin = ${ahora}, duracion = ${duracionFormateada}
+            WHERE id = ${pausaId} AND fin IS NULL
+          `);
+          
+          // Verificar si la actualización fue exitosa
+          const actualizada = await tx.execute(sql`
+            SELECT id, fin, duracion FROM pausas 
+            WHERE id = ${pausaId}
+          `);
+          
+          if (actualizada.rows.length === 0) {
+            throw new Error("No se encontró la pausa después de la actualización");
+          }
+          
+          if (!actualizada.rows[0].fin) {
+            console.log("⚠️ Primera actualización fallida, intentando con NOW()");
+            
+            // Segundo intento con NOW() directo
+            await tx.execute(sql`
+              UPDATE pausas
+              SET fin = NOW(), duracion = ${duracionFormateada}
+              WHERE id = ${pausaId} AND fin IS NULL
+            `);
+            
+            // Verificar nuevamente
+            const verificacion = await tx.execute(sql`
+              SELECT id, fin, duracion FROM pausas 
+              WHERE id = ${pausaId}
+            `);
+            
+            if (!verificacion.rows[0].fin) {
+              throw new Error("La pausa no pudo ser finalizada después de dos intentos");
+            }
+          }
+          
+          return actualizada.rows[0];
         });
         
-        if (esPausaFinTurno) {
-          console.log("Pausa por fin de turno detectada, actualizando con timestamp actual");
-        } else {
-          console.log("Pausa regular, actualizando normalmente");
-        }
+        console.log("✅ Transacción completada exitosamente:", resultado);
         
-        // Usar un método más directo para actualizar la pausa
-        await db.execute(sql`
-          UPDATE pausas
-          SET fin = NOW(), duracion = ${duracionFormateada}
-          WHERE id = ${pausaId}
-        `);
+        // Obtener la pausa actualizada con todos sus datos
+        const pausaActualizada = await storage.getPausaById(pausaId);
         
-        // Verificar si la actualización fue exitosa
-        const verificacion = await db.execute(sql`
-          SELECT fin FROM pausas WHERE id = ${pausaId}
-        `);
-        
-        if (verificacion.rows.length > 0 && verificacion.rows[0].fin) {
-          console.log("Verificación exitosa: la pausa tiene ahora un valor fin:", verificacion.rows[0].fin);
-        } else {
-          console.error("ADVERTENCIA: La pausa no se actualizó correctamente");
-          
-          // Intentar actualizar de otra manera como última opción
+        if (!pausaActualizada.fin) {
+          console.log("⚠️ ADVERTENCIA: La pausa no tiene fin a pesar de la actualización exitosa");
+          // Último intento fuera de la transacción
           await db.execute(sql`
             UPDATE pausas 
             SET fin = NOW(), duracion = ${duracionFormateada}
             WHERE id = ${pausaId}
           `);
-          console.log("Ejecutada actualización alternativa como fallback");
         }
         
-        console.log("SQL para finalizar pausa ejecutado correctamente");
+        // Devolver la pausa actualizada
+        res.json({
+          success: true,
+          message: "Pausa finalizada correctamente",
+          pausa: pausaActualizada
+        });
       } catch (err) {
-        console.error("Error al finalizar pausa:", err);
-        return res.status(500).json({ message: "Error al finalizar la pausa" });
+        console.error("❌ ERROR en la transacción al finalizar pausa:", err);
+        
+        // Intentar determinar si realmente la pausa se actualizó a pesar del error
+        try {
+          const pausaVerificacion = await storage.getPausaById(pausaId);
+          if (pausaVerificacion.fin) {
+            console.log("✅ A pesar del error, la pausa sí tiene fin:", pausaVerificacion.fin);
+            return res.json({
+              success: true,
+              message: "Pausa finalizada (recuperado de error)",
+              pausa: pausaVerificacion
+            });
+          }
+        } catch (checkErr) {
+          console.error("Error en verificación final:", checkErr);
+        }
+        
+        return res.status(500).json({ 
+          success: false,
+          message: "Error al finalizar la pausa: " + (err.message || "Error desconocido") 
+        });
       }
-      
-      // Obtener la pausa actualizada
-      const pausaActualizada = await storage.getPausaById(pausaId);
-      res.json(pausaActualizada);
     } catch (error) {
-      console.error("Error al finalizar pausa:", error);
-      next(error);
+      console.error("❌ ERROR GENERAL al finalizar pausa:", error);
+      
+      // Intentar devolver una respuesta controlada incluso en caso de error
+      res.status(500).json({ 
+        success: false,
+        message: "Error interno al procesar la finalización de pausa" 
+      });
     }
   });
 
