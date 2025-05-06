@@ -797,11 +797,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Obtener productos del pedido
       const productos = await storage.getProductosByPedidoId(pedidoNumId);
       
+      // Verificar si hay pausas activas para este pedido
+      const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoNumId, true);
+      const tienePausaActiva = pausasActivas.length > 0;
+      
       res.status(200).json({
         control: controlActivo,
         detalles,
         productos,
-        pedido
+        pedido,
+        pausaActiva: tienePausaActiva,
+        pausaId: tienePausaActiva ? pausasActivas[0].id : null
       });
       
     } catch (error) {
@@ -894,6 +900,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
         resultado: 'pendiente' // Establecemos un valor por defecto que no sea null
       });
       
+      // Verificar si hay pausas activas para este pedido
+      const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoNumId, true);
+      const tienePausaActiva = pausasActivas.length > 0;
+      
+      // Obtener información del cliente
+      const cliente = await storage.getClienteById(pedido.clienteId);
+      
       res.status(200).json({
         success: true,
         message: 'Control iniciado correctamente',
@@ -901,8 +914,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
         pedido: {
           id: pedido.id,
           pedidoId: pedido.pedidoId,
-          estado: 'controlando'
-        }
+          estado: 'controlando',
+          clienteId: pedido.clienteId
+        },
+        cliente,
+        pausaActiva: tienePausaActiva,
+        pausaId: tienePausaActiva ? pausasActivas[0].id : null
       });
       
     } catch (error) {
