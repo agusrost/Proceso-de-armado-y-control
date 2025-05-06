@@ -6,7 +6,7 @@ import { Loader2, Barcode, ScanLine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProductoEscanerSeguroProps {
-  onEscaneo: (codigo: string) => Promise<void>;
+  onEscaneo: (codigo: string, cantidad?: number) => Promise<void>;
   allowOverflow?: boolean;
   buttonText?: string;
   showEscanerAutomatico?: boolean;
@@ -23,6 +23,7 @@ export function ProductoEscanerSeguroV2({
   className = ""
 }: ProductoEscanerSeguroProps) {
   const [codigo, setCodigo] = useState("");
+  const [cantidad, setCantidad] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -38,14 +39,15 @@ export function ProductoEscanerSeguroV2({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!codigo.trim() || isLoading || disabled) {
+    if (!codigo.trim() || isLoading || disabled || cantidad <= 0) {
       return;
     }
     
     try {
       setIsLoading(true);
-      await onEscaneo(codigo.trim());
+      await onEscaneo(codigo.trim(), cantidad);
       setCodigo("");
+      // No reiniciamos la cantidad para facilitar escaneos consecutivos
       
       // Foco en input de código
       if (inputRef.current) {
@@ -76,8 +78,9 @@ export function ProductoEscanerSeguroV2({
         if (!disabled && !isLoading && limpioCodigo.trim()) {
           try {
             setIsLoading(true);
-            await onEscaneo(limpioCodigo.trim());
+            await onEscaneo(limpioCodigo.trim(), cantidad);
             setCodigo("");
+            // No reiniciamos la cantidad para facilitar escaneos consecutivos
             
             // Foco en input de código
             if (inputRef.current) {
@@ -117,10 +120,44 @@ export function ProductoEscanerSeguroV2({
             </div>
           </div>
           
+          <div>
+            <label className="text-sm font-medium mb-1 block">Cantidad</label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCantidad(prev => Math.max(1, prev - 1))}
+                disabled={isLoading || cantidad <= 1 || disabled}
+                className="h-9 w-9 p-0"
+              >
+                -
+              </Button>
+              <Input
+                type="number"
+                min={1}
+                value={cantidad}
+                onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
+                className="text-center"
+                disabled={isLoading || disabled}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCantidad(prev => prev + 1)}
+                disabled={isLoading || disabled}
+                className="h-9 w-9 p-0"
+              >
+                +
+              </Button>
+            </div>
+          </div>
+          
           <Button 
             type="submit" 
             className="w-full"
-            disabled={!codigo.trim() || isLoading || disabled}
+            disabled={!codigo.trim() || isLoading || disabled || cantidad < 1}
           >
             {isLoading ? (
               <>

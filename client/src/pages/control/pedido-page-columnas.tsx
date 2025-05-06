@@ -477,8 +477,8 @@ export default function ControlPedidoColumnasPage() {
   };
   
   // Manejar escaneo de productos
-  const handleEscaneo = async (codigo: string) => {
-    console.log("⚠️ Intento de escaneo:", codigo);
+  const handleEscaneo = async (codigo: string, cantidad: number = 1) => {
+    console.log("⚠️ Intento de escaneo:", codigo, "cantidad:", cantidad);
     
     // Evitar escaneo si el control no está en ejecución, está pausado, o ya fue controlado
     if (!controlState.isRunning || pausaActiva || controlState.pedidoYaControlado) {
@@ -499,7 +499,10 @@ export default function ControlPedidoColumnasPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ codigo })
+        body: JSON.stringify({ 
+          codigo,
+          cantidad: cantidad || 1 // Asegurarnos de enviar al menos 1
+        })
       });
       
       const data = await response.json();
