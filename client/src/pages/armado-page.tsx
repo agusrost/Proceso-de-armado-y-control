@@ -596,16 +596,10 @@ export default function ArmadoPage() {
           // 1. No tienen recolectado (recolectado === null)
           // 2. No tienen motivo a pesar de ser parciales (recolectado < cantidad y !motivo)
           
-          // Función para determinar si un producto está realmente pendiente
+          // CORREGIDO: Reutilizar la función esProductoCompletado
           const estaRealmendePendiente = (p) => {
-            // Si no ha sido procesado (recolectado es null), está pendiente
-            if (p.recolectado === null) return true;
-            
-            // Si es una recolección parcial (recolectado < cantidad) pero NO tiene motivo, está pendiente
-            if (p.recolectado < p.cantidad && !p.motivo) return true;
-            
-            // En cualquier otro caso, se considera como ya procesado
-            return false;
+            // Un producto está pendiente si NO está completado
+            return !esProductoCompletado(p);
           };
           
           console.log("🚀 NUEVA LÓGICA: Verificando productos realmente pendientes");
@@ -766,27 +760,26 @@ export default function ArmadoPage() {
         }
       };
       
-      // Función auxiliar para seleccionar el producto por defecto
+      // Función auxiliar para seleccionar el producto por defecto - MEJORADA CON LA NUEVA LÓGICA
       const seleccionarProductoDefault = (data: any[]) => {
-        // Buscar el primer producto no procesado
-        const primerNoRecolectado = data.findIndex((p: any) => p.recolectado === null);
+        // CORREGIDO: Usar esProductoCompletado para determinar productos pendientes
+        const productosRealmendePendientes = data.filter(p => !esProductoCompletado(p));
         
-        if (primerNoRecolectado !== -1) {
-          console.log("Seleccionando primer producto sin procesar:", data[primerNoRecolectado].codigo);
-          setCurrentProductoIndex(primerNoRecolectado);
-        } else {
-          // Si todos tienen valores, buscar uno incompleto
-          const primerIncompleto = data.findIndex((p: any) => p.recolectado !== null && p.recolectado < p.cantidad);
+        if (productosRealmendePendientes.length > 0) {
+          // Ordenar por ID para respetar FIFO
+          productosRealmendePendientes.sort((a, b) => a.id - b.id);
           
-          if (primerIncompleto !== -1) {
-            console.log("No hay productos sin procesar. Seleccionando producto incompleto:", data[primerIncompleto].codigo);
-            setCurrentProductoIndex(primerIncompleto);
-          } else {
-            // Si todo está completo, usar el primero
-            console.log("Todos los productos están completos. Seleccionando el primero.");
-            setCurrentProductoIndex(0);
-          }
+          const primerProductoPendiente = productosRealmendePendientes[0];
+          const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
+          
+          console.log(`SELECCIÓN DEFAULT: Producto pendiente encontrado: ${primerProductoPendiente.codigo}`);
+          setCurrentProductoIndex(primerProductoPendienteIndex);
+          return;
         }
+        
+        // Si todos los productos están completados, seleccionar el primero
+        console.log("SELECCIÓN DEFAULT: Todos los productos están completos. Seleccionando el primero.");
+        setCurrentProductoIndex(0);
       };
       
       fetchProductos();
@@ -843,21 +836,29 @@ export default function ArmadoPage() {
           console.log(`Cargando productos para pedido de armador ${pedidoArmador.pedidoId} - Total: ${productos.length}`);
           
           if (productos.length > 0) {
-            // NUEVA LÓGICA SIMPLIFICADA: Siempre mostrar el primer producto no procesado 
+            // NUEVA LÓGICA MEJORADA: Usar esProductoCompletado para mostrar SOLO productos incompletos 
             // independientemente del ultimoProductoId
             
-            // 1. Buscar el primer producto NO procesado (recolectado === null)
-            const productoSinProcesarIndex = productos.findIndex(p => p.recolectado === null);
+            // Productos realmente pendientes (sin procesar o parciales sin motivo)
+            const productosRealmendePendientes = productos.filter(p => !esProductoCompletado(p));
             
-            if (productoSinProcesarIndex !== -1) {
-              const productoSinProcesar = productos[productoSinProcesarIndex];
-              console.log(`PRIORIDAD 1: Encontrado producto sin procesar: ${productoSinProcesar.codigo}`);
-              setCurrentProductoIndex(productoSinProcesarIndex);
-              setRecolectados(productoSinProcesar.cantidad);
+            if (productosRealmendePendientes.length > 0) {
+              // Ordenar para respetar FIFO
+              productosRealmendePendientes.sort((a, b) => a.id - b.id);
+              
+              const primerPendiente = productosRealmendePendientes[0];
+              const primerPendienteIndex = productos.findIndex(p => p.id === primerPendiente.id);
+              
+              console.log(`PRIORIDAD 1: Encontrado producto pendiente: ${primerPendiente.codigo}`);
+              console.log(`Estado: ${primerPendiente.recolectado === null ? 'Sin procesar' : 'Parcial sin motivo'}`);
+              
+              setCurrentProductoIndex(primerPendienteIndex);
+              setRecolectados(primerPendiente.recolectado !== null ? primerPendiente.recolectado : primerPendiente.cantidad);
               return;
             }
             
-            // 2. Si todos tienen algún valor en recolectado, buscar uno parcialmente completado
+            // 2. Como respaldo, buscar cualquier producto parcialmente completado
+            // aunque no debería ser necesario con la lógica mejorada
             const productoParcialIndex = productos.findIndex(p => 
               p.recolectado !== null && p.recolectado < p.cantidad
             );
