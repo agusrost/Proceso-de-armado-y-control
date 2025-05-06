@@ -13,7 +13,9 @@ import {
   Search,
   AlertCircle,
   Package,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  CheckCircle2
 } from "lucide-react";
 import { Link } from "wouter";
 import { SearchPedidoForm } from "@/components/control/search-pedido-form";
@@ -141,17 +143,33 @@ export default function ControlIndexPage() {
                       {pedidosEnCurso.map((pedido: any) => {
                         // Verificar si el pedido está pendiente de stock
                         const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
+                        const estaControlando = pedido.estado === 'controlando';
                         
                         return (
-                          <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : ''}`}>
+                          <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : estaControlando ? 'bg-blue-50' : ''}`}>
                             <td className="px-3 py-2 text-sm font-medium text-neutral-900">
                               {pedido.pedidoId}
-                              {esPendienteStock && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                  <Package className="mr-1 h-3 w-3" />
-                                  Stock
-                                </span>
-                              )}
+                              {/* Mostrar el estado del pedido como una insignia colorida */}
+                              <div className="mt-1">
+                                {esPendienteStock && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                    <Package className="mr-1 h-3 w-3" />
+                                    Pendiente Stock
+                                  </span>
+                                )}
+                                {estaControlando && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <Eye className="mr-1 h-3 w-3" />
+                                    En Control
+                                  </span>
+                                )}
+                                {!esPendienteStock && !estaControlando && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                                    Listo
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-2 text-sm text-neutral-700">
                               {pedido.clienteId || "-"}
@@ -166,14 +184,14 @@ export default function ControlIndexPage() {
                               {esPendienteStock ? (
                                 <div className="flex items-center justify-end text-amber-700 text-xs">
                                   <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                                  <span>Pendiente de stock</span>
+                                  <span>No disponible - Stock pendiente</span>
                                 </div>
                               ) : (
                                 <Link 
                                   to={`/control/pedido/${pedido.id}`} 
                                   className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                                 >
-                                  Continuar
+                                  {estaControlando ? "Continuar control" : "Iniciar control"}
                                 </Link>
                               )}
                             </td>

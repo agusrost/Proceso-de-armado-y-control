@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Pedido } from "@shared/schema";
-import { Search, X, ClipboardCheck, Package, AlertTriangle } from "lucide-react";
+import { Search, X, ClipboardCheck, Package, AlertTriangle, Eye, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -229,15 +229,29 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                     const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
                     
                     return (
-                      <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : ''}`}>
+                      <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : pedido.estado === 'controlando' ? 'bg-blue-50' : ''}`}>
                         <td className="px-3 py-2 text-sm font-medium text-neutral-900">
                           {pedido.pedidoId}
-                          {esPendienteStock && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                              <Package className="mr-1 h-3 w-3" />
-                              Stock
-                            </span>
-                          )}
+                          <div className="mt-1">
+                            {esPendienteStock && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                <Package className="mr-1 h-3 w-3" />
+                                Pendiente Stock
+                              </span>
+                            )}
+                            {pedido.estado === 'controlando' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <Eye className="mr-1 h-3 w-3" />
+                                En Control
+                              </span>
+                            )}
+                            {pedido.estado === 'armado' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Listo
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">{pedido.clienteId}</td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
@@ -248,13 +262,20 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                             <Button size="sm" variant="outline" asChild>
                               <Link to={`/control/pedido/${pedido.id}`}>
                                 <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
-                                Control
+                                Iniciar Control
+                              </Link>
+                            </Button>
+                          ) : pedido.estado === 'controlando' ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to={`/control/pedido/${pedido.id}`}>
+                                <Eye className="h-3.5 w-3.5 mr-1" />
+                                Continuar Control
                               </Link>
                             </Button>
                           ) : pedido.estado === 'armado-pendiente-stock' ? (
                             <div className="flex items-center justify-end text-amber-700 text-xs">
                               <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                              <span>Pendiente de stock</span>
+                              <span>No disponible - Stock pendiente</span>
                             </div>
                           ) : (
                             <span className="text-xs text-amber-600">No disponible</span>
@@ -322,15 +343,29 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                     const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
                     
                     return (
-                      <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : ''}`}>
+                      <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : pedido.estado === 'controlando' ? 'bg-blue-50' : ''}`}>
                         <td className="px-3 py-2 text-sm font-medium text-neutral-900">
                           {pedido.pedidoId}
-                          {esPendienteStock && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                              <Package className="mr-1 h-3 w-3" />
-                              Stock
-                            </span>
-                          )}
+                          <div className="mt-1">
+                            {esPendienteStock && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                <Package className="mr-1 h-3 w-3" />
+                                Pendiente Stock
+                              </span>
+                            )}
+                            {pedido.estado === 'controlando' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <Eye className="mr-1 h-3 w-3" />
+                                En Control
+                              </span>
+                            )}
+                            {pedido.estado === 'armado' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Listo
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-sm text-neutral-700">{pedido.clienteId}</td>
                         <td className="px-3 py-2 text-sm text-neutral-700">
@@ -343,11 +378,18 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                               <AlertTriangle className="mr-1 h-3.5 w-3.5" />
                               <span>Pendiente de stock</span>
                             </div>
+                          ) : pedido.estado === 'controlando' ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to={`/control/pedido/${pedido.id}`}>
+                                <Eye className="h-3.5 w-3.5 mr-1" />
+                                Continuar Control
+                              </Link>
+                            </Button>
                           ) : (
                             <Button size="sm" variant="outline" asChild>
                               <Link to={`/control/pedido/${pedido.id}`}>
                                 <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
-                                Control
+                                Iniciar Control
                               </Link>
                             </Button>
                           )}
