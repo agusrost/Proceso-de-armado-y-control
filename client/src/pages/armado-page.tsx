@@ -20,11 +20,11 @@ function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: {
   return (
     <div className={`border p-4 rounded mb-2 ${
       isActive 
-        ? 'border-green-700 bg-green-200' // Producto actual - Verde más fuerte
+        ? 'border-green-700 bg-green-200' // Producto actual - Verde brillante
         : isCompleted 
-          ? 'border-green-300 bg-green-50' // Productos ya recolectados - Verde claro pastel
+          ? 'border-green-300 bg-green-50' // Productos ya recolectados - Verde claro
           : isPending 
-            ? 'border-pink-300 bg-pink-50' // Productos pendientes - Rosa claro
+            ? 'border-red-300 bg-red-50' // Productos pendientes - Rojo claro (cambiado de rosa a rojo)
             : 'border-gray-300'
     }`}>
       <div className="flex justify-between items-center">
@@ -705,16 +705,29 @@ export default function ArmadoPage() {
   // Actualizar pedido actual cuando cambia el pedido del armador
   useEffect(() => {
     if (pedidoArmador && pedidoArmador.estado === 'en-proceso') {
+      console.log("Pedido del armador actualizado:", pedidoArmador);
       setCurrentPedido(pedidoArmador);
       
       // Verificar si hay pausas activas y actualizar el estado local
+      // Primero comprobamos la propiedad pausaActiva, luego verificamos en pausas[]
       if (pedidoArmador.pausaActiva) {
-        console.log("Estableciendo pausaActiva a true desde useEffect de pedidoArmador");
+        console.log("Estableciendo pausaActiva a true desde useEffect de pedidoArmador (propiedad pausaActiva)");
         setPausaActiva(true);
         
         if (pedidoArmador.pausaActiva.id) {
           setPausaActualId(pedidoArmador.pausaActiva.id);
           console.log(`Estableciendo ID de pausa actual: ${pedidoArmador.pausaActiva.id}`);
+        }
+      } else if (pedidoArmador.pausas && pedidoArmador.pausas.length > 0) {
+        // Verificar manualmente si hay pausas sin finalizar
+        const pausaSinFinalizar = pedidoArmador.pausas.find(p => !p.fin);
+        if (pausaSinFinalizar) {
+          console.log("Estableciendo pausaActiva a true desde useEffect (pausa sin finalizar encontrada en pausas[])");
+          setPausaActiva(true);
+          setPausaActualId(pausaSinFinalizar.id);
+        } else {
+          setPausaActiva(false);
+          setPausaActualId(null);
         }
       } else {
         setPausaActiva(false);
