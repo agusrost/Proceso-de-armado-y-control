@@ -1910,7 +1910,7 @@ export default function ControlPedidoPage() {
                       });
                     }
                   }}
-                  isDisabled={!controlState.isRunning || finalizarOpen || pausaActiva}
+                  disabled={!controlState.isRunning || finalizarOpen || pausaActiva}
                   inputRef={escanerInputRef}
                 />
               </CardContent>
