@@ -749,25 +749,30 @@ export class DatabaseStorage implements IStorage {
       isNull(pausas.fin)
     ];
     
+    // Corregido: Clarificación de los filtros de tipo
     // Si esControl es true, buscamos pausas de tipo 'control' o null (para compatibilidad con datos antiguos)
-    // Si esControl es false, buscamos pausas que NO sean 'control'
+    // Si esControl es false, buscamos pausas que NO sean 'control' (típicamente 'armado', pero puede ser otro tipo)
     if (esControl) {
       conditions.push(or(
         eq(pausas.tipo, 'control'),
         isNull(pausas.tipo) // Para pausas antiguas que no tengan tipo
       ));
     } else {
-      conditions.push(or(
-        eq(pausas.tipo, 'armado'),
-        not(eq(pausas.tipo, 'control')) // Cualquier otro tipo excepto 'control'
-      ));
+      // NOT operator para excluir pausas de control
+      conditions.push(not(eq(pausas.tipo, 'control')));
     }
     
-    console.log(`Buscando pausas ${esControl ? 'de control' : 'de armado'} para pedido ${pedidoId}`);
-    return db
+    console.log(`Buscando pausas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
+    
+    // Ejecutar la consulta con las condiciones actualizadas
+    const result = await db
       .select()
       .from(pausas)
       .where(and(...conditions));
+      
+    console.log(`Encontradas ${result.length} pausas activas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
+    
+    return result;
   }
   
   async updatePausa(id: number, pausaData: Partial<Pausa>): Promise<Pausa | undefined> {

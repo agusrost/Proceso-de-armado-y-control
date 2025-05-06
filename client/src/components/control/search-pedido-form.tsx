@@ -225,11 +225,20 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
                   {searchedPedidos.map((pedido) => {
-                    // Verificar si el pedido está pendiente de stock
+                    // Verificar el estado del pedido
                     const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
+                    const estaControlando = pedido.estado === 'controlando';
+                    
+                    // Verificar si el pedido tiene pausas de control activas
+                    const tienePausaControl = pedido.pausasActivas && pedido.pausasActivas.length > 0;
                     
                     return (
-                      <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : pedido.estado === 'controlando' ? 'bg-blue-50' : ''}`}>
+                      <tr key={pedido.id} className={`hover:bg-neutral-50 ${
+                        esPendienteStock ? 'bg-amber-50' : 
+                        (estaControlando && tienePausaControl) ? 'bg-orange-50' : 
+                        estaControlando ? 'bg-blue-50' : 
+                        ''
+                      }`}>
                         <td className="px-3 py-2 text-sm font-medium text-neutral-900">
                           {pedido.pedidoId}
                           <div className="mt-1">
@@ -239,7 +248,13 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                                 Pendiente Stock
                               </span>
                             )}
-                            {pedido.estado === 'controlando' && (
+                            {estaControlando && tienePausaControl && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                <PauseCircle className="mr-1 h-3 w-3" />
+                                Control Pausado
+                              </span>
+                            )}
+                            {estaControlando && !tienePausaControl && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                 <Eye className="mr-1 h-3 w-3" />
                                 En Control
@@ -265,7 +280,14 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
                                 Iniciar Control
                               </Link>
                             </Button>
-                          ) : pedido.estado === 'controlando' ? (
+                          ) : estaControlando && tienePausaControl ? (
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to={`/control/pedido/${pedido.id}`}>
+                                <PlayCircle className="h-3.5 w-3.5 mr-1" />
+                                Reanudar Control
+                              </Link>
+                            </Button>
+                          ) : estaControlando ? (
                             <Button size="sm" variant="outline" asChild>
                               <Link to={`/control/pedido/${pedido.id}`}>
                                 <Eye className="h-3.5 w-3.5 mr-1" />
