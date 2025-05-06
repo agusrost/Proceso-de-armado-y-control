@@ -1173,21 +1173,70 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (!pedido) {
         return res.status(404).json({ message: "Pedido no encontrado" });
       }
+      // Verificar si el pedido está en estado de control, o convertirlo si está en un estado permitido
+      console.log(`Pedido ${pedidoId} en estado "${pedido.estado}", verificando posibilidad de reanudar control...`);
       
-      // Verificar que el pedido está en estado de control
       if (pedido.estado !== 'controlando') {
-        return res.status(400).json({ 
-          message: `El pedido no está en estado de control (estado actual: ${pedido.estado})` 
-        });
+        // Si está en estado armado o armado-pendiente-stock, lo convertimos a controlando
+        if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock') {
+          console.log(`Pedido ${pedidoId} está en estado "${pedido.estado}", cambiándolo a controlando automáticamente`);
+          await storage.updatePedido(pedidoId, {
+            estado: 'controlando',
+            controladorId: req.user.id,
+            controlInicio: new Date()
+          });
+          pedido.estado = 'controlando';
+        } else {
+          return res.status(400).json({ 
+            message: `El pedido no está en un estado válido para control (estado actual: ${pedido.estado})` 
+          });
+        }
       }
       
       // Buscar pausas activas para este pedido
       const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId, true);
       
+      // Si no hay pausas activas, creamos un nuevo control directamente
       if (pausasActivas.length === 0) {
-        return res.status(400).json({
-          message: "No hay pausas activas para este control"
-        });
+        console.log(`No hay pausas activas para el pedido ${pedidoId}, iniciando un nuevo control...`);
+        
+        // Obtener el control activo o crear uno nuevo si no existe
+        const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+        
+        if (controlActivo) {
+          console.log(`Se encontró un control activo con ID ${controlActivo.id}, continuando con este`);
+          
+          // Continuar con el control existente
+          return res.status(200).json({
+            success: true,
+            message: "Control reanudado correctamente",
+            pedidoId: pedidoId,
+            clienteId: pedido.clienteId,
+            estado: pedido.estado,
+            control: controlActivo
+          });
+        } else {
+          console.log(`No hay control activo para el pedido ${pedidoId}, creando uno nuevo`);
+          
+          // Crear un nuevo control
+          const ahora = new Date();
+          const nuevoControl = await storage.createControlHistorico({
+            pedidoId: pedidoId,
+            controladoPor: req.user.id,
+            fecha: ahora,
+            inicio: ahora,
+            resultado: 'pendiente'
+          });
+          
+          return res.status(200).json({
+            success: true,
+            message: "Control iniciado correctamente",
+            pedidoId: pedidoId,
+            clienteId: pedido.clienteId,
+            estado: pedido.estado,
+            control: nuevoControl
+          });
+        }
       }
       
       // Finalizar la pausa más reciente
