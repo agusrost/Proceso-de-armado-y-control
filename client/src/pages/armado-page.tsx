@@ -434,13 +434,14 @@ export default function ArmadoPage() {
       }
     },
     onSuccess: () => {
+      console.log("Pausa finalizada con éxito, actualizando estado local");
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       setPausaActiva(false);
       setPausaActualId(null);
       
       toast({
-        title: "Pausa finalizada",
-        description: "Has reanudado el armado del pedido",
+        title: "Pedido reanudado",
+        description: "Has reanudado el armado del pedido correctamente",
       });
     },
     onError: (error: Error) => {
@@ -1975,7 +1976,7 @@ export default function ArmadoPage() {
                   producto={producto}
                   isActive={index === currentProductoIndex && !pausaActiva}
                   isCompleted={producto.recolectado !== null && producto.recolectado > 0}
-                  isPending={index > currentProductoIndex}
+                  isPending={producto.recolectado === null}
                 />
               ))}
             </div>
