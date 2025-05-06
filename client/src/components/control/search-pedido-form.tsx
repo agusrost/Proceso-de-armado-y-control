@@ -52,6 +52,8 @@ export function SearchPedidoForm({ onPedidoFound, onError }: SearchPedidoFormPro
         return pedido;
       }));
     },
+    refetchInterval: false, // Deshabilitamos cualquier refresco automático
+    refetchOnWindowFocus: false, // No refrescar al enfocar la ventana
   });
 
   // Ordenar los pedidos por fecha de finalización (los más recientes primero)

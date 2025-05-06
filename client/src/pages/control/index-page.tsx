@@ -30,12 +30,16 @@ export default function ControlIndexPage() {
   const { data: historialControlesRaw = [], isLoading: isLoadingHistorial } = useQuery({
     queryKey: ["/api/control/historial"],
     enabled: true,
+    refetchInterval: false, // Deshabilitamos cualquier refresco automático
+    refetchOnWindowFocus: false, // No refrescar al enfocar la ventana
   });
   
   // Query para obtener pedidos en curso de control
   const { data: pedidosEnCurso = [], isLoading: isLoadingEnCurso, refetch: refetchPedidos } = useQuery({
     queryKey: ["/api/control/en-curso"],
     enabled: true,
+    refetchInterval: false, // Deshabilitamos cualquier refresco automático
+    refetchOnWindowFocus: false, // No refrescar al enfocar la ventana
   });
   
   // Filtrar solo los controles que están finalizados (tienen fecha de fin) y son del último día
