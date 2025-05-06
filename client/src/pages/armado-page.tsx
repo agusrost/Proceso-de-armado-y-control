@@ -11,18 +11,36 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
+// Función auxiliar para determinar si un producto está completado
+const esProductoCompletado = (producto: Producto): boolean => {
+  // Si recolectado es null, no está completado
+  if (producto.recolectado === null) return false;
+  
+  // Si recolectado es igual a cantidad, está completado
+  if (producto.recolectado === producto.cantidad) return true;
+  
+  // Si es una recolección parcial pero tiene motivo, se considera completado
+  if (producto.recolectado < producto.cantidad && producto.motivo) return true;
+  
+  // En cualquier otro caso, no está completado
+  return false;
+};
+
 function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: { 
   producto: Producto, 
   isActive: boolean, 
   isCompleted: boolean,
   isPending: boolean
 }) {
+  // Determinar si el producto está realmente completado (lógica mejorada)
+  const realmenteCompletado = esProductoCompletado(producto);
+  
   return (
     <div className={`border p-4 rounded mb-2 ${
       isActive 
         ? 'border-green-700 bg-green-200' // Producto actual - Verde brillante
-        : isCompleted 
-          ? 'border-green-300 bg-green-50' // Productos ya recolectados - Verde claro
+        : realmenteCompletado 
+          ? 'border-green-300 bg-green-50' // Productos completados (total o parcial con motivo) - Verde claro
           : isPending 
             ? 'border-red-300 bg-red-50' // Productos pendientes - Rojo claro
             : 'border-gray-300'
@@ -37,8 +55,17 @@ function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: {
           <p className="text-sm text-gray-600">Ubicación: {producto.ubicacion || 'N/A'}</p>
           {producto.recolectado !== null ? (
             <>
-              <p className={`font-medium ${producto.recolectado === producto.cantidad ? 'text-green-600' : 'text-orange-600'}`}>
+              <p className={`font-medium ${
+                producto.recolectado === producto.cantidad 
+                  ? 'text-green-600' 
+                  : producto.motivo 
+                    ? 'text-green-600' // Parcial con motivo (completado) - Verde
+                    : 'text-orange-600' // Parcial sin motivo (incompleto) - Naranja
+              }`}>
                 Recolectado: {producto.recolectado}/{producto.cantidad}
+                {realmenteCompletado && producto.recolectado < producto.cantidad && (
+                  <span className="ml-1 text-xs bg-green-100 px-1 py-0.5 rounded">✓ Completo</span>
+                )}
               </p>
               {producto.motivo && (
                 <p className="text-xs text-red-600 italic">Motivo: {producto.motivo}</p>
@@ -564,42 +591,66 @@ export default function ArmadoPage() {
           // SOLUCIÓN FORZADA: SIEMPRE MOSTRAR EL PRIMER PRODUCTO SIN RECOLECTAR
           console.log("🔍 PRIORIDAD ABSOLUTA: Buscando productos pendientes (no procesados)");
           
-          // Obtener productos sin procesar
-          const productosSinProcesar = data.filter(p => p.recolectado === null);
-          console.log(`📊 Productos sin procesar: ${productosSinProcesar.length}`);
+          // NUEVA LÓGICA MEJORADA: 
+          // Considera como pendientes solo los productos que:
+          // 1. No tienen recolectado (recolectado === null)
+          // 2. No tienen motivo a pesar de ser parciales (recolectado < cantidad y !motivo)
           
-          if (productosSinProcesar.length > 0) {
-            // Ordenar los productos no procesados por ID para asegurar FIFO
-            productosSinProcesar.sort((a, b) => a.id - b.id);
+          // Función para determinar si un producto está realmente pendiente
+          const estaRealmendePendiente = (p) => {
+            // Si no ha sido procesado (recolectado es null), está pendiente
+            if (p.recolectado === null) return true;
             
-            const primerProductoSinProcesar = productosSinProcesar[0];
-            const primerProductoSinProcesarIndex = data.findIndex(p => p.id === primerProductoSinProcesar.id);
+            // Si es una recolección parcial (recolectado < cantidad) pero NO tiene motivo, está pendiente
+            if (p.recolectado < p.cantidad && !p.motivo) return true;
             
-            console.log(`✅ SELECCIONANDO PRODUCTO NO PROCESADO: ${primerProductoSinProcesar.codigo} (ID: ${primerProductoSinProcesar.id})`);
+            // En cualquier otro caso, se considera como ya procesado
+            return false;
+          };
+          
+          console.log("🚀 NUEVA LÓGICA: Verificando productos realmente pendientes");
+          
+          // Obtener productos realmente pendientes según la nueva lógica
+          const productosRealmendePendientes = data.filter(estaRealmendePendiente);
+          
+          console.log(`📊 Productos realmente pendientes: ${productosRealmendePendientes.length} (de ${data.length} totales)`);
+          
+          // Diagnóstico detallado
+          if (productosRealmendePendientes.length > 0) {
+            console.log("📋 Listado de productos pendientes:");
+            productosRealmendePendientes.forEach(p => {
+              console.log(`   - SKU ${p.codigo}: Cantidad ${p.cantidad}, Recolectado ${p.recolectado}, Motivo: "${p.motivo || 'Sin motivo'}"`);
+            });
+          } else {
+            // Si no hay productos pendientes, verificar si hay parciales sin motivo
+            const productosParciales = data.filter(p => p.recolectado !== null && p.recolectado < p.cantidad);
+            if (productosParciales.length > 0) {
+              console.log("📋 Productos parciales (ya procesados porque tienen motivo):");
+              productosParciales.forEach(p => {
+                console.log(`   - SKU ${p.codigo}: ${p.recolectado}/${p.cantidad}, Motivo: "${p.motivo || 'SIN MOTIVO ⚠️'}"`);
+              });
+            }
+          }
+          
+          // Si hay productos realmente pendientes, seleccionar el primero
+          if (productosRealmendePendientes.length > 0) {
+            // Ordenar por ID para respetar FIFO
+            productosRealmendePendientes.sort((a, b) => a.id - b.id);
             
-            setCurrentProductoIndex(primerProductoSinProcesarIndex);
-            setRecolectados(primerProductoSinProcesar.cantidad);
+            const primerProductoPendiente = productosRealmendePendientes[0];
+            const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
+            
+            console.log(`✅ SELECCIONANDO PRODUCTO PENDIENTE: ${primerProductoPendiente.codigo} (ID: ${primerProductoPendiente.id})`);
+            
+            setCurrentProductoIndex(primerProductoPendienteIndex);
+            setRecolectados(primerProductoPendiente.recolectado !== null ? primerProductoPendiente.recolectado : primerProductoPendiente.cantidad);
             return;
           }
           
-          // LÓGICA NORMAL PARA OTROS PEDIDOS: Siempre buscar primero el primer producto no procesado
-          // independientemente del ultimoProductoId guardado
+          // Si no hay productos realmente pendientes, avisamos
+          console.log("✅ TODOS LOS PRODUCTOS ESTÁN PROCESADOS CORRECTAMENTE!");
           
-          // Buscar el primer producto no procesado (recolectado === null)
-          const siguienteProductoNoProcesadoIndex = data.findIndex(p => p.recolectado === null);
-          
-          if (siguienteProductoNoProcesadoIndex !== -1) {
-            const siguienteProducto = data[siguienteProductoNoProcesadoIndex];
-            console.log(`PRIORIDAD MÁXIMA: Encontrado producto no procesado: ${siguienteProducto.codigo}`);
-            console.log(`Seleccionando producto con index ${siguienteProductoNoProcesadoIndex}`);
-            
-            // Siempre seleccionar este producto en lugar de cualquier otro
-            setCurrentProductoIndex(siguienteProductoNoProcesadoIndex);
-            setRecolectados(siguienteProducto.cantidad);
-            
-            // Terminamos aquí para asegurar que se use este producto
-            return;
-          }
+          // No hay productos pendientes (todos tienen recolectado y motivo si es necesario)
           
           console.log("ADVERTENCIA: No se encontraron productos sin procesar");
           
@@ -2355,28 +2406,28 @@ export default function ArmadoPage() {
             </AlertDialogHeader>
             
             <div className="py-4">
-              {productos.some(p => p.recolectado === null) && (
+              {/* LÓGICA MEJORADA: Verificar productos realmente pendientes usando esProductoCompletado */}
+              {productos.some(p => !esProductoCompletado(p)) && (
                 <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm mb-4">
                   <div className="flex items-center gap-2">
                     <XCircle size={16} />
                     <span className="font-medium">Advertencia:</span>
                   </div>
-                  <p className="ml-6">Hay productos sin procesar. Debes procesar todos los productos antes de finalizar.</p>
+                  <p className="ml-6">Hay productos pendientes por completar o con faltantes sin motivo registrado.</p>
+                  
+                  {/* Mostramos un detalle de los productos pendientes */}
+                  <ul className="ml-6 mt-2 text-xs">
+                    {productos.filter(p => !esProductoCompletado(p)).map(p => (
+                      <li key={p.id} className="mb-1">
+                        • SKU {p.codigo}: {p.recolectado === null ? 'Sin procesar' : `Recolectado ${p.recolectado}/${p.cantidad} sin motivo`}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               
-              {productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad && !p.motivo) && (
-                <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm">
-                  <div className="flex items-center gap-2">
-                    <XCircle size={16} />
-                    <span className="font-medium">Advertencia:</span>
-                  </div>
-                  <p className="ml-6">Hay productos con faltantes sin motivo. Debes indicar un motivo para todos los faltantes.</p>
-                </div>
-              )}
-              
-              {!productos.some(p => p.recolectado === null) && 
-               !productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad && !p.motivo) && (
+              {/* Si todos los productos están completados */}
+              {!productos.some(p => !esProductoCompletado(p)) && (
                 <div className="bg-green-50 border border-green-200 p-3 rounded text-green-800 text-sm">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 size={16} />
@@ -2391,11 +2442,10 @@ export default function ArmadoPage() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  // Verificar que todos los productos estén procesados
-                  const todosProcesados = !productos.some(p => p.recolectado === null);
-                  const todosConMotivo = !productos.some(p => p.recolectado !== null && p.recolectado < p.cantidad && !p.motivo);
+                  // LÓGICA MEJORADA: Verificar productos usando la misma función esProductoCompletado
+                  const todosProductosCompletados = !productos.some(p => !esProductoCompletado(p));
                   
-                  if (!todosProcesados || !todosConMotivo) {
+                  if (!todosProductosCompletados) {
                     toast({
                       title: "No se puede finalizar",
                       description: "Debes procesar todos los productos y asignar motivos a los faltantes",
