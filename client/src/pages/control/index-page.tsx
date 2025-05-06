@@ -11,7 +11,9 @@ import {
   History, 
   Cog, 
   Search,
-  AlertCircle
+  AlertCircle,
+  Package,
+  AlertTriangle
 } from "lucide-react";
 import { Link } from "wouter";
 import { SearchPedidoForm } from "@/components/control/search-pedido-form";
@@ -136,30 +138,48 @@ export default function ControlIndexPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-neutral-200">
-                      {pedidosEnCurso.map((pedido: any) => (
-                        <tr key={pedido.id} className="hover:bg-neutral-50">
-                          <td className="px-3 py-2 text-sm font-medium text-neutral-900">
-                            {pedido.pedidoId}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-neutral-700">
-                            {pedido.clienteId || "-"}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-neutral-700">
-                            {formatDate(pedido.fecha)}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-neutral-700">
-                            {pedido.armadorNombre || "-"}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <Link 
-                              to={`/control/pedido/${pedido.id}`} 
-                              className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
-                            >
-                              Continuar
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
+                      {pedidosEnCurso.map((pedido: any) => {
+                        // Verificar si el pedido está pendiente de stock
+                        const esPendienteStock = pedido.estado === 'armado-pendiente-stock';
+                        
+                        return (
+                          <tr key={pedido.id} className={`hover:bg-neutral-50 ${esPendienteStock ? 'bg-amber-50' : ''}`}>
+                            <td className="px-3 py-2 text-sm font-medium text-neutral-900">
+                              {pedido.pedidoId}
+                              {esPendienteStock && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                  <Package className="mr-1 h-3 w-3" />
+                                  Stock
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-neutral-700">
+                              {pedido.clienteId || "-"}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-neutral-700">
+                              {formatDate(pedido.fecha)}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-neutral-700">
+                              {pedido.armadorNombre || "-"}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {esPendienteStock ? (
+                                <div className="flex items-center justify-end text-amber-700 text-xs">
+                                  <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                                  <span>Pendiente de stock</span>
+                                </div>
+                              ) : (
+                                <Link 
+                                  to={`/control/pedido/${pedido.id}`} 
+                                  className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
+                                >
+                                  Continuar
+                                </Link>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
