@@ -114,7 +114,7 @@ export default function ControlIndexPage() {
                 <div>
                   <CardTitle>Controles en Curso</CardTitle>
                   <CardDescription>
-                    Pedidos que están siendo controlados actualmente
+                    Pedidos disponibles para control
                   </CardDescription>
                 </div>
                 <div className="text-sm">
