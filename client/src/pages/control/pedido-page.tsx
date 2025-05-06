@@ -1583,8 +1583,16 @@ export default function ControlPedidoPage() {
     };
   }, [controlState.isRunning, controlState.startTime]);
   
-  // Iniciar control automáticamente si es continuación
+  // Referencia para el seguimiento de inicio automático
+  const inicioAutomaticoRealizado = useRef(false);
+  
+  // Iniciar control automáticamente si es continuación (ejecutado solo una vez)
   useEffect(() => {
+    // Si ya se ha ejecutado el inicio automático, no hacer nada
+    if (inicioAutomaticoRealizado.current) {
+      return;
+    }
+    
     // Si tenemos pedido, productos y no está en curso un control
     if (pedido && productos.length > 0 && !controlState.isRunning && 
         !isLoadingPedido && !isLoadingProductos && !cargandoControl) {
@@ -1607,23 +1615,34 @@ export default function ControlPedidoPage() {
       else if (esEnControl || vieneDePaginaControl) {
         console.log("Iniciando control automáticamente - condición válida");
         setCargandoControl(true);
+        
+        // Marcar que ya se realizó el inicio automático para evitar reinicios
+        inicioAutomaticoRealizado.current = true;
+        
         setTimeout(() => {
           iniciarControlMutation.mutate();
         }, 500); // Pequeño retraso para evitar problemas de sincronización
       }
     }
-  }, [pedido, productos, controlState.isRunning, isLoadingPedido, isLoadingProductos, cargandoControl]);
+  }, [pedido, productos]);  // Solo ejecutar cuando cambian pedido o productos, y con la bandera de control
 
   // Exponer los datos del pedido para debugging en la consola
+  // Nota: este efecto debería ejecutarse solo cuando cambie el pedido para evitar recargas innecesarias
   useEffect(() => {
     if (pedido && typeof window !== 'undefined') {
+      // Configurar datos globales solo cuando cambia el pedido, no en cada actualización del estado
       window.dataPedido = {
         pedido,
         productos,
         controlState
       };
       console.log("Datos del pedido disponibles en window.dataPedido");
-
+    }
+  }, [pedido]);  // Solo cuando cambia el pedido, no con cada actualización de productos o controlState
+  
+  // Configurar el manejador de errores una sola vez al montar el componente
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       // Agregar un manejador de errores global para evitar que el plugin de errores de runtime interrumpa la operación
       window.onerror = function(message, source, lineno, colno, error) {
         console.error("Error capturado globalmente:", { message, source, lineno, colno });
@@ -1645,7 +1664,7 @@ export default function ControlPedidoPage() {
         window.onerror = null;
       }
     };
-  }, [pedido, productos, controlState]);
+  }, []);  // Solo se ejecuta al montar el componente
   
   // Extraer horas, minutos y segundos del temporizador
   const horas = Math.floor(controlState.segundos / 3600);
