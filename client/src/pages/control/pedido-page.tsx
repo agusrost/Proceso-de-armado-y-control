@@ -211,6 +211,8 @@ export default function ControlPedidoPage() {
       return res.json();
     },
     enabled: !!pedidoId,
+    refetchInterval: false, // Deshabilitar refresco automático
+    refetchOnWindowFocus: false, // No refrescar al enfocar la ventana
   });
   
   // Cargar datos del armador si existe (usando la nueva ruta pública)
@@ -226,7 +228,9 @@ export default function ControlPedidoPage() {
       return res.json();
     },
     enabled: !!pedido?.armadorId,
-    retry: false
+    retry: false,
+    refetchInterval: false, // Deshabilitar refresco automático
+    refetchOnWindowFocus: false // No refrescar al enfocar la ventana
   });
 
   // Ref para controlar el intervalo de refetch manualmente
@@ -373,6 +377,8 @@ export default function ControlPedidoPage() {
       return res.json();
     },
     enabled: !!pedidoId,
+    refetchInterval: false, // Deshabilitar refresco automático
+    refetchOnWindowFocus: false // No refrescar al enfocar la ventana
   });
   
   // Iniciar control mutation
