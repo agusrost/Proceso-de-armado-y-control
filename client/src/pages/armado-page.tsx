@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from '@tanstack/react-query';
 import { Pedido, Producto, Pausa, InsertPausa } from "@shared/schema";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
@@ -7,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshCw, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: { 
   producto: Producto, 
