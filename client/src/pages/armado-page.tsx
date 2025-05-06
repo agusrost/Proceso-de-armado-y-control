@@ -707,6 +707,20 @@ export default function ArmadoPage() {
     if (pedidoArmador && pedidoArmador.estado === 'en-proceso') {
       setCurrentPedido(pedidoArmador);
       
+      // Verificar si hay pausas activas y actualizar el estado local
+      if (pedidoArmador.pausaActiva) {
+        console.log("Estableciendo pausaActiva a true desde useEffect de pedidoArmador");
+        setPausaActiva(true);
+        
+        if (pedidoArmador.pausaActiva.id) {
+          setPausaActualId(pedidoArmador.pausaActiva.id);
+          console.log(`Estableciendo ID de pausa actual: ${pedidoArmador.pausaActiva.id}`);
+        }
+      } else {
+        setPausaActiva(false);
+        setPausaActualId(null);
+      }
+      
       // Cargar productos para establecer la cantidad por defecto
       setTimeout(async () => {
         try {
@@ -964,14 +978,28 @@ export default function ArmadoPage() {
           )}
         </div>
         
-        <div className="w-full max-w-md bg-white text-gray-900 rounded-md p-6 mx-4">
+        <div className={`w-full max-w-md rounded-md p-6 mx-4 ${
+        producto.recolectado !== null 
+          ? (producto.recolectado === producto.cantidad 
+              ? 'bg-green-100 text-green-900 border border-green-300' // Producto completamente recolectado (verde claro)
+              : currentProductoIndex > 0 && productos[currentProductoIndex-1]?.recolectado !== null  
+                ? 'bg-green-200 text-green-900 border border-green-400' // Producto actual (verde más intenso)
+                : 'bg-red-100 text-red-900 border border-red-300') // Producto con recolección incompleta (rojo)
+          : 'bg-white text-gray-900' // Producto sin procesar (blanco)
+      }`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold">Código SKU: {producto.codigo}</h2>
             
             {/* Indicador de producto ya recolectado */}
             {producto.recolectado !== null && producto.recolectado >= producto.cantidad && (
-              <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-semibold animate-pulse">
-                YA RECOLECTADO
+              <div className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                RECOLECTADO
+              </div>
+            )}
+            
+            {producto.recolectado !== null && producto.recolectado < producto.cantidad && (
+              <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                INCOMPLETO
               </div>
             )}
           </div>
@@ -979,7 +1007,11 @@ export default function ArmadoPage() {
           <p className="text-lg mb-3">
             <span className="font-medium">Cantidad:</span> {producto.cantidad}
             {producto.recolectado !== null && (
-              <span className="ml-2 text-blue-600">
+              <span className={`ml-2 font-bold ${
+                producto.recolectado === producto.cantidad 
+                  ? 'text-green-700' 
+                  : 'text-red-700'
+              }`}>
                 (Recolectado: {producto.recolectado}/{producto.cantidad})
               </span>
             )}
@@ -1002,7 +1034,7 @@ export default function ArmadoPage() {
             >
               −
             </button>
-            <span className="text-2xl font-semibold">{recolectados !== null ? recolectados : 2}</span>
+            <span className="text-2xl font-semibold">{recolectados !== null ? recolectados : (producto.recolectado !== null ? producto.recolectado : producto.cantidad)}</span>
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
@@ -1071,9 +1103,13 @@ export default function ArmadoPage() {
           )}
           
           <button 
-            className="w-full bg-blue-950 hover:bg-blue-900 text-white py-3 rounded-md text-lg font-medium mb-4"
+            className={`w-full py-3 rounded-md text-lg font-medium mb-4 ${
+              pausaActiva 
+                ? 'bg-gray-600 cursor-not-allowed text-gray-300' 
+                : 'bg-blue-950 hover:bg-blue-900 text-white'
+            }`}
             onClick={() => {
-              if (!producto) return;
+              if (!producto || pausaActiva) return;
               
               // Si recolectados es null, establecerlo como 0
               if (recolectados === null) {
@@ -1133,9 +1169,14 @@ export default function ArmadoPage() {
                 }
               });
             }}
-            disabled={actualizarProductoMutation.isPending}
+            disabled={actualizarProductoMutation.isPending || pausaActiva}
           >
-            {currentProductoIndex >= productos.length - 1 ? 'FINALIZAR ARMADO' : 'CONTINUAR'}
+            {pausaActiva 
+              ? 'PAUSADO - REANUDAR PRIMERO' 
+              : currentProductoIndex >= productos.length - 1 
+                ? 'FINALIZAR ARMADO' 
+                : 'CONTINUAR'
+            }
           </button>
         </div>
         
@@ -1151,11 +1192,19 @@ export default function ArmadoPage() {
             <button
               onClick={() => {
                 if (pausaActualId) {
+                  console.log(`Finalizando pausa con ID: ${pausaActualId}`);
                   finalizarPausaMutation.mutate(pausaActualId);
+                } else {
+                  console.error("No se pudo encontrar la pausa activa para finalizar");
+                  toast({
+                    title: "Error al reanudar",
+                    description: "No se encontró información de la pausa activa. Por favor, actualice la página.",
+                    variant: "destructive",
+                  });
                 }
               }}
               disabled={finalizarPausaMutation.isPending}
-              className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
+              className="bg-amber-400 hover:bg-amber-500 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
             >
               <Play size={16} className="mr-2" />
               Reanudar armado
@@ -1221,6 +1270,9 @@ export default function ArmadoPage() {
                           
                         // Obtener el ID del producto actual que se está procesando
                         const currentProducto = productos[currentProductoIndex];
+                        
+                        console.log("Creando pausa con motivo:", motivoFinal);
+                        console.log("Producto actual:", currentProducto?.codigo);
                         
                         crearPausaMutation.mutate({
                           pedidoId: currentPedido.id,
