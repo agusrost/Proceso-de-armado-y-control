@@ -494,56 +494,68 @@ export default function ArmadoPage() {
           const data = await res.json();
           setProductos(data);
           
-          // Función para buscar el siguiente producto no procesado
-          const encontrarSiguienteProductoNoProcesado = () => {
-            // Buscar el primer producto no procesado (recolectado === null)
-            const siguienteIndex = data.findIndex(p => p.recolectado === null);
-            
-            if (siguienteIndex !== -1) {
-              console.log(`Encontrado siguiente producto no procesado: ${data[siguienteIndex].codigo}`);
-              setCurrentProductoIndex(siguienteIndex);
-              setRecolectados(data[siguienteIndex].cantidad);
-              return true;
-            }
-            
-            // Si todos están procesados, usar el primero
-            console.log("No hay productos sin procesar, usando el primero");
-            setCurrentProductoIndex(0);
-            setRecolectados(data[0].cantidad);
-            return false;
-          };
+          console.log(`INICIO DE CARGA: Pedido ${currentPedido.pedidoId} - Total productos: ${data.length}`);
           
-          // Verificar si el pedido tiene un último producto registrado (de una pausa)
-          if (currentPedido.ultimoProductoId) {
-            console.log(`Pedido reanudado con último producto ID: ${currentPedido.ultimoProductoId}`);
+          // NUEVA LÓGICA: Siempre buscar primero el primer producto no procesado
+          // independientemente del ultimoProductoId guardado
+          
+          // Buscar el primer producto no procesado (recolectado === null)
+          const siguienteProductoNoProcesadoIndex = data.findIndex(p => p.recolectado === null);
+          
+          if (siguienteProductoNoProcesadoIndex !== -1) {
+            const siguienteProducto = data[siguienteProductoNoProcesadoIndex];
+            console.log(`PRIORIDAD MÁXIMA: Encontrado producto no procesado: ${siguienteProducto.codigo}`);
+            console.log(`Seleccionando producto con index ${siguienteProductoNoProcesadoIndex}`);
             
-            // Buscar el índice del último producto procesado
+            // Siempre seleccionar este producto en lugar de cualquier otro
+            setCurrentProductoIndex(siguienteProductoNoProcesadoIndex);
+            setRecolectados(siguienteProducto.cantidad);
+            
+            // Terminamos aquí para asegurar que se use este producto
+            return;
+          }
+          
+          console.log("ADVERTENCIA: No se encontraron productos sin procesar");
+          
+          // Si llegamos aquí, todos los productos ya han sido procesados
+          // Por lo tanto, verificamos si hay algún producto parcialmente procesado
+          // (donde recolectado < cantidad)
+          
+          const parcialmenteProcesadoIndex = data.findIndex(p => 
+            p.recolectado !== null && p.recolectado < p.cantidad
+          );
+          
+          if (parcialmenteProcesadoIndex !== -1) {
+            const parcialProducto = data[parcialmenteProcesadoIndex];
+            console.log(`Encontrado producto parcialmente procesado: ${parcialProducto.codigo}`);
+            console.log(`Recolectado: ${parcialProducto.recolectado}/${parcialProducto.cantidad}`);
+            
+            setCurrentProductoIndex(parcialmenteProcesadoIndex);
+            setRecolectados(parcialProducto.recolectado);
+            return;
+          }
+          
+          // Sólo si no hay productos sin procesar ni parcialmente procesados,
+          // verificamos el ultimoProductoId por compatibilidad
+          if (currentPedido.ultimoProductoId) {
+            console.log(`Verificando último producto usado: ${currentPedido.ultimoProductoId}`);
+            
             const ultimoProductoIndex = data.findIndex((p: any) => p.id === currentPedido.ultimoProductoId);
             
             if (ultimoProductoIndex !== -1) {
-              console.log(`Continuando desde el último producto procesado (index: ${ultimoProductoIndex})`);
-              
-              // Verificar el estado del último producto procesado
               const ultimoProducto = data[ultimoProductoIndex];
-              console.log(`Revisando último producto procesado:`, {
-                id: ultimoProducto.id,
-                codigo: ultimoProducto.codigo,
-                cantidad: ultimoProducto.cantidad,
-                recolectado: ultimoProducto.recolectado
-              });
               
-              // Si el producto ya fue recolectado de alguna manera (tiene recolectado != null),
-              // avanzamos al siguiente producto no procesado
-              if (ultimoProducto.recolectado !== null) {
-                console.log(`Último producto ya procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad})`);
-                console.log(`Buscando el siguiente producto NO procesado...`);
+              // Si el producto ya está completamente procesado, buscar otro
+              if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado >= ultimoProducto.cantidad) {
+                console.log(`Último producto ${ultimoProducto.codigo} ya procesado completamente`);
                 
-                // Buscar y seleccionar el siguiente producto no procesado
-                encontrarSiguienteProductoNoProcesado();
-              } 
-              // Si el producto no ha sido procesado aún, quedarse en él
-              else {
-                console.log(`Producto aún no procesado, continuando desde él (index: ${ultimoProductoIndex})`);
+                // Usar el primer producto como fallback
+                console.log("Usando el primer producto como fallback");
+                setCurrentProductoIndex(0);
+                setRecolectados(data[0].recolectado !== null ? data[0].recolectado : data[0].cantidad);
+              } else {
+                // Si no está procesado, quedarse en él
+                console.log(`Usando último producto ${ultimoProducto.codigo}`);
                 setCurrentProductoIndex(ultimoProductoIndex);
                 
                 // No necesitamos actualizar nada, solo continuar desde este producto
@@ -655,69 +667,55 @@ export default function ArmadoPage() {
           const res = await apiRequest("GET", `/api/productos/pedido/${pedidoArmador.id}`);
           const productos = await res.json();
           
+          console.log(`Cargando productos para pedido de armador ${pedidoArmador.pedidoId} - Total: ${productos.length}`);
+          
           if (productos.length > 0) {
-            // Función para buscar el siguiente producto no procesado
-            const encontrarSiguienteProductoNoProcesado = () => {
-              // Buscar el primer producto no procesado (recolectado === null)
-              const siguienteIndex = productos.findIndex(p => p.recolectado === null);
-              
-              if (siguienteIndex !== -1) {
-                console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo}`);
-                setCurrentProductoIndex(siguienteIndex);
-                setRecolectados(productos[siguienteIndex].cantidad);
-                return true;
-              }
-              
-              // Si todos están procesados, usar el primero
-              console.log("No hay productos sin procesar, usando el primero");
-              setCurrentProductoIndex(0);
-              setRecolectados(productos[0].cantidad);
-              return false;
-            };
+            // NUEVA LÓGICA SIMPLIFICADA: Siempre mostrar el primer producto no procesado 
+            // independientemente del ultimoProductoId
             
-            // Verificar si el pedido tiene un último producto procesado
+            // 1. Buscar el primer producto NO procesado (recolectado === null)
+            const productoSinProcesarIndex = productos.findIndex(p => p.recolectado === null);
+            
+            if (productoSinProcesarIndex !== -1) {
+              const productoSinProcesar = productos[productoSinProcesarIndex];
+              console.log(`PRIORIDAD 1: Encontrado producto sin procesar: ${productoSinProcesar.codigo}`);
+              setCurrentProductoIndex(productoSinProcesarIndex);
+              setRecolectados(productoSinProcesar.cantidad);
+              return;
+            }
+            
+            // 2. Si todos tienen algún valor en recolectado, buscar uno parcialmente completado
+            const productoParcialIndex = productos.findIndex(p => 
+              p.recolectado !== null && p.recolectado < p.cantidad
+            );
+            
+            if (productoParcialIndex !== -1) {
+              const productoParcial = productos[productoParcialIndex];
+              console.log(`PRIORIDAD 2: Encontrado producto parcialmente procesado: ${productoParcial.codigo}`);
+              console.log(`Recolectado: ${productoParcial.recolectado}/${productoParcial.cantidad}`);
+              setCurrentProductoIndex(productoParcialIndex);
+              setRecolectados(productoParcial.recolectado);
+              return;
+            }
+            
+            // 3. Sólo como respaldo, verificar el ultimoProductoId
             if (pedidoArmador.ultimoProductoId) {
-              // Buscar el último producto procesado
+              console.log(`FALLBACK: Verificando último producto registrado: ${pedidoArmador.ultimoProductoId}`);
               const ultimoProducto = productos.find((p: any) => p.id === pedidoArmador.ultimoProductoId);
               
-              if (ultimoProducto) {
-                console.log("Pedido reanudado desde una pausa. Ultimo producto:", {
-                  id: ultimoProducto.id,
-                  codigo: ultimoProducto.codigo,
-                  recolectado: ultimoProducto.recolectado,
-                  cantidad: ultimoProducto.cantidad
-                });
-                
-                // Si el producto ya fue procesado de alguna manera (tiene recolectado != null),
-                // avanzamos al siguiente producto no procesado
-                if (ultimoProducto.recolectado !== null) {
-                  console.log(`Último producto ya procesado (${ultimoProducto.recolectado} de ${ultimoProducto.cantidad})`);
-                  console.log(`Buscando el siguiente producto NO procesado...`);
-                  
-                  // Buscar y seleccionar el siguiente producto no procesado
-                  encontrarSiguienteProductoNoProcesado();
-                } 
-                // Si el producto no ha sido procesado, continuar con él
-                else {
-                  console.log(`El último producto no ha sido procesado, continuando con él`);
-                  const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
-                  if (index !== -1) {
-                    setCurrentProductoIndex(index);
-                    setRecolectados(ultimoProducto.cantidad);
-                  } else {
-                    encontrarSiguienteProductoNoProcesado();
-                  }
-                }
-              } else {
-                // Si no se encuentra el último producto, buscar el siguiente no procesado
-                console.log(`No se encontró el último producto con ID ${pedidoArmador.ultimoProductoId}`);
-                encontrarSiguienteProductoNoProcesado();
+              if (ultimoProducto && ultimoProducto.recolectado < ultimoProducto.cantidad) {
+                console.log(`Usando último producto ${ultimoProducto.codigo}`);
+                const index = productos.findIndex(p => p.id === ultimoProducto.id);
+                setCurrentProductoIndex(index);
+                setRecolectados(ultimoProducto.recolectado || 0);
+                return;
               }
-            } else {
-              // Si no hay último producto, buscar el primero sin procesar
-              console.log(`Pedido sin último producto, buscando el primero sin procesar`);
-              encontrarSiguienteProductoNoProcesado();
             }
+            
+            // 4. Si todo lo anterior falla, usar el primer producto
+            console.log("ULTIMO RECURSO: Usando el primer producto de la lista");
+            setCurrentProductoIndex(0);
+            setRecolectados(productos[0].recolectado !== null ? productos[0].recolectado : productos[0].cantidad);
           }
         } catch (error) {
           console.error("Error al cargar productos para cantidad predeterminada:", error);
