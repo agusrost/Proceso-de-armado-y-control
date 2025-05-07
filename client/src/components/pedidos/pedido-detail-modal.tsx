@@ -207,119 +207,213 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
           </div>
         ) : (
           <>
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-neutral-500">ID Pedido</p>
-                <p className="font-semibold">{pedido.pedidoId}</p>
+            {/* Información General - Encabezado */}
+            <div className="mb-6 overflow-x-auto">
+              <table className="min-w-full border border-neutral-200 rounded-md">
+                <thead className="bg-neutral-50 text-neutral-600">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider border-b">Nro Cliente</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider border-b">Nro ID Pedido</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider border-b">Fecha</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider border-b">Vendedor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider border-b">Estado</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider border-b">Puntaje</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white">
+                  <tr>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-b">{pedido.clienteId}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold border-b">{pedido.pedidoId}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-b">{formatDate(pedido.fecha)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-b">{pedido.vendedor || '-'}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-b">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(pedido.estado)}`}>
+                        {getEstadoLabel(pedido.estado)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-b">{pedido.puntaje}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Datos de Armado y Control */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Sección de Armado */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="bg-blue-50 px-4 py-2 border-b">
+                  <h3 className="font-semibold text-blue-800">Datos de Armado</h3>
+                </div>
+                <div className="p-4">
+                  <table className="min-w-full">
+                    <tbody>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Armado por</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {canEditArmador && editingArmador ? (
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={selectedArmadorId}
+                                onValueChange={setSelectedArmadorId}
+                              >
+                                <SelectTrigger className="w-[200px]">
+                                  <SelectValue placeholder="Aleatorio" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="aleatorio">Aleatorio</SelectItem>
+                                  {Array.isArray(armadores) && armadores.map((armador) => (
+                                    <SelectItem key={armador.id} value={String(armador.id)}>
+                                      {armador.firstName || armador.username}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => updatePedidoMutation.mutate()}
+                                disabled={updatePedidoMutation.isPending}
+                              >
+                                {updatePedidoMutation.isPending ? 
+                                  <Loader2 className="h-4 w-4 animate-spin" /> : 
+                                  <Check className="h-4 w-4" />
+                                }
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span>
+                                {pedido.armadorId ? (pedido.armador?.firstName || pedido.armador?.username) : "Aleatorio"}
+                              </span>
+                              {canEditArmador && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => setEditingArmador(true)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Fecha de armado</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.inicio ? formatDate(pedido.inicio) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Horario inicio</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.inicio ? new Date(pedido.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Horario fin</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.finalizado ? new Date(pedido.finalizado).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Pausas armado</td>
+                        <td className="py-2">
+                          <button 
+                            className="text-sm font-semibold text-blue-600 hover:underline"
+                            onClick={() => {
+                              // Aquí se podría implementar mostrar un dialogo con las pausas de armado
+                              toast({
+                                title: "Detalles de pausas",
+                                description: "Ver detalles de pausas de armado",
+                              });
+                            }}
+                          >
+                            {pedido.numeroPausas || 0} {pedido.numeroPausas === 1 ? 'pausa' : 'pausas'}
+                          </button>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Tiempo bruto</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Tiempo neto</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : '-'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Fecha</p>
-                <p className="font-semibold">{formatDate(pedido.fecha)}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Cliente</p>
-                <p className="font-semibold">{pedido.clienteId}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Vendedor</p>
-                <p className="font-semibold">{pedido.vendedor || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Estado</p>
-                <p>
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(pedido.estado)}`}>
-                    {getEstadoLabel(pedido.estado)}
-                  </span>
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Pausas</p>
-                <p className="font-semibold">
-                  {pedido.numeroPausas || 0} {pedido.numeroPausas === 1 ? 'pausa' : 'pausas'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Armador</p>
-                {canEditArmador && editingArmador ? (
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={selectedArmadorId}
-                      onValueChange={setSelectedArmadorId}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Aleatorio" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="aleatorio">Aleatorio</SelectItem>
-                        {Array.isArray(armadores) && armadores.map((armador) => (
-                          <SelectItem key={armador.id} value={String(armador.id)}>
-                            {armador.firstName || armador.username}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => updatePedidoMutation.mutate()}
-                      disabled={updatePedidoMutation.isPending}
-                    >
-                      {updatePedidoMutation.isPending ? 
-                        <Loader2 className="h-4 w-4 animate-spin" /> : 
-                        <Check className="h-4 w-4" />
-                      }
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold">
-                      {pedido.armadorId ? (pedido.armador?.firstName || pedido.armador?.username) : "Aleatorio"}
-                    </p>
-                    {canEditArmador && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => setEditingArmador(true)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Puntaje</p>
-                <p className="font-semibold">{pedido.puntaje}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Inicio</p>
-                <p className="font-semibold">
-                  {pedido.inicio ? new Date(pedido.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Fin</p>
-                <p className="font-semibold">
-                  {pedido.finalizado ? new Date(pedido.finalizado).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Tiempo Bruto</p>
-                <p className="font-semibold">
-                  {pedido.tiempoBruto ? formatTimeHM(pedido.tiempoBruto) : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Tiempo Neto</p>
-                <p className="font-semibold">
-                  {pedido.tiempoNeto ? formatTimeHM(pedido.tiempoNeto) : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Número de Pausas</p>
-                <p className="font-semibold">
-                  {pedido.numeroPausas || 0}
-                </p>
+              
+              {/* Sección de Control */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="bg-green-50 px-4 py-2 border-b">
+                  <h3 className="font-semibold text-green-800">Datos de Control</h3>
+                </div>
+                <div className="p-4">
+                  <table className="min-w-full">
+                    <tbody>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Controlado por</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.controladoPor ? (pedido.controlador?.firstName || pedido.controlador?.username) : "-"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Fecha de control</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.controlInicio ? formatDate(pedido.controlInicio) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Horario inicio</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.controlInicio ? new Date(pedido.controlInicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Horario fin</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.controlFin ? new Date(pedido.controlFin).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Pausas control</td>
+                        <td className="py-2">
+                          <button 
+                            className="text-sm font-semibold text-green-600 hover:underline"
+                            onClick={() => {
+                              // Aquí se podría implementar mostrar un dialogo con las pausas de control
+                              toast({
+                                title: "Detalles de pausas",
+                                description: "Ver detalles de pausas de control",
+                              });
+                            }}
+                          >
+                            {pedido.controlPausas || 0} {pedido.controlPausas === 1 ? 'pausa' : 'pausas'}
+                          </button>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Tiempo bruto</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.controlTiempoBruto ? formatTimeHM(pedido.controlTiempoBruto) : '-'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Tiempo neto</td>
+                        <td className="py-2 text-sm font-semibold">
+                          {pedido.controlTiempoNeto ? formatTimeHM(pedido.controlTiempoNeto) : '-'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
             
