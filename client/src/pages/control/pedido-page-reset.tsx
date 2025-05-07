@@ -24,10 +24,10 @@ import {
   ArrowLeft,
   CheckCircle,
   CheckCircle2,
-  InfoIcon,
+  Info as InfoIcon,
   Loader2,
   Package,
-  Packages,
+  PackageOpen as Packages,
   PauseCircle,
   PlayCircle,
   ScanLine,
@@ -164,8 +164,13 @@ export default function PedidoControlPage() {
       }
       return res.json();
     },
-    enabled: !!pedidoId,
-    onSuccess: (data) => {
+    enabled: !!pedidoId
+  });
+  
+  // Efecto para actualizar el estado cuando se carga el control activo
+  useEffect(() => {
+    if (controlActivoQuery.data) {
+      const data = controlActivoQuery.data;
       // Actualizar el estado de pausa
       const pausaActiva = data.pausaActiva === true;
       const pausaId = data.pausaId || null;
@@ -220,7 +225,7 @@ export default function PedidoControlPage() {
         mensajeError: null
       });
     }
-  });
+  }, [controlActivoQuery.data, pedidoId]);
 
   const isLoadingControl = controlActivoQuery.isLoading || pedidoQuery.isLoading;
 

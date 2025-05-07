@@ -21,6 +21,8 @@ import ControlHistorialPage from "@/pages/control/historial-page";
 import ControlHistorialDetallePage from "@/pages/control/historial-detalle-page";
 import ControlPedidoPage from "@/pages/control/pedido-page-nuevo";
 import ControlPedidoColumnasPage from "@/pages/control/pedido-page-columnas";
+import ControlPedidoResetPage from "@/pages/control/pedido-page-reset";
+import ControlPedidoSimplePage from "@/pages/control/pedido-page-simple";
 import ControlEstadisticasPage from "@/pages/control/estadisticas-page";
 import MiPerfilPage from "@/pages/mi-perfil-page";
 import ImportarExportarPage from "@/pages/importar-exportar-page";
@@ -42,8 +44,9 @@ function Router() {
       <ProtectedRoute path="/control/config" component={ControlConfigPage} />
       <ProtectedRoute path="/control/historial" component={ControlHistorialPage} />
       <ProtectedRoute path="/control/historial/:id" component={ControlHistorialDetallePage} />
-      <ProtectedRoute path="/control/pedido/:id" component={ControlPedidoColumnasPage} />
+      <ProtectedRoute path="/control/pedido/:id" component={ControlPedidoSimplePage} />
       <ProtectedRoute path="/control/pedido-antiguo/:id" component={ControlPedidoPage} />
+      <ProtectedRoute path="/control/pedido-columnas/:id" component={ControlPedidoColumnasPage} />
       <ProtectedRoute path="/control/estadisticas" component={ControlEstadisticasPage} />
       
       <ProtectedRoute path="/mi-perfil" component={MiPerfilPage} />
