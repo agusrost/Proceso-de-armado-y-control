@@ -139,6 +139,12 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
   const [editRecolectado, setEditRecolectado] = useState<number>(0);
   const [editMotivo, setEditMotivo] = useState<string>("");
   
+  // Estados para diálogos de pausas
+  const [pausasDialogOpen, setPausasDialogOpen] = useState(false);
+  const [pausasDialogTitle, setPausasDialogTitle] = useState("");
+  const [pausasDialogData, setPausasDialogData] = useState<any[]>([]);
+  const [pausasDialogTipo, setPausasDialogTipo] = useState<'armado' | 'control'>('armado');
+  
   // Fetch pedido details
   const { data: pedido, isLoading, error } = useQuery<PedidoWithDetails>({
     queryKey: [`/api/pedidos/${pedidoId}`],
@@ -411,16 +417,16 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                         <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Pausas armado</td>
                         <td className="py-2">
                           <button 
-                            className="text-sm font-semibold text-blue-600 hover:underline"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm font-semibold"
                             onClick={() => {
-                              // Aquí se podría implementar mostrar un dialogo con las pausas de armado
-                              toast({
-                                title: "Detalles de pausas",
-                                description: "Ver detalles de pausas de armado",
-                              });
+                              setPausasDialogTitle("Pausas de Armado");
+                              setPausasDialogData(pedido.pausas?.filter(p => p.tipo === 'armado') || []);
+                              setPausasDialogTipo('armado');
+                              setPausasDialogOpen(true);
                             }}
                           >
-                            {pedido.numeroPausas || 0} {pedido.numeroPausas === 1 ? 'pausa' : 'pausas'}
+                            {pedido.pausas?.filter(p => p.tipo === 'armado').length || 0} {pedido.pausas?.filter(p => p.tipo === 'armado').length === 1 ? 'pausa' : 'pausas'}
+                            <Pause className="h-3.5 w-3.5 ml-1" />
                           </button>
                         </td>
                       </tr>
@@ -477,16 +483,16 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                         <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Pausas control</td>
                         <td className="py-2">
                           <button 
-                            className="text-sm font-semibold text-green-600 hover:underline"
+                            className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline text-sm font-semibold"
                             onClick={() => {
-                              // Aquí se podría implementar mostrar un dialogo con las pausas de control
-                              toast({
-                                title: "Detalles de pausas",
-                                description: "Ver detalles de pausas de control",
-                              });
+                              setPausasDialogTitle("Pausas de Control");
+                              setPausasDialogData(pedido.pausas?.filter(p => p.tipo === 'control') || []);
+                              setPausasDialogTipo('control');
+                              setPausasDialogOpen(true);
                             }}
                           >
-                            {pedido.controlPausas || 0} {pedido.controlPausas === 1 ? 'pausa' : 'pausas'}
+                            {pedido.pausas?.filter(p => p.tipo === 'control').length || 0} {pedido.pausas?.filter(p => p.tipo === 'control').length === 1 ? 'pausa' : 'pausas'}
+                            <Pause className="h-3.5 w-3.5 ml-1" />
                           </button>
                         </td>
                       </tr>
@@ -535,11 +541,11 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-neutral-800">
                             {producto.codigo}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {producto.cantidad}
-                          </td>
                           <td className="px-4 py-3 text-sm text-neutral-800">
                             {producto.descripcion}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                            {producto.cantidad}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                             {editingProductId === producto.id ? (
@@ -738,6 +744,15 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
             )}
           </>
         )}
+        
+        {/* Diálogo para ver pausas */}
+        <PausasDialog 
+          open={pausasDialogOpen}
+          onClose={() => setPausasDialogOpen(false)}
+          pausas={pausasDialogData}
+          title={pausasDialogTitle}
+          tipo={pausasDialogTipo}
+        />
         
         <DialogFooter className="flex items-center justify-between gap-4">
           {canDelete && (
