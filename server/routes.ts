@@ -3187,10 +3187,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Obtener información del último producto procesado
       let ultimoProductoId = null;
       
-      // Verificar si la pausa tiene un campo ultimo_producto_id
-      if (pausa.ultimo_producto_id) {
-        ultimoProductoId = pausa.ultimo_producto_id;
+      // Verificar si la pausa tiene un campo ultimoProductoId
+      if (pausa.ultimoProductoId) {
+        ultimoProductoId = pausa.ultimoProductoId;
         console.log(`✅ Pausa ${pausaId} tiene último producto ID: ${ultimoProductoId}`);
+      } else if (pausa['ultimo_producto_id']) {
+        // Compatibilidad con ambos formatos de nombres de campo
+        ultimoProductoId = pausa['ultimo_producto_id'];
+        console.log(`✅ Pausa ${pausaId} tiene último producto ID (formato alternativo): ${ultimoProductoId}`);
       }
       
       // Si no tiene último producto en la pausa, obtener el último producto sin procesar
@@ -3330,7 +3334,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
         res.json({
           success: true,
           message: "Pausa finalizada correctamente",
-          pausa: pausaActualizada
+          pausa: pausaActualizada,
+          ultimoProductoId: ultimoProductoId
         });
       } catch (err) {
         console.error("❌ ERROR en la transacción al finalizar pausa:", err);
@@ -3343,7 +3348,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
             return res.json({
               success: true,
               message: "Pausa finalizada (recuperado de error)",
-              pausa: pausaVerificacion
+              pausa: pausaVerificacion,
+              ultimoProductoId: ultimoProductoId
             });
           }
         } catch (checkErr) {
