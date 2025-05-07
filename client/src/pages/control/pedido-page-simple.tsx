@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -15,7 +15,11 @@ import {
   Package,
   ScanLine,
   AlertTriangle,
-  ShoppingBag
+  ShoppingBag,
+  Pause,
+  Play,
+  TimerOff,
+  Clock
 } from 'lucide-react';
 import { ProductoEscanerSeguroV2 } from '@/components/control/producto-escaner-v2';
 import {
@@ -26,6 +30,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 type ProductoControlado = {
   id: number;
@@ -44,11 +53,20 @@ export default function ControlPedidoSimplePage() {
   
   // Estados locales
   const [productosControlados, setProductosControlados] = useState<ProductoControlado[]>([]);
+  const [productosEscaneados, setProductosEscaneados] = useState<ProductoControlado[]>([]);
   const [finalizadoDialogOpen, setFinalizadoDialogOpen] = useState(false);
   const [productoNoEncontradoDialog, setProductoNoEncontradoDialog] = useState({
     open: false,
     codigo: ''
   });
+  const [pausaDialogOpen, setPausaDialogOpen] = useState(false);
+  const [motivoPausa, setMotivoPausa] = useState("");
+  const [pausaActiva, setPausaActiva] = useState(false);
+  const [pausaActualId, setPausaActualId] = useState<number | null>(null);
+  const [finalizarManualDialog, setFinalizarManualDialog] = useState(false);
+  const [productosFaltantes, setProductosFaltantes] = useState<ProductoControlado[]>([]);
+  const [timer, setTimer] = useState<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Consulta principal del pedido
   const pedidoQuery = useQuery({
@@ -79,6 +97,20 @@ export default function ControlPedidoSimplePage() {
   // Efecto para cargar datos cuando se reciben las respuestas de las consultas
   useEffect(() => {
     if (controlActivoQuery.data && controlActivoQuery.data.productos) {
+      // Inicializar estado de pausa
+      const pausaActiva = controlActivoQuery.data.pausaActiva === true;
+      const pausaId = controlActivoQuery.data.pausaId || null;
+      setPausaActiva(pausaActiva);
+      setPausaActualId(pausaId);
+      
+      // Inicializar temporizador
+      if (controlActivoQuery.data.control && controlActivoQuery.data.control.fecha) {
+        const segundosTranscurridos = Math.floor(
+          (Date.now() - new Date(controlActivoQuery.data.control.fecha).getTime()) / 1000
+        );
+        setTimer(segundosTranscurridos);
+      }
+      
       const procesados = controlActivoQuery.data.productos.map((p: any) => {
         // Encontrar detalles de control para este producto
         const controlDetalles = controlActivoQuery.data.detalles.filter((d: any) => 
@@ -113,8 +145,34 @@ export default function ControlPedidoSimplePage() {
       });
       
       setProductosControlados(procesados);
+      
+      // Filtrar sólo los productos que han sido escaneados (controlado > 0)
+      const escaneados = procesados.filter(p => p.controlado > 0);
+      setProductosEscaneados(escaneados);
     }
   }, [controlActivoQuery.data]);
+  
+  // Efecto para manejar el temporizador
+  useEffect(() => {
+    if (!pausaActiva && !timerRef.current) {
+      // Iniciar temporizador
+      timerRef.current = setInterval(() => {
+        setTimer(prev => (prev !== null ? prev + 1 : 0));
+      }, 1000);
+    } else if (pausaActiva && timerRef.current) {
+      // Detener temporizador
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // Limpiar al desmontar
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [pausaActiva]);
   
   // Función para finalizar control automáticamente cuando todos los productos están correctos
   useEffect(() => {
@@ -163,8 +221,92 @@ export default function ControlPedidoSimplePage() {
     }
   });
 
+  // Mutación para pausar control
+  const pausarControlMutation = useMutation({
+    mutationFn: async (motivo: string) => {
+      const res = await fetch(`/api/control/pedidos/${pedidoId}/pausar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ motivo })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Error al pausar el control");
+      }
+      
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setPausaActiva(true);
+      setPausaActualId(data.pausa?.id || null);
+      toast({
+        title: "Control pausado",
+        description: "El control del pedido ha sido pausado",
+      });
+      // Invalidar consultas
+      queryClient.invalidateQueries({ queryKey: ['/api/control/pedidos', pedidoId, 'activo'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al pausar control",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutación para reanudar control
+  const reanudarControlMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/control/pedidos/${pedidoId}/reanudar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Error al reanudar el control");
+      }
+      
+      return await res.json();
+    },
+    onSuccess: () => {
+      setPausaActiva(false);
+      setPausaActualId(null);
+      toast({
+        title: "Control reanudado",
+        description: "El control del pedido ha sido reanudado",
+      });
+      // Invalidar consultas
+      queryClient.invalidateQueries({ queryKey: ['/api/control/pedidos', pedidoId, 'activo'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al reanudar control",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
   // Manejar escaneo de productos
   const handleEscaneo = async (codigo: string, cantidad: number = 1) => {
+    // Evitar escaneo si el control está pausado
+    if (pausaActiva) {
+      toast({
+        title: "Control pausado",
+        description: "No se pueden escanear productos mientras el control está pausado. Reanude el control para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       const response = await fetch(`/api/control/pedidos/${pedidoId}/escanear`, {
         method: 'POST',
@@ -214,6 +356,45 @@ export default function ControlPedidoSimplePage() {
     }
   };
   
+  // Funciones para control de pausa
+  const handlePausarControl = () => {
+    setPausaDialogOpen(true);
+  };
+  
+  const handleConfirmarPausa = () => {
+    if (!motivoPausa) {
+      toast({
+        title: "Error",
+        description: "Debe seleccionar un motivo de pausa",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    pausarControlMutation.mutate(motivoPausa);
+    setPausaDialogOpen(false);
+  };
+  
+  const handleReanudarControl = () => {
+    reanudarControlMutation.mutate();
+  };
+  
+  // Función para finalización manual
+  const handleFinalizarManual = () => {
+    // Identificar productos faltantes
+    const faltantes = productosControlados.filter(
+      p => p.controlado < p.cantidad
+    );
+    
+    if (faltantes.length > 0) {
+      setProductosFaltantes(faltantes);
+      setFinalizarManualDialog(true);
+    } else {
+      // Si no hay faltantes, finalizar automáticamente
+      handleFinalizarControl();
+    }
+  };
+  
   // Funciones auxiliares
   const handleFinalizarControl = () => {
     finalizarControlMutation.mutate();
@@ -221,6 +402,14 @@ export default function ControlPedidoSimplePage() {
   
   const volverALista = () => {
     window.location.href = "/control";
+  };
+  
+  // Función para formatear tiempo
+  const formatTime = (seconds: number | null) => {
+    if (seconds === null) return "00:00";
+    const minutes = Math.floor(seconds / 60);
+    const remainingSecs = seconds % 60;
+    return `${minutes < 10 ? '0' : ''}${minutes}:${remainingSecs < 10 ? '0' : ''}${remainingSecs}`;
   };
   
   // Estado de carga
@@ -282,6 +471,93 @@ export default function ControlPedidoSimplePage() {
         </DialogContent>
       </Dialog>
       
+      {/* Diálogo para finalización manual con productos faltantes */}
+      <Dialog open={finalizarManualDialog} onOpenChange={setFinalizarManualDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>¿Confirmar finalización?</DialogTitle>
+            <DialogDescription>
+              Hay productos que no han sido escaneados o están incompletos:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-[300px] overflow-y-auto">
+            <div className="space-y-2">
+              {productosFaltantes.map((producto) => (
+                <div key={producto.codigo} className="p-3 rounded-md border mb-2 bg-yellow-100 border-yellow-300 text-yellow-800">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{producto.codigo}</div>
+                      <div className="text-sm">{producto.descripcion}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold">
+                        {producto.controlado} / {producto.cantidad}
+                      </div>
+                      <div className="text-xs">Faltante</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              variant="secondary" 
+              onClick={() => setFinalizarManualDialog(false)}
+              className="sm:w-auto w-full"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="default" 
+              onClick={() => {
+                setFinalizarManualDialog(false);
+                handleFinalizarControl();
+              }}
+              className="sm:w-auto w-full"
+            >
+              Finalizar de todos modos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Diálogo para seleccionar motivo de pausa */}
+      <Dialog open={pausaDialogOpen} onOpenChange={setPausaDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Seleccione motivo de pausa</DialogTitle>
+            <DialogDescription>
+              Indique el motivo por el cual está pausando el control del pedido.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <RadioGroup value={motivoPausa} onValueChange={setMotivoPausa} className="space-y-2">
+              {[
+                "Pausa para verificación",
+                "Producto dañado o incorrecto",
+                "Interrupción externa",
+                "Descanso",
+                "Otro"
+              ].map((opcion) => (
+                <div key={opcion} className="flex items-center space-x-2">
+                  <RadioGroupItem value={opcion} id={`pausa-${opcion}`} />
+                  <Label htmlFor={`pausa-${opcion}`}>{opcion}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setPausaDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmarPausa} disabled={!motivoPausa}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       {/* Contenido principal */}
       <div className="container mx-auto py-6 max-w-7xl">
         <div className="flex justify-between items-center mb-6">
@@ -301,6 +577,10 @@ export default function ControlPedidoSimplePage() {
                 <p className="text-gray-500 mt-1">
                   Cliente: {pedidoQuery.data?.clienteId || 'No especificado'}
                 </p>
+                <div className="flex items-center mt-2">
+                  <Clock className="h-4 w-4 mr-1 text-primary" />
+                  <span className="text-sm font-medium">{formatTime(timer)}</span>
+                </div>
               </div>
               
               <div className="flex flex-col items-end">
@@ -321,6 +601,37 @@ export default function ControlPedidoSimplePage() {
                       {totalProductos === escaneados ? "Completo" : "En proceso"}
                     </p>
                   </div>
+                </div>
+                
+                <div className="flex gap-2 mt-3">
+                  {pausaActiva ? (
+                    <Button 
+                      onClick={handleReanudarControl} 
+                      className="flex items-center gap-1"
+                      variant="outline"
+                    >
+                      <Play className="h-4 w-4" />
+                      Reanudar Control
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={handlePausarControl} 
+                      className="flex items-center gap-1"
+                      variant="outline"
+                    >
+                      <Pause className="h-4 w-4" />
+                      Pausar Control
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    onClick={handleFinalizarManual} 
+                    className="flex items-center gap-1"
+                    variant="default"
+                  >
+                    <TimerOff className="h-4 w-4" />
+                    Finalizar Control
+                  </Button>
                 </div>
               </div>
             </div>
@@ -382,7 +693,8 @@ export default function ControlPedidoSimplePage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {productosControlados.map((producto) => (
+                    {/* Mostrar solo productos que han sido escaneados (controlado > 0) */}
+                    {productosControlados.filter(p => p.controlado > 0).map((producto) => (
                       <div 
                         key={producto.codigo}
                         className={`p-3 rounded-md border mb-2 ${
