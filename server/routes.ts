@@ -1929,6 +1929,119 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
+  // Endpoint para ajustar cantidad después de retirar excedentes
+  app.post("/api/control/pedidos/:pedidoId/ajuste-excedente", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.pedidoId);
+      const { codigo, cantidadCorrecta } = req.body;
+      
+      console.log(`⚠️ AJUSTE DE EXCEDENTE para pedido ${pedidoId}, producto ${codigo}, cantidad correcta ${cantidadCorrecta}`);
+      
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      if (!codigo) {
+        return res.status(400).json({ message: "El código de producto es requerido" });
+      }
+      
+      if (isNaN(cantidadCorrecta) || cantidadCorrecta < 0) {
+        return res.status(400).json({ message: "La cantidad correcta debe ser un número no negativo" });
+      }
+      
+      // Verificar que el pedido existe
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar que el control está activo
+      const controlActivo = await storage.getControlActivoByPedidoId(pedidoId);
+      if (!controlActivo) {
+        return res.status(404).json({ message: "No hay un control activo para este pedido" });
+      }
+
+      // Obtener el producto del pedido
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      const producto = productos.find(p => p.codigo === codigo);
+      
+      if (!producto) {
+        return res.status(404).json({ message: "Producto no encontrado en el pedido" });
+      }
+      
+      // Obtener los detalles de control actuales
+      const detalles = await storage.getControlDetallesByControlId(controlActivo.id);
+      const detallesProducto = detalles.filter(d => d.codigo === codigo);
+      
+      // Calcular la cantidad actual controlada
+      const cantidadControlada = detallesProducto.reduce((acc, d) => acc + (d.cantidadControlada || 0), 0);
+      
+      if (cantidadControlada <= cantidadCorrecta) {
+        return res.status(400).json({ 
+          message: "La cantidad controlada no es mayor que la cantidad correcta, no es necesario ajustar excedentes",
+          cantidadControlada,
+          cantidadCorrecta
+        });
+      }
+      
+      // Marcar todos los detalles anteriores como retirados
+      for (const detalle of detallesProducto) {
+        await storage.updateControlDetalle(detalle.id, {
+          estado: 'retirado',
+          timestamp: new Date()
+        });
+      }
+      
+      // Crear un nuevo detalle con la cantidad correcta
+      await storage.createControlDetalle({
+        controlId: controlActivo.id,
+        productoId: producto.id,
+        codigo: producto.codigo,
+        cantidadEsperada: producto.cantidad,
+        cantidadControlada: cantidadCorrecta,
+        estado: cantidadCorrecta === producto.cantidad ? 'correcto' : 'faltante',
+        tipo: 'ajuste-excedente',
+        timestamp: new Date()
+      });
+      
+      // Verificar si este ajuste completa el pedido
+      const todosProductos = await storage.getProductosByPedidoId(pedidoId);
+      const detallesActualizados = await storage.getControlDetallesByControlId(controlActivo.id);
+      
+      let pedidoCompleto = true;
+      for (const p of todosProductos) {
+        // Filtrar detalles activos de este producto (no retirados)
+        const detallesActivos = detallesActualizados.filter(d => 
+          d.codigo === p.codigo && d.estado !== 'retirado'
+        );
+        
+        // Calcular cantidad controlada no retirada
+        const cantidadActual = detallesActivos.reduce(
+          (acc, d) => acc + (d.cantidadControlada || 0), 0
+        );
+        
+        // Si algún producto no alcanza la cantidad esperada, el pedido no está completo
+        if (cantidadActual < p.cantidad) {
+          pedidoCompleto = false;
+          break;
+        }
+      }
+      
+      const resultadoFinal = {
+        success: true,
+        message: "Excedente ajustado correctamente",
+        cantidadAnterior: cantidadControlada,
+        cantidadAjustada: cantidadCorrecta,
+        pedidoCompleto
+      };
+      
+      res.json(resultadoFinal);
+    } catch (error) {
+      console.error("Error al ajustar excedente:", error);
+      next(error);
+    }
+  });
+
   // Endpoint específico para retirar excedente (versión nueva)
   app.post("/api/control/pedidos/:pedidoId/retirar-excedente", requireAuth, async (req, res, next) => {
     try {

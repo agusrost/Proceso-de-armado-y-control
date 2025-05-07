@@ -560,8 +560,61 @@ export default function ControlPedidoSimplePage() {
             </Alert>
           </div>
           <DialogFooter>
-            <Button onClick={() => {
+            <Button onClick={async () => {
+              // Guardar el código antes de cerrar el diálogo
+              const codigoProducto = productoExcedenteDialog.codigo;
+              const cantidadCorrecta = productoExcedenteDialog.cantidad;
+              
+              // Cerrar el diálogo
               setProductoExcedenteDialog(prev => ({ ...prev, open: false }));
+              
+              try {
+                // Llamada al API para ajustar la cantidad después de retirar excedentes
+                const response = await fetch(`/api/control/pedidos/${pedidoId}/ajuste-excedente`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ 
+                    codigo: codigoProducto,
+                    cantidadCorrecta: cantidadCorrecta
+                  })
+                });
+                
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.message || "Error al ajustar cantidad de producto");
+                }
+                
+                // Recargar los datos del control
+                queryClient.invalidateQueries({ queryKey: ['/api/control/pedidos', pedidoId, 'activo'] });
+                
+                toast({
+                  title: "Excedente ajustado",
+                  description: "Se ha registrado el retiro del excedente correctamente.",
+                });
+              } catch (error) {
+                console.error("Error al ajustar excedente:", error);
+                toast({
+                  title: "Error",
+                  description: "No se pudo registrar el retiro del excedente. La interfaz se actualizará, pero debe verificar las cantidades manualmente.",
+                  variant: "destructive",
+                });
+              }
+              
+              // Como alternativa, actualizamos la UI localmente
+              setProductosControlados(prev => 
+                prev.map(p => {
+                  if (p.codigo === codigoProducto) {
+                    return {
+                      ...p,
+                      controlado: cantidadCorrecta,
+                      estado: 'correcto'
+                    };
+                  }
+                  return p;
+                })
+              );
               
               // Enfocar el campo de código después de cerrar el diálogo
               setTimeout(() => {
