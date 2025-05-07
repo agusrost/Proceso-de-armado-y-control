@@ -282,38 +282,82 @@ export default function ControlHistorialDetallePage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-neutral-200">
-                        {controlHistorico.detalles.map((detalle: any) => (
-                          <tr key={detalle.id}>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-neutral-900">
-                              {detalle.codigo}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-neutral-700">
-                              {detalle.producto?.descripcion || "-"}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                              {detalle.cantidadEsperada}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
-                              {detalle.cantidadControlada}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <span 
-                                className={`px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${getEstadoColor(detalle.estado)}`}
-                              >
-                                {getEstadoIcon(detalle.estado)}
-                                <span className="ml-1">
-                                  {detalle.estado === 'correcto' 
-                                    ? 'Correcto' 
-                                    : detalle.estado === 'faltante'
-                                    ? 'Faltante'
-                                    : detalle.estado === 'excedente'
-                                    ? 'Excedente'
-                                    : detalle.estado}
+                        {(() => {
+                          // Agrupar los detalles por código
+                          const productosPorCodigo = controlHistorico.detalles.reduce((acc: any, detalle: any) => {
+                            const codigo = detalle.codigo;
+                            
+                            if (!acc[codigo]) {
+                              acc[codigo] = {
+                                codigo: codigo,
+                                descripcion: detalle.producto?.descripcion || "-",
+                                cantidadEsperada: detalle.cantidadEsperada,
+                                cantidadControlada: 0,
+                                detalles: []
+                              };
+                            }
+                            
+                            // Acumular la cantidad controlada (puede ser positiva o negativa en caso de retirada)
+                            acc[codigo].cantidadControlada += detalle.cantidadControlada;
+                            acc[codigo].detalles.push(detalle);
+                            
+                            return acc;
+                          }, {});
+                          
+                          // Convertir el objeto a un array
+                          const productosResumidos = Object.values(productosPorCodigo);
+                          
+                          // Determinar el estado final de cada producto
+                          productosResumidos.forEach((producto: any) => {
+                            if (producto.cantidadControlada < producto.cantidadEsperada) {
+                              producto.estado = "faltante";
+                            } else if (producto.cantidadControlada > producto.cantidadEsperada) {
+                              producto.estado = "excedente";
+                            } else {
+                              producto.estado = "correcto";
+                            }
+                            
+                            // Si hay algún detalle con estado 'retirado', mostrarlo en la columna estado
+                            const tieneRetirados = producto.detalles.some((d: any) => d.estado === "retirado");
+                            if (tieneRetirados) {
+                              producto.tieneRetirados = true;
+                            }
+                          });
+                          
+                          return productosResumidos.map((producto: any, index: number) => (
+                            <tr key={index}>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-neutral-900">
+                                {producto.codigo}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-neutral-700">
+                                {producto.descripcion}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                                {producto.cantidadEsperada}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                                {producto.cantidadControlada}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span 
+                                  className={`px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${getEstadoColor(producto.estado)}`}
+                                >
+                                  {getEstadoIcon(producto.estado)}
+                                  <span className="ml-1">
+                                    {producto.estado === 'correcto' 
+                                      ? 'Correcto' 
+                                      : producto.estado === 'faltante'
+                                      ? 'Faltante'
+                                      : producto.estado === 'excedente'
+                                      ? 'Excedente'
+                                      : producto.estado}
+                                    {producto.tieneRetirados && " (retirado)"}
+                                  </span>
                                 </span>
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
                       </tbody>
                     </table>
                   </div>
