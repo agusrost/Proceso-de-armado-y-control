@@ -21,11 +21,102 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Edit, Check, CheckCircle2, Trash2, Truck as TruckIcon, AlertCircle } from "lucide-react";
+import { Loader2, Edit, Check, CheckCircle2, Trash2, Truck as TruckIcon, AlertCircle, Clock, Play, Pause } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+
+// Componente para mostrar diálogo de pausas
+interface PausasDialogProps {
+  open: boolean;
+  onClose: () => void;
+  pausas: any[];
+  title: string;
+  tipo: 'armado' | 'control';
+}
+
+function PausasDialog({ open, onClose, pausas, title, tipo }: PausasDialogProps) {
+  if (!open) return null;
+  
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" /> {title}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="mt-4">
+          {pausas && pausas.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-neutral-200 border rounded-md">
+                <thead className="bg-neutral-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Inicio</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fin</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Duración</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-neutral-200">
+                  {pausas.map((pausa, index) => (
+                    <tr key={index} className={pausa.tipo === tipo ? (tipo === 'armado' ? 'bg-blue-50' : 'bg-green-50') : ''}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {pausa.inicio ? new Date(pausa.inicio).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {pausa.fin ? new Date(pausa.fin).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'}) : 'En curso'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {pausa.duracion || (pausa.fin ? 
+                          (() => {
+                            // Calcular duración si no está en el objeto pero tenemos inicio y fin
+                            const inicio = new Date(pausa.inicio);
+                            const fin = new Date(pausa.fin);
+                            const duracionMs = fin.getTime() - inicio.getTime();
+                            const duracionMin = Math.floor(duracionMs / 60000);
+                            const duracionSec = Math.floor((duracionMs % 60000) / 1000);
+                            return `${duracionMin.toString().padStart(2, '0')}:${duracionSec.toString().padStart(2, '0')}`;
+                          })() : 
+                          'En curso'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${pausa.motivo === 'fin de turno' ? 'bg-red-100 text-red-800' : 
+                            pausa.motivo === 'pausa sanitaria' ? 'bg-blue-100 text-blue-800' : 
+                            pausa.motivo === 'horario de almuerzo' ? 'bg-amber-100 text-amber-800' : 
+                            'bg-neutral-100 text-neutral-800'}`}>
+                          {pausa.motivo}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-neutral-500">
+              No hay pausas registradas
+            </div>
+          )}
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface PedidoDetailModalProps {
   pedidoId: number;
@@ -417,16 +508,20 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
               </div>
             </div>
             
-            <div className="mb-6">
-              <h4 className="font-medium mb-2">Productos</h4>
-              <div className="overflow-x-auto border rounded-md">
+            {/* Productos */}
+            <div className="mb-6 border rounded-md overflow-hidden">
+              <div className="bg-neutral-50 px-4 py-2 border-b flex justify-between items-center">
+                <h3 className="font-semibold text-neutral-700">Productos</h3>
+              </div>
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-neutral-200">
                   <thead className="bg-neutral-100">
                     <tr>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Descripción</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Recolectado</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                       {/* Siempre mostrar columna de acciones para admin/armador */}
                       {(isAdmin || isArmador) && (
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acciones</th>
