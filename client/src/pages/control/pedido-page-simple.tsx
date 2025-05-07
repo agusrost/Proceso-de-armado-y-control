@@ -61,6 +61,7 @@ export default function ControlPedidoSimplePage() {
   });
   const [pausaDialogOpen, setPausaDialogOpen] = useState(false);
   const [motivoPausa, setMotivoPausa] = useState("");
+  const [motivoPausaOtro, setMotivoPausaOtro] = useState("");
   const [pausaActiva, setPausaActiva] = useState(false);
   const [pausaActualId, setPausaActualId] = useState<number | null>(null);
   const [finalizarManualDialog, setFinalizarManualDialog] = useState(false);
@@ -371,8 +372,26 @@ export default function ControlPedidoSimplePage() {
       return;
     }
     
-    pausarControlMutation.mutate(motivoPausa);
+    // Si el motivo es "Otro, especifique" y no se ha proporcionado texto, mostrar error
+    if (motivoPausa === "Otro, especifique" && !motivoPausaOtro.trim()) {
+      toast({
+        title: "Error",
+        description: "Debe especificar el motivo de la pausa",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Usar el texto personalizado si el motivo es "Otro, especifique"
+    const motivoFinal = motivoPausa === "Otro, especifique" ? motivoPausaOtro : motivoPausa;
+    
+    pausarControlMutation.mutate(motivoFinal);
     setPausaDialogOpen(false);
+    
+    // Limpiar campos después de confirmar
+    if (motivoPausa === "Otro, especifique") {
+      setMotivoPausaOtro("");
+    }
   };
   
   const handleReanudarControl = () => {
@@ -534,11 +553,11 @@ export default function ControlPedidoSimplePage() {
           <div className="py-4">
             <RadioGroup value={motivoPausa} onValueChange={setMotivoPausa} className="space-y-2">
               {[
-                "Pausa para verificación",
-                "Producto dañado o incorrecto",
-                "Interrupción externa",
-                "Descanso",
-                "Otro"
+                "Pausa sanitaria",
+                "Pausa para verificacion",
+                "Horario de almuerzo",
+                "Fin de turno",
+                "Otro, especifique"
               ].map((opcion) => (
                 <div key={opcion} className="flex items-center space-x-2">
                   <RadioGroupItem value={opcion} id={`pausa-${opcion}`} />
@@ -546,12 +565,35 @@ export default function ControlPedidoSimplePage() {
                 </div>
               ))}
             </RadioGroup>
+            
+            {/* Campo adicional para "Otro, especifique" */}
+            {motivoPausa === "Otro, especifique" && (
+              <div className="mt-4">
+                <Label htmlFor="motivo-otro" className="mb-2 block">
+                  Especifique el motivo:
+                </Label>
+                <Input
+                  id="motivo-otro"
+                  value={motivoPausaOtro}
+                  onChange={(e) => setMotivoPausaOtro(e.target.value)}
+                  className="w-full"
+                  placeholder="Escriba el motivo de la pausa"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setPausaDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => {
+              setPausaDialogOpen(false);
+              setMotivoPausa("");
+              setMotivoPausaOtro("");
+            }}>
               Cancelar
             </Button>
-            <Button onClick={handleConfirmarPausa} disabled={!motivoPausa}>
+            <Button 
+              onClick={handleConfirmarPausa} 
+              disabled={!motivoPausa || (motivoPausa === "Otro, especifique" && !motivoPausaOtro.trim())}
+            >
               Confirmar
             </Button>
           </DialogFooter>
@@ -577,10 +619,6 @@ export default function ControlPedidoSimplePage() {
                 <p className="text-gray-500 mt-1">
                   Cliente: {pedidoQuery.data?.clienteId || 'No especificado'}
                 </p>
-                <div className="flex items-center mt-2">
-                  <Clock className="h-4 w-4 mr-1 text-primary" />
-                  <span className="text-sm font-medium">{formatTime(timer)}</span>
-                </div>
               </div>
               
               <div className="flex flex-col items-end">

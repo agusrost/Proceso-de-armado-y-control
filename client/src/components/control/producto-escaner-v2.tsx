@@ -47,7 +47,8 @@ export function ProductoEscanerSeguroV2({
       setIsLoading(true);
       await onEscaneo(codigo.trim(), cantidad);
       setCodigo("");
-      // No reiniciamos la cantidad para facilitar escaneos consecutivos
+      // Reiniciar la cantidad a 1 después de cada escaneo
+      setCantidad(1);
       
       // Foco en input de código
       if (inputRef.current) {
@@ -80,7 +81,8 @@ export function ProductoEscanerSeguroV2({
             setIsLoading(true);
             await onEscaneo(limpioCodigo.trim(), cantidad);
             setCodigo("");
-            // No reiniciamos la cantidad para facilitar escaneos consecutivos
+            // Reiniciar la cantidad a 1 después de cada escaneo
+            setCantidad(1);
             
             // Foco en input de código
             if (inputRef.current) {
