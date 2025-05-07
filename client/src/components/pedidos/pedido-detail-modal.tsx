@@ -458,7 +458,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       <tr>
                         <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Controlado por</td>
                         <td className="py-2 text-sm font-semibold">
-                          {pedido.controladoPor ? (pedido.controlador?.firstName || pedido.controlador?.username) : "-"}
+                          {pedido.controlador?.firstName || pedido.controlador?.username || pedido.controladoPor || "-"}
                         </td>
                       </tr>
                       <tr>
@@ -695,53 +695,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
               </div>
             </div>
             
-            {pedido.pausas && pedido.pausas.length > 0 && (
-              <div>
-                <h4 className="font-medium mb-2">Pausas</h4>
-                <div className="overflow-x-auto border rounded-md">
-                  <table className="min-w-full divide-y divide-neutral-200">
-                    <thead className="bg-neutral-100">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Hora Inicio</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Hora Fin</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Duración</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-neutral-200">
-                      {pedido.pausas.map((pausa, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {new Date(pausa.inicio).toLocaleTimeString()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {pausa.fin ? new Date(pausa.fin).toLocaleTimeString() : '-'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                            {pausa.duracion || 
-                              (pausa.fin && pausa.inicio ? 
-                                (() => {
-                                  const inicio = new Date(pausa.inicio);
-                                  const fin = new Date(pausa.fin);
-                                  const duracionMs = fin.getTime() - inicio.getTime();
-                                  const minutos = Math.floor(duracionMs / 60000);
-                                  const segundos = Math.floor((duracionMs % 60000) / 1000);
-                                  return `${minutos}m ${segundos}s`;
-                                })() : 
-                                '-'
-                              )
-                            }
-                          </td>
-                          <td className="px-4 py-3 text-sm text-neutral-800">
-                            {pausa.motivo}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+
           </>
         )}
         
