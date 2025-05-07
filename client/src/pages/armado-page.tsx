@@ -1186,7 +1186,7 @@ export default function ArmadoPage() {
           <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {producto.ubicacion || 'Sin ubicación'}</p>
           <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {producto.descripcion || 'Sin descripción'}</p>
           
-          {/* NUEVO COMPONENTE DE CONTROLES SIMPLIFICADOS */}
+          {/* NUEVO COMPONENTE DE CONTROLES SIMPLIFICADOS CON MOTIVO */}
           <div className="mb-4">
             <ArmadoSimpleControls 
               cantidadSolicitada={producto.cantidad}
@@ -1195,60 +1195,16 @@ export default function ArmadoPage() {
                 console.log(`COMPONENTE - Cantidad cambiada a: ${nuevaCantidad}`);
                 setRecolectados(nuevaCantidad);
               }}
+              necesitaMotivo={true}
+              motivo={motivo}
+              onMotivoChange={(nuevoMotivo) => {
+                console.log(`COMPONENTE - Motivo cambiado a: ${nuevoMotivo}`);
+                setMotivo(nuevoMotivo);
+              }}
             />
           </div>
           
-          {/* Selector de motivo si la cantidad a recolectar es 0 o menor a la requerida */}
-          {(cantidadMostrada === 0 || cantidadMostrada < producto.cantidad) && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {cantidadMostrada === 0 
-                  ? "Seleccione motivo para producto no recolectado:" 
-                  : "Seleccione motivo para faltante parcial:"}
-              </label>
-              <select
-                className="w-full p-2 border border-gray-300 rounded-md"
-                value={motivo}
-                onChange={(e) => {
-                  setMotivo(e.target.value);
-                  if (e.target.value !== "Otro motivo") {
-                    // Si no es "Otro motivo", limpiamos el campo personalizado
-                    setMotivoPersonalizado("");
-                  }
-                }}
-                required
-              >
-                <option value="">Seleccione un motivo</option>
-                {motivosPreestablecidos.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              
-              {motivo === "Otro motivo" && (
-                <div className="mt-2 flex space-x-2">
-                  <Input
-                    type="text"
-                    placeholder="Especifique el motivo"
-                    className="p-2 border border-gray-300 rounded-md flex-grow"
-                    value={motivoPersonalizado || ""}
-                    onChange={(e) => {
-                      setMotivoPersonalizado(e.target.value);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="bg-green-600 text-white p-2 rounded-md hover:bg-green-700 flex items-center justify-center"
-                    onClick={() => setMotivo(motivoPersonalizado)}
-                    disabled={!motivoPersonalizado}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          {/* El selector de motivo ahora está integrado en el componente ArmadoSimpleControls */}
           
           <button 
             className={`w-full py-3 rounded-md text-lg font-medium mb-4 ${
