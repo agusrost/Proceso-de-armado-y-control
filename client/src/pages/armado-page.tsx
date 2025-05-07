@@ -774,13 +774,21 @@ export default function ArmadoPage() {
           const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
           
           console.log(`SELECCIÓN DEFAULT: Producto pendiente encontrado: ${primerProductoPendiente.codigo}`);
+          console.log(`Iniciando cantidad recolectada con: ${primerProductoPendiente.cantidad} unidades (cantidad solicitada)`);
+          
           setCurrentProductoIndex(primerProductoPendienteIndex);
+          setRecolectados(primerProductoPendiente.cantidad); // Inicializar con la cantidad solicitada
           return;
         }
         
         // Si todos los productos están completados, seleccionar el primero
         console.log("SELECCIÓN DEFAULT: Todos los productos están completos. Seleccionando el primero.");
         setCurrentProductoIndex(0);
+        // También establecer recolectados para el primer producto
+        if (data.length > 0) {
+          console.log(`Iniciando cantidad recolectada del primer producto con: ${data[0].cantidad} unidades`);
+          setRecolectados(data[0].cantidad);
+        }
       };
       
       fetchProductos();
@@ -1139,25 +1147,33 @@ export default function ArmadoPage() {
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
-                // Si es null, establecer a 0
+                // Si es null, establecer a la cantidad requerida primero
                 if (recolectados === null) {
+                  console.log(`Inicializando cantidad con ${producto.cantidad} (cantidad requerida)`);
                   setRecolectados(producto.cantidad);
                 } else {
-                  setRecolectados(Math.max(0, recolectados - 1));
+                  // Luego decrementar
+                  const nuevoValor = Math.max(0, recolectados - 1);
+                  console.log(`Decrementando cantidad de ${recolectados} a ${nuevoValor}`);
+                  setRecolectados(nuevoValor);
                 }
               }}
             >
               −
             </button>
-            <span className="text-2xl font-semibold">{recolectados !== null ? recolectados : (producto.recolectado !== null ? producto.recolectado : producto.cantidad)}</span>
+            <span className="text-2xl font-semibold">{recolectados !== null ? recolectados : producto.cantidad}</span>
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
                 // Si es null, establecer a la cantidad solicitada
                 if (recolectados === null) {
+                  console.log(`Inicializando cantidad con ${producto.cantidad} (cantidad requerida)`);
                   setRecolectados(producto.cantidad);
                 } else {
-                  setRecolectados(Math.min(producto.cantidad, recolectados + 1));
+                  // Luego incrementar
+                  const nuevoValor = Math.min(producto.cantidad, recolectados + 1);
+                  console.log(`Incrementando cantidad de ${recolectados} a ${nuevoValor}`);
+                  setRecolectados(nuevoValor);
                 }
               }}
             >
