@@ -349,7 +349,7 @@ export default function ArmadoPage() {
         if (currentProductoIndex < productos.length - 1) {
           // Aún hay más productos, avanzar al siguiente
           setCurrentProductoIndex(currentProductoIndex + 1);
-          // Establecer valor inicial a 0 o al valor ya recolectado si existe
+          // Establecer valor inicial a la cantidad solicitada o al valor ya recolectado si existe
           const siguienteProducto = productos[currentProductoIndex + 1];
           if (siguienteProducto) {
             setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : siguienteProducto.cantidad);
@@ -1153,9 +1153,9 @@ export default function ArmadoPage() {
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
-                // Si es null, establecer a 1
+                // Si es null, establecer a la cantidad solicitada
                 if (recolectados === null) {
-                  setRecolectados(1);
+                  setRecolectados(producto.cantidad);
                 } else {
                   setRecolectados(Math.min(producto.cantidad, recolectados + 1));
                 }
