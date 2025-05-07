@@ -459,6 +459,12 @@ export default function ArmadoPage() {
         
         const data = await res.json();
         console.log(`API - Pausa ${pausaId} finalizada correctamente`);
+        
+        // Registrar información sobre ultimoProductoId si está disponible
+        if (data.ultimoProductoId) {
+          console.log(`API - La pausa finalizada tiene ultimoProductoId: ${data.ultimoProductoId}`);
+        }
+        
         return data;
       } catch (err: any) {
         console.error("Error en API al finalizar pausa:", err);
@@ -1318,6 +1324,10 @@ export default function ArmadoPage() {
                     onSuccess: (data) => {
                       console.log("Pausa finalizada con éxito, refrescando datos");
                       
+                      // Extraer el ID del último producto si está disponible
+                      const ultimoProductoId = data.ultimoProductoId;
+                      console.log(`PAUSA FINALIZADA: ultimoProductoId=${ultimoProductoId}`);
+                      
                       // Primero actualizamos los datos del pedido
                       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
                       
@@ -1338,56 +1348,67 @@ export default function ArmadoPage() {
                             .then(data => {
                               console.log(`Productos recargados (${data.length})`);
                               
-                              // IMPORTANTE: Al reanudar, debemos encontrar el último producto sin procesar 
-                              // en lugar de volver al primero usando lógica FIFO estricta
+                              // IMPORTANTE: Priorizar el último producto procesado
+                              if (ultimoProductoId) {
+                                // Si tenemos un ID de último producto, intentar encontrarlo primero
+                                const ultimoProductoIndex = data.findIndex(p => p.id === ultimoProductoId);
+                                
+                                if (ultimoProductoIndex !== -1) {
+                                  const ultimoProducto = data[ultimoProductoIndex];
+                                  console.log(`REANUDAR: Continuando desde producto ${ultimoProducto.codigo} (ID: ${ultimoProductoId})`);
+                                  
+                                  setCurrentProductoIndex(ultimoProductoIndex);
+                                  setRecolectados(ultimoProducto.recolectado !== null ? ultimoProducto.recolectado : 0);
+                                  return; // Salir temprano si encontramos el último producto
+                                } else {
+                                  console.log(`⚠️ No se encontró el producto con ID ${ultimoProductoId}, buscando alternativas...`);
+                                }
+                              }
                               
-                              // NUEVO ENFOQUE: Procesar siempre productos en orden FIFO estricto
-                              // Para garantizar consistencia, ordenamos siempre por código
-                              console.log("REANUDAR: Ordenando productos por FIFO estricto (código)");
-                              const productosOrdenados = [...data].sort((a, b) => 
-                                a.codigo.localeCompare(b.codigo)
-                              );
+                              // Si no hay último producto o no se encontró, usar la lógica FIFO
+                              console.log("REANUDAR: Usando lógica FIFO para encontrar próximo producto");
                               
-                              // Encontrar el primer producto sin procesar en el orden FIFO
-                              const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
+                              // Buscar el primer producto sin procesar (null)
+                              const primerSinProcesar = data.find(p => p.recolectado === null);
                               
                               if (primerSinProcesar) {
-                                // Encontrar este producto en el array original para obtener su índice
                                 const primerSinProcesarIndex = data.findIndex(p => p.id === primerSinProcesar.id);
                                 
                                 console.log(`REANUDAR FIFO: Primer producto sin procesar: ${primerSinProcesar.codigo} (Índice ${primerSinProcesarIndex})`);
                                 setCurrentProductoIndex(primerSinProcesarIndex);
-                                setRecolectados(primerSinProcesar.cantidad);
-                              } else {
-                                // Si todos los productos están procesados, buscar los parciales sin motivo
-                                const parcialSinMotivo = productosOrdenados.find(p => 
-                                  p.recolectado !== null && 
-                                  p.recolectado < p.cantidad && 
-                                  !p.motivo
-                                );
+                                setRecolectados(0);
+                                return;
+                              }
+                              
+                              // Si todos los productos están procesados, buscar los parciales sin motivo
+                              const parcialSinMotivo = data.find(p => 
+                                p.recolectado !== null && 
+                                p.recolectado < p.cantidad && 
+                                !p.motivo
+                              );
+                              
+                              if (parcialSinMotivo) {
+                                const parcialSinMotivoIndex = data.findIndex(p => p.id === parcialSinMotivo.id);
+                                console.log(`REANUDAR PARCIAL: Producto con faltante sin motivo: ${parcialSinMotivo.codigo} (Índice ${parcialSinMotivoIndex})`);
                                 
-                                if (parcialSinMotivo) {
-                                  const parcialSinMotivoIndex = data.findIndex(p => p.id === parcialSinMotivo.id);
-                                  console.log(`REANUDAR PARCIAL: Producto con faltante sin motivo: ${parcialSinMotivo.codigo} (Índice ${parcialSinMotivoIndex})`);
-                                  
-                                  setCurrentProductoIndex(parcialSinMotivoIndex);
-                                  setRecolectados(parcialSinMotivo.recolectado);
-                                } else {
-                                  // Si todos están procesados con motivo, quedamos en el primero que esté incompleto
-                                  const productoIncompleto = productosOrdenados.find(p => 
-                                    p.recolectado !== null && p.recolectado < p.cantidad
-                                  );
-                                  
-                                  if (productoIncompleto) {
-                                    const incompletoIndex = data.findIndex(p => p.id === productoIncompleto.id);
-                                    console.log(`REANUDAR: Encontrado producto incompleto: ${productoIncompleto.codigo} (Índice ${incompletoIndex})`);
-                                    
-                                    setCurrentProductoIndex(incompletoIndex);
-                                    setRecolectados(productoIncompleto.recolectado);
-                                  } else {
-                                    console.log("REANUDAR: Todos los productos ya están procesados correctamente");
-                                  }
-                                }
+                                setCurrentProductoIndex(parcialSinMotivoIndex);
+                                setRecolectados(parcialSinMotivo.recolectado);
+                                return;
+                              }
+                              
+                              // Si todos están procesados con motivo, quedamos en el primero que esté incompleto
+                              const productoIncompleto = data.find(p => 
+                                p.recolectado !== null && p.recolectado < p.cantidad
+                              );
+                              
+                              if (productoIncompleto) {
+                                const incompletoIndex = data.findIndex(p => p.id === productoIncompleto.id);
+                                console.log(`REANUDAR: Encontrado producto incompleto: ${productoIncompleto.codigo} (Índice ${incompletoIndex})`);
+                                
+                                setCurrentProductoIndex(incompletoIndex);
+                                setRecolectados(productoIncompleto.recolectado);
+                              } else {
+                                console.log("REANUDAR: Todos los productos ya están procesados correctamente");
                               }
                               
                               setProductos(data);

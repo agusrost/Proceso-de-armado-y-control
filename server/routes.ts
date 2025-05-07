@@ -3184,13 +3184,43 @@ export async function registerRoutes(app: Application): Promise<Server> {
         });
       }
       
+      // Obtener información del último producto procesado
+      let ultimoProductoId = null;
+      
+      // Verificar si la pausa tiene un campo ultimo_producto_id
+      if (pausa.ultimo_producto_id) {
+        ultimoProductoId = pausa.ultimo_producto_id;
+        console.log(`✅ Pausa ${pausaId} tiene último producto ID: ${ultimoProductoId}`);
+      }
+      
+      // Si no tiene último producto en la pausa, obtener el último producto sin procesar
+      if (!ultimoProductoId && pausa.pedidoId) {
+        console.log(`🔍 Buscando último producto sin procesar para pedido ${pausa.pedidoId}`);
+        
+        const productos = await storage.getProductosByPedidoId(pausa.pedidoId);
+        
+        // Ordenar productos por código (FIFO)
+        const productosOrdenados = productos.sort((a, b) => 
+          a.codigo.localeCompare(b.codigo)
+        );
+        
+        // Encontrar el primer producto sin procesar
+        const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
+        
+        if (primerSinProcesar) {
+          ultimoProductoId = primerSinProcesar.id;
+          console.log(`📋 Usando primer producto sin procesar como referencia: ${primerSinProcesar.codigo} (ID: ${ultimoProductoId})`);
+        }
+      }
+      
       console.log("✅ Pausa encontrada:", {
         id: pausa.id,
         pedidoId: pausa.pedidoId,
         tipo: pausa.tipo,
         motivo: pausa.motivo,
         inicio: pausa.inicio,
-        fin: pausa.fin
+        fin: pausa.fin,
+        ultimoProductoId
       });
       
       // Verificar que la pausa no esté ya finalizada
@@ -3201,7 +3231,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return res.status(200).json({ 
           success: true,
           message: "Esta pausa ya estaba finalizada previamente",
-          pausa
+          pausa,
+          ultimoProductoId
         });
       }
       
