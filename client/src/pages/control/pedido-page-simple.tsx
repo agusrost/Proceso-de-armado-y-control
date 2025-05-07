@@ -105,6 +105,8 @@ export default function ControlPedidoSimplePage() {
   // Efecto para cargar datos cuando se reciben las respuestas de las consultas
   useEffect(() => {
     if (controlActivoQuery.data && controlActivoQuery.data.productos) {
+      console.log("controlActivoQuery.data:", controlActivoQuery.data);
+      
       // Inicializar estado de pausa
       const pausaActiva = controlActivoQuery.data.pausaActiva === true;
       const pausaId = controlActivoQuery.data.pausaId || null;
@@ -191,6 +193,32 @@ export default function ControlPedidoSimplePage() {
       }
     }
   }, [productosControlados]);
+  
+  // Detectar productos con excedentes y mostrar el diálogo
+  useEffect(() => {
+    if (productosControlados.length > 0) {
+      // Buscar productos con excedentes
+      const productosExcedentes = productosControlados.filter(p => p.estado === 'excedente');
+      
+      if (productosExcedentes.length > 0) {
+        console.log("Productos excedentes detectados:", productosExcedentes);
+        
+        // Tomar el primero para mostrar el diálogo
+        const productoExcedente = productosExcedentes[0];
+        const excedente = productoExcedente.controlado - productoExcedente.cantidad;
+        
+        if (excedente > 0 && !productoExcedenteDialog.open) {
+          setProductoExcedenteDialog({
+            open: true,
+            codigo: productoExcedente.codigo,
+            descripcion: productoExcedente.descripcion,
+            cantidad: productoExcedente.cantidad,
+            excedente: excedente
+          });
+        }
+      }
+    }
+  }, [productosControlados, productoExcedenteDialog.open]);
 
   // Mutación para finalizar control
   const finalizarControlMutation = useMutation({
@@ -351,20 +379,26 @@ export default function ControlPedidoSimplePage() {
       queryClient.invalidateQueries({ queryKey: ['/api/control/pedidos', pedidoId, 'activo'] });
       
       // Verificar si el producto escaneado tiene excedentes
-      if (data.producto && data.cantidadEsperada !== undefined && data.cantidadControlada !== undefined) {
-        const excedente = data.cantidadControlada - data.cantidadEsperada;
-        
-        if (excedente > 0) {
-          setProductoExcedenteDialog({
-            open: true,
-            codigo: data.producto.codigo || codigo,
-            descripcion: data.producto.descripcion || "Producto",
-            cantidad: data.cantidadEsperada,
-            excedente: excedente
-          });
-          return; // No seguir con más acciones si hay excedente
+      console.log("Respuesta del servidor:", data);
+      
+      // Buscamos el producto en el control activo después de la actualización
+      setTimeout(() => {
+        const productoEscaneado = productosControlados.find(p => p.codigo === codigo);
+        if (productoEscaneado && productoEscaneado.estado === 'excedente') {
+          console.log("Producto excedente detectado:", productoEscaneado);
+          const excedente = productoEscaneado.controlado - productoEscaneado.cantidad;
+          
+          if (excedente > 0) {
+            setProductoExcedenteDialog({
+              open: true,
+              codigo: productoEscaneado.codigo,
+              descripcion: productoEscaneado.descripcion,
+              cantidad: productoEscaneado.cantidad,
+              excedente: excedente
+            });
+          }
         }
-      }
+      }, 500); // Esperamos a que se actualicen los datos después de la query invalidation
       
       // Si hay un mensaje de finalización automática
       if (data.finalizadoAutomaticamente) {
