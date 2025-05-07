@@ -672,6 +672,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(productos.pedidoId, pedidoId));
   }
   
+  async getProductoByCodigo(codigo: string): Promise<Producto | undefined> {
+    const [producto] = await db
+      .select()
+      .from(productos)
+      .where(eq(productos.codigo, codigo));
+    return producto;
+  }
+  
   async updateProducto(id: number, productoData: Partial<Producto>): Promise<Producto | undefined> {
     const [producto] = await db
       .update(productos)
