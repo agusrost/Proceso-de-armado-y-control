@@ -150,7 +150,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     queryKey: [`/api/pedidos/${pedidoId}`],
     enabled: isOpen && !!pedidoId,
     onSuccess: (data) => {
-      console.log('Datos del pedido recibidos:', data);
+      console.log('Datos del pedido recibidos:', JSON.stringify(data, null, 2));
       // Mostrar datos de control específicos para depuración
       console.log('Datos de control:', {
         controlador: data?.controlador,
