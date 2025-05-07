@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshC
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls";
 
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
@@ -1185,38 +1186,16 @@ export default function ArmadoPage() {
           <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {producto.ubicacion || 'Sin ubicación'}</p>
           <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {producto.descripcion || 'Sin descripción'}</p>
           
-          <div className="flex items-center justify-between border rounded-md mb-4">
-            <button 
-              className="px-4 py-2 text-2xl font-bold bg-gray-100 hover:bg-gray-200 rounded-l-md w-14 h-14 flex items-center justify-center"
-              onClick={() => {
-                // Primer asegurarnos que el valor inicial sea el correcto
-                const valorActual = recolectados !== null ? recolectados : producto.cantidad;
-                // Luego decrementar, nunca menor que 0
-                const nuevoValor = Math.max(0, valorActual - 1);
-                console.log(`BOTÓN - Decrementando cantidad de ${valorActual} a ${nuevoValor}`);
-                setRecolectados(nuevoValor);
-                // Para debug - mostrar alert para confirmar que el botón funciona
-                console.log("CLICK EN BOTÓN RESTA!");
+          {/* NUEVO COMPONENTE DE CONTROLES SIMPLIFICADOS */}
+          <div className="mb-4">
+            <ArmadoSimpleControls 
+              cantidadSolicitada={producto.cantidad}
+              cantidadInicial={cantidadMostrada}
+              onCantidadChange={(nuevaCantidad) => {
+                console.log(`COMPONENTE - Cantidad cambiada a: ${nuevaCantidad}`);
+                setRecolectados(nuevaCantidad);
               }}
-            >
-              <span className="text-2xl">−</span>
-            </button>
-            <span className="text-2xl font-semibold px-4">{cantidadMostrada}</span>
-            <button 
-              className="px-4 py-2 text-2xl font-bold bg-gray-100 hover:bg-gray-200 rounded-r-md w-14 h-14 flex items-center justify-center"
-              onClick={() => {
-                // Primero asegurarnos que el valor inicial sea el correcto
-                const valorActual = recolectados !== null ? recolectados : producto.cantidad;
-                // Luego incrementar, nunca mayor que la cantidad solicitada
-                const nuevoValor = Math.min(producto.cantidad, valorActual + 1);
-                console.log(`BOTÓN - Incrementando cantidad de ${valorActual} a ${nuevoValor}`);
-                setRecolectados(nuevoValor);
-                // Para debug - mostrar alert para confirmar que el botón funciona
-                console.log("CLICK EN BOTÓN SUMA!");
-              }}
-            >
-              +
-            </button>
+            />
           </div>
           
           {/* Selector de motivo si la cantidad a recolectar es 0 o menor a la requerida */}
