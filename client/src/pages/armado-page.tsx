@@ -1337,12 +1337,65 @@ export default function ArmadoPage() {
                             .then(res => res.json())
                             .then(data => {
                               console.log(`Productos recargados (${data.length})`);
+                              
+                              // IMPORTANTE: Al reanudar, debemos encontrar el último producto sin procesar 
+                              // en lugar de volver al primero usando lógica FIFO estricta
+                              
+                              // NUEVO ENFOQUE: Procesar siempre productos en orden FIFO estricto
+                              // Para garantizar consistencia, ordenamos siempre por código
+                              console.log("REANUDAR: Ordenando productos por FIFO estricto (código)");
+                              const productosOrdenados = [...data].sort((a, b) => 
+                                a.codigo.localeCompare(b.codigo)
+                              );
+                              
+                              // Encontrar el primer producto sin procesar en el orden FIFO
+                              const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
+                              
+                              if (primerSinProcesar) {
+                                // Encontrar este producto en el array original para obtener su índice
+                                const primerSinProcesarIndex = data.findIndex(p => p.id === primerSinProcesar.id);
+                                
+                                console.log(`REANUDAR FIFO: Primer producto sin procesar: ${primerSinProcesar.codigo} (Índice ${primerSinProcesarIndex})`);
+                                setCurrentProductoIndex(primerSinProcesarIndex);
+                                setRecolectados(primerSinProcesar.cantidad);
+                              } else {
+                                // Si todos los productos están procesados, buscar los parciales sin motivo
+                                const parcialSinMotivo = productosOrdenados.find(p => 
+                                  p.recolectado !== null && 
+                                  p.recolectado < p.cantidad && 
+                                  !p.motivo
+                                );
+                                
+                                if (parcialSinMotivo) {
+                                  const parcialSinMotivoIndex = data.findIndex(p => p.id === parcialSinMotivo.id);
+                                  console.log(`REANUDAR PARCIAL: Producto con faltante sin motivo: ${parcialSinMotivo.codigo} (Índice ${parcialSinMotivoIndex})`);
+                                  
+                                  setCurrentProductoIndex(parcialSinMotivoIndex);
+                                  setRecolectados(parcialSinMotivo.recolectado);
+                                } else {
+                                  // Si todos están procesados con motivo, quedamos en el primero que esté incompleto
+                                  const productoIncompleto = productosOrdenados.find(p => 
+                                    p.recolectado !== null && p.recolectado < p.cantidad
+                                  );
+                                  
+                                  if (productoIncompleto) {
+                                    const incompletoIndex = data.findIndex(p => p.id === productoIncompleto.id);
+                                    console.log(`REANUDAR: Encontrado producto incompleto: ${productoIncompleto.codigo} (Índice ${incompletoIndex})`);
+                                    
+                                    setCurrentProductoIndex(incompletoIndex);
+                                    setRecolectados(productoIncompleto.recolectado);
+                                  } else {
+                                    console.log("REANUDAR: Todos los productos ya están procesados correctamente");
+                                  }
+                                }
+                              }
+                              
                               setProductos(data);
                               
                               // Notificación de éxito tras garantizar que los datos se han actualizado
                               toast({
                                 title: "Pausa finalizada",
-                                description: "El armado se ha reanudado correctamente",
+                                description: "El armado se ha reanudado correctamente en el último producto pendiente",
                               });
                             });
                         }
