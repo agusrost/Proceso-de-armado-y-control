@@ -1071,17 +1071,26 @@ export default function ArmadoPage() {
     );
   }
 
-  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO
-  // Esta función asegura que un producto siempre tenga una cantidad inicial correcta
+  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - VERSIÓN MEJORADA
   const asegurarCantidadInicial = (producto) => {
-    if (recolectados === null && producto) {
-      console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.cantidad}`);
+    // Forzar siempre el valor correcto
+    console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.cantidad}`);
+    
+    // Usar el valor del estado si existe, si no, forzar la cantidad del producto
+    const valorActual = recolectados !== null ? recolectados : producto.cantidad;
+    
+    // Siempre actualizar el estado para garantizar la consistencia
+    if (recolectados === null || recolectados !== producto.cantidad) {
+      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${producto.cantidad}`);
+      // Actualización inmediata y programada para garantizar que se aplique
+      setRecolectados(producto.cantidad);
       setTimeout(() => {
         setRecolectados(producto.cantidad);
       }, 50);
-      return producto.cantidad;
     }
-    return recolectados !== null ? recolectados : producto.cantidad;
+    
+    // SIEMPRE retornar la cantidad del producto, no el estado
+    return producto.cantidad;
   };
 
   // Renderizar la interfaz simplificada
@@ -1163,16 +1172,12 @@ export default function ArmadoPage() {
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
-                // Si es null, establecer a la cantidad requerida primero
-                if (recolectados === null) {
-                  console.log(`Inicializando cantidad con ${producto.cantidad} (cantidad requerida)`);
-                  setRecolectados(producto.cantidad);
-                } else {
-                  // Luego decrementar
-                  const nuevoValor = Math.max(0, recolectados - 1);
-                  console.log(`Decrementando cantidad de ${recolectados} a ${nuevoValor}`);
-                  setRecolectados(nuevoValor);
-                }
+                // Primero asegurarnos que el valor inicial sea el correcto si es null
+                const valorActual = recolectados !== null ? recolectados : producto.cantidad;
+                // Luego decrementar, nunca menor que 0
+                const nuevoValor = Math.max(0, valorActual - 1);
+                console.log(`Decrementando cantidad de ${valorActual} a ${nuevoValor}`);
+                setRecolectados(nuevoValor);
               }}
             >
               −
@@ -1181,16 +1186,12 @@ export default function ArmadoPage() {
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
-                // Si es null, establecer a la cantidad solicitada
-                if (recolectados === null) {
-                  console.log(`Inicializando cantidad con ${producto.cantidad} (cantidad requerida)`);
-                  setRecolectados(producto.cantidad);
-                } else {
-                  // Luego incrementar
-                  const nuevoValor = Math.min(producto.cantidad, recolectados + 1);
-                  console.log(`Incrementando cantidad de ${recolectados} a ${nuevoValor}`);
-                  setRecolectados(nuevoValor);
-                }
+                // Primero asegurarnos que el valor inicial sea el correcto si es null
+                const valorActual = recolectados !== null ? recolectados : producto.cantidad;
+                // Luego incrementar, nunca mayor que la cantidad solicitada
+                const nuevoValor = Math.min(producto.cantidad, valorActual + 1);
+                console.log(`Incrementando cantidad de ${valorActual} a ${nuevoValor}`);
+                setRecolectados(nuevoValor);
               }}
             >
               +
@@ -1258,11 +1259,12 @@ export default function ArmadoPage() {
             onClick={() => {
               if (!producto || pausaActiva) return;
               
-              // Si recolectados es null, establecerlo como la cantidad requerida
+              // Usar siempre la cantidad del producto como cantidad inicial
+              // No importa si recolectados es null
               if (recolectados === null) {
                 console.log("Recolectados es null, estableciendo a la cantidad requerida:", producto.cantidad);
                 setRecolectados(producto.cantidad);
-                return;
+                // No retornamos - seguimos con el proceso
               }
               
               // Validación para productos no recolectados o con faltantes parciales
