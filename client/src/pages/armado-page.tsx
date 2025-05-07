@@ -848,21 +848,38 @@ export default function ArmadoPage() {
             // NUEVA LÓGICA MEJORADA: Usar esProductoCompletado para mostrar SOLO productos incompletos 
             // independientemente del ultimoProductoId
             
-            // Productos realmente pendientes (sin procesar o parciales sin motivo)
-            const productosRealmendePendientes = productos.filter(p => !esProductoCompletado(p));
+            // NUEVO ENFOQUE: Procesar siempre productos en orden FIFO estricto
+            // Si hay productos sin procesar, comenzar desde el primero (índice más bajo)
+            const productosOrdenados = [...productos].sort((a, b) => a.id - b.id);
+            console.log("Productos ordenados por ID (FIFO):", productosOrdenados.map(p => p.codigo));
             
-            if (productosRealmendePendientes.length > 0) {
-              // Ordenar para respetar FIFO
-              productosRealmendePendientes.sort((a, b) => a.id - b.id);
+            // Encontrar el primer producto sin procesar
+            const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
+            
+            if (primerSinProcesar) {
+              const primerSinProcesarIndex = productos.findIndex(p => p.id === primerSinProcesar.id);
+              console.log(`FIFO ESTRICTO: Primer producto sin procesar: ${primerSinProcesar.codigo} (ID: ${primerSinProcesar.id})`);
               
-              const primerPendiente = productosRealmendePendientes[0];
-              const primerPendienteIndex = productos.findIndex(p => p.id === primerPendiente.id);
+              setCurrentProductoIndex(primerSinProcesarIndex);
+              // Inicializar con la cantidad solicitada, siempre
+              setRecolectados(primerSinProcesar.cantidad);
+              console.log(`Inicializando cantidad: ${primerSinProcesar.cantidad} para ${primerSinProcesar.codigo}`);
+              return;
+            }
+            
+            // Si todos tienen algún proceso, buscar los que tienen recolección parcial sin motivo
+            const parcialSinMotivo = productosOrdenados.find(p => 
+              p.recolectado !== null && 
+              p.recolectado < p.cantidad && 
+              !p.motivo
+            );
+            
+            if (parcialSinMotivo) {
+              const parcialSinMotivoIndex = productos.findIndex(p => p.id === parcialSinMotivo.id);
+              console.log(`FIFO - PARCIALES: Producto parcial sin motivo: ${parcialSinMotivo.codigo} (${parcialSinMotivo.recolectado}/${parcialSinMotivo.cantidad})`);
               
-              console.log(`PRIORIDAD 1: Encontrado producto pendiente: ${primerPendiente.codigo}`);
-              console.log(`Estado: ${primerPendiente.recolectado === null ? 'Sin procesar' : 'Parcial sin motivo'}`);
-              
-              setCurrentProductoIndex(primerPendienteIndex);
-              setRecolectados(primerPendiente.recolectado !== null ? primerPendiente.recolectado : primerPendiente.cantidad);
+              setCurrentProductoIndex(parcialSinMotivoIndex);
+              setRecolectados(parcialSinMotivo.recolectado);
               return;
             }
             
@@ -1170,28 +1187,32 @@ export default function ArmadoPage() {
           
           <div className="flex items-center justify-between border rounded-md mb-4">
             <button 
-              className="px-4 py-2 text-2xl font-bold"
+              className="px-4 py-2 text-2xl font-bold bg-gray-100 hover:bg-gray-200 rounded-l-md w-14 h-14 flex items-center justify-center"
               onClick={() => {
-                // Primero asegurarnos que el valor inicial sea el correcto si es null
+                // Primer asegurarnos que el valor inicial sea el correcto
                 const valorActual = recolectados !== null ? recolectados : producto.cantidad;
                 // Luego decrementar, nunca menor que 0
                 const nuevoValor = Math.max(0, valorActual - 1);
-                console.log(`Decrementando cantidad de ${valorActual} a ${nuevoValor}`);
+                console.log(`BOTÓN - Decrementando cantidad de ${valorActual} a ${nuevoValor}`);
                 setRecolectados(nuevoValor);
+                // Para debug - mostrar alert para confirmar que el botón funciona
+                console.log("CLICK EN BOTÓN RESTA!");
               }}
             >
-              −
+              <span className="text-2xl">−</span>
             </button>
-            <span className="text-2xl font-semibold">{cantidadMostrada}</span>
+            <span className="text-2xl font-semibold px-4">{cantidadMostrada}</span>
             <button 
-              className="px-4 py-2 text-2xl font-bold"
+              className="px-4 py-2 text-2xl font-bold bg-gray-100 hover:bg-gray-200 rounded-r-md w-14 h-14 flex items-center justify-center"
               onClick={() => {
-                // Primero asegurarnos que el valor inicial sea el correcto si es null
+                // Primero asegurarnos que el valor inicial sea el correcto
                 const valorActual = recolectados !== null ? recolectados : producto.cantidad;
                 // Luego incrementar, nunca mayor que la cantidad solicitada
                 const nuevoValor = Math.min(producto.cantidad, valorActual + 1);
-                console.log(`Incrementando cantidad de ${valorActual} a ${nuevoValor}`);
+                console.log(`BOTÓN - Incrementando cantidad de ${valorActual} a ${nuevoValor}`);
                 setRecolectados(nuevoValor);
+                // Para debug - mostrar alert para confirmar que el botón funciona
+                console.log("CLICK EN BOTÓN SUMA!");
               }}
             >
               +
