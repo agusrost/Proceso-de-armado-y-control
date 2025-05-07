@@ -1030,6 +1030,53 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Obtener detalles del control
       const detalles = await storage.getControlDetalleByControlId(control.id);
       
+      // Obtener pausas del control
+      const pausas = await storage.getPausasByPedidoId(control.pedidoId, true);
+      
+      // Calcular tiempoNeto (tiempoBruto menos tiempo de pausas)
+      let tiempoNeto = control.tiempoTotal;
+      
+      if (control.tiempoTotal && pausas && pausas.length > 0) {
+        // Convertir tiempo bruto a segundos
+        const partesTiempo = control.tiempoTotal.split(':').map(Number);
+        let tiempoTotalSegundos = 0;
+        
+        if (partesTiempo.length === 3) {
+          // Formato HH:MM:SS
+          tiempoTotalSegundos = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60) + partesTiempo[2];
+        } else if (partesTiempo.length === 2) {
+          // Formato HH:MM
+          tiempoTotalSegundos = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60);
+        }
+        
+        // Calcular tiempo total de pausas en segundos
+        const tiempoPausasTotalSegundos = pausas.reduce((total, pausa) => {
+          if (pausa.duracion) {
+            const partesDuracion = pausa.duracion.split(':').map(Number);
+            if (partesDuracion.length === 3) {
+              // Formato HH:MM:SS
+              return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2]);
+            } else if (partesDuracion.length === 2) {
+              // Formato HH:MM
+              return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60));
+            }
+          } else if (pausa.inicio && pausa.fin) {
+            // Si no hay duración pero sí inicio y fin, calculamos
+            const pausaInicio = new Date(pausa.inicio);
+            const pausaFin = new Date(pausa.fin);
+            return total + Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
+          }
+          return total;
+        }, 0);
+        
+        // Calcular tiempo neto
+        const tiempoNetoSegundos = Math.max(0, tiempoTotalSegundos - tiempoPausasTotalSegundos);
+        const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
+        const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
+        const netoSegundos = tiempoNetoSegundos % 60;
+        tiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}:${netoSegundos.toString().padStart(2, '0')}`;
+      }
+      
       // Enriquecer los detalles con información de productos
       const detallesEnriquecidos = await Promise.all(
         detalles.map(async (detalle) => {
@@ -1054,6 +1101,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Construir objeto de respuesta
       const respuesta = {
         ...control,
+        tiempoNeto,
+        pausas: pausas || [],
         pedido: pedido ? {
           ...pedido,
           armadorNombre

@@ -190,16 +190,37 @@ export default function ControlHistorialDetallePage() {
                         <Clock className="h-4 w-4 mr-2" />
                         Tiempo
                       </h3>
-                      <div className="flex items-center space-x-2">
-                        <span>
-                          {controlHistorico.tiempoTotal || "No finalizado"}
-                        </span>
-                        <span className="text-sm text-neutral-500">
-                          {controlHistorico.inicio && `Inicio: ${formatDateTime(controlHistorico.inicio)}`}
-                        </span>
-                      </div>
-                      <div className="text-sm text-neutral-500">
-                        {controlHistorico.fin && `Fin: ${formatDateTime(controlHistorico.fin)}`}
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">Inicio:</span>
+                          <span>
+                            {controlHistorico.inicio ? formatDateTime(controlHistorico.inicio) : "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">Fin:</span>
+                          <span>
+                            {controlHistorico.fin ? formatDateTime(controlHistorico.fin) : "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">T. Bruto:</span>
+                          <span>
+                            {controlHistorico.tiempoTotal || "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">T. Neto:</span>
+                          <span>
+                            {controlHistorico.tiempoNeto || controlHistorico.tiempoTotal || "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">Pausas:</span>
+                          <span>
+                            {controlHistorico.pausas?.length || "0"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
