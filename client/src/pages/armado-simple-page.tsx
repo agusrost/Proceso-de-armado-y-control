@@ -66,14 +66,14 @@ export default function ArmadoSimplePage() {
   // Determinar el producto actual basado en el algoritmo de selección
   useEffect(() => {
     if (productos && productos.length > 0) {
-      // Buscar el primer producto con 0 unidades recolectadas
-      const primerCero = productos.findIndex((p: any) => p.recolectado === null || p.recolectado === 0);
+      // Buscar el primer producto sin recolectar (null)
+      const primerNoRecolectado = productos.findIndex((p: any) => p.recolectado === null);
       
-      if (primerCero !== -1) {
-        // Encontramos un producto con 0 unidades recolectadas
-        setCurrentProductoIndex(primerCero);
+      if (primerNoRecolectado !== -1) {
+        // Encontramos un producto sin recolectar
+        setCurrentProductoIndex(primerNoRecolectado);
       } else {
-        // Si no hay productos con 0 unidades, buscar el primero incompleto
+        // Si no hay productos sin recolectar, buscar el primero incompleto
         const primerIncompleto = productos.findIndex(
           (p: any) => p.recolectado !== null && p.recolectado < p.cantidad
         );
@@ -92,10 +92,18 @@ export default function ArmadoSimplePage() {
   useEffect(() => {
     if (productos && productos[currentProductoIndex]) {
       setCurrentProducto(productos[currentProductoIndex]);
-      // Inicializar cantidad con lo que ya esté recolectado o 0
-      setCantidad(productos[currentProductoIndex].recolectado || 0);
+      // Inicializar cantidad con lo que ya esté recolectado o con la cantidad solicitada
+      setCantidad(
+        productos[currentProductoIndex].recolectado !== null && productos[currentProductoIndex].recolectado !== undefined
+          ? productos[currentProductoIndex].recolectado
+          : productos[currentProductoIndex].cantidad
+      );
     }
   }, [productos, currentProductoIndex]);
+  
+  // Estado para gestionar motivo del faltante
+  const [showMotivoInput, setShowMotivoInput] = useState(false);
+  const [motivo, setMotivo] = useState("");
   
   // Manejar continuar
   const handleContinuar = () => {
@@ -111,15 +119,42 @@ export default function ArmadoSimplePage() {
       return;
     }
     
-    // Determinar si necesitamos enviar motivo (faltante)
-    const motivoParaEnviar = cantidad < currentProducto.cantidad ? "Faltante" : undefined;
+    // Si hay menos cantidad de la solicitada y no estamos mostrando el input de motivo
+    if (cantidad < currentProducto.cantidad && !showMotivoInput) {
+      setShowMotivoInput(true);
+      return;
+    }
     
-    // Actualizar producto
-    actualizarProductoMutation.mutate({
-      id: currentProducto.id,
-      recolectado: cantidad,
-      motivo: motivoParaEnviar
-    });
+    // Si hay menos cantidad de la solicitada y estamos mostrando el input de motivo
+    if (cantidad < currentProducto.cantidad && showMotivoInput) {
+      // Verificar que se haya especificado un motivo
+      if (!motivo) {
+        toast({
+          title: "Motivo requerido",
+          description: "Por favor, especifique el motivo del faltante",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Actualizar producto con el motivo del faltante
+      actualizarProductoMutation.mutate({
+        id: currentProducto.id,
+        recolectado: cantidad,
+        motivo: motivo
+      });
+      
+      // Resetear estados
+      setShowMotivoInput(false);
+      setMotivo("");
+    } else {
+      // Si la cantidad es completa, enviar sin motivo
+      actualizarProductoMutation.mutate({
+        id: currentProducto.id,
+        recolectado: cantidad,
+        motivo: undefined
+      });
+    }
   };
   
   // Vista de carga
@@ -174,12 +209,41 @@ export default function ArmadoSimplePage() {
             </button>
           </div>
           
+          {/* Mostrar campo de motivo si la cantidad es menor a la solicitada */}
+          {showMotivoInput && (
+            <div className="mb-4">
+              <p className="text-red-500 font-medium mb-2">
+                Seleccione motivo para producto incompleto:
+              </p>
+              <select
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md mb-2"
+              >
+                <option value="">Seleccione un motivo</option>
+                <option value="Faltante en Stock">Faltante en Stock</option>
+                <option value="Producto dañado">Producto dañado</option>
+                <option value="Ubicación incorrecta">Ubicación incorrecta</option>
+                <option value="Producto no encontrado">Producto no encontrado</option>
+                <option value="Otro">Otro</option>
+              </select>
+              {motivo === "Otro" && (
+                <Input
+                  type="text"
+                  placeholder="Especifique el motivo"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  onChange={(e) => setMotivo(e.target.value)}
+                />
+              )}
+            </div>
+          )}
+          
           <Button 
             onClick={handleContinuar}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg py-6"
             disabled={actualizarProductoMutation.isPending}
           >
-            {actualizarProductoMutation.isPending ? "Procesando..." : "CONTINUAR"}
+            {actualizarProductoMutation.isPending ? "Procesando..." : (showMotivoInput ? "GUARDAR" : "CONTINUAR")}
           </Button>
         </div>
         
