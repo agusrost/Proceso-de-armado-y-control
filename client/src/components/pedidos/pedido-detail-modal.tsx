@@ -151,6 +151,16 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     enabled: isOpen && !!pedidoId,
     onSuccess: (data) => {
       console.log('Datos del pedido recibidos:', data);
+      // Mostrar datos de control específicos para depuración
+      console.log('Datos de control:', {
+        controlador: data?.controlador,
+        controladoPor: data?.controladoPor,
+        controlInicio: data?.controlInicio,
+        controlFin: data?.controlFin,
+        controlTiempo: data?.controlTiempo,
+        controlTiempoNeto: data?.controlTiempoNeto,
+        controlPausas: data?.controlPausas
+      });
     },
     onError: (err) => {
       console.error('Error al cargar pedido:', err);
@@ -486,12 +496,12 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                             className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 hover:underline text-sm font-semibold"
                             onClick={() => {
                               setPausasDialogTitle("Pausas de Control");
-                              setPausasDialogData(pedido.pausas?.filter(p => p.tipo === 'control') || []);
+                              setPausasDialogData(pedido.controlPausas || []);
                               setPausasDialogTipo('control');
                               setPausasDialogOpen(true);
                             }}
                           >
-                            {pedido.pausas?.filter(p => p.tipo === 'control').length || 0} {pedido.pausas?.filter(p => p.tipo === 'control').length === 1 ? 'pausa' : 'pausas'}
+                            {pedido.controlPausas?.length || 0} {pedido.controlPausas?.length === 1 ? 'pausa' : 'pausas'}
                             <Pause className="h-3.5 w-3.5 ml-1" />
                           </button>
                         </td>
@@ -499,7 +509,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                       <tr>
                         <td className="py-2 pr-4 text-sm font-medium text-neutral-500">Tiempo bruto</td>
                         <td className="py-2 text-sm font-semibold">
-                          {pedido.controlTiempoBruto ? formatTimeHM(pedido.controlTiempoBruto) : '-'}
+                          {pedido.controlTiempo ? formatTimeHM(pedido.controlTiempo) : '-'}
                         </td>
                       </tr>
                       <tr>
