@@ -152,15 +152,69 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
     onSuccess: (data) => {
       console.log('Datos del pedido recibidos:', JSON.stringify(data, null, 2));
       // Mostrar datos de control específicos para depuración
-      console.log('Datos de control:', {
+      console.log('DATOS DE CONTROL (DETALLE):', {
         controlador: data?.controlador,
         controladoPor: data?.controladoPor,
         controlInicio: data?.controlInicio,
         controlFin: data?.controlFin,
         controlTiempo: data?.controlTiempo,
         controlTiempoNeto: data?.controlTiempoNeto,
-        controlPausas: data?.controlPausas
+        controlPausas: data?.controlPausas?.length || 0
       });
+      
+      // Si los tiempos de control están indefinidos, intenta obtenerlos del pedido directamente
+      if (!data.controlTiempo && data.controlInicio && data.controlFin) {
+        console.log('Calculando tiempos de control para el pedido ya que no vienen en la respuesta');
+        
+        // Calcular tiempo bruto
+        const inicio = new Date(data.controlInicio);
+        const fin = new Date(data.controlFin);
+        const tiempoMs = fin.getTime() - inicio.getTime();
+        const tiempoSegundos = Math.floor(tiempoMs / 1000);
+        
+        // Convertir a formato HH:MM:SS
+        const horas = Math.floor(tiempoSegundos / 3600);
+        const minutos = Math.floor((tiempoSegundos % 3600) / 60);
+        const segundos = tiempoSegundos % 60;
+        const tiempoBruto = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+        
+        // Establecer tiempo bruto para control
+        data.controlTiempo = tiempoBruto;
+        
+        // Para tiempo neto, descontar pausas si existen
+        let tiempoNetoSegundos = tiempoSegundos;
+        if (data.controlPausas && data.controlPausas.length > 0) {
+          let tiempoPausasTotalSegundos = 0;
+          
+          for (const pausa of data.controlPausas) {
+            if (pausa.duracion) {
+              const partesDuracion = pausa.duracion.split(':').map(Number);
+              if (partesDuracion.length === 3) {
+                tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2];
+              } else if (partesDuracion.length === 2) {
+                tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60);
+              }
+            } else if (pausa.inicio && pausa.fin) {
+              const pausaInicio = new Date(pausa.inicio);
+              const pausaFin = new Date(pausa.fin);
+              tiempoPausasTotalSegundos += Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
+            }
+          }
+          
+          tiempoNetoSegundos = Math.max(0, tiempoSegundos - tiempoPausasTotalSegundos);
+        }
+        
+        // Formatear tiempo neto
+        const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
+        const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
+        const netoSegundos = tiempoNetoSegundos % 60;
+        data.controlTiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}:${netoSegundos.toString().padStart(2, '0')}`;
+        
+        console.log('Tiempos calculados:', {
+          controlTiempo: data.controlTiempo,
+          controlTiempoNeto: data.controlTiempoNeto
+        });
+      }
     },
     onError: (err) => {
       console.error('Error al cargar pedido:', err);
