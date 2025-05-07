@@ -90,7 +90,7 @@ export default function ArmadoPage() {
   const [currentPedido, setCurrentPedido] = useState<Pedido | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
-  const [recolectados, setRecolectados] = useState<number | null>(2);
+  const [recolectados, setRecolectados] = useState<number | null>(null);
   const [motivo, setMotivo] = useState<string>("");
   const [motivoPersonalizado, setMotivoPersonalizado] = useState<string>("");
   
@@ -352,9 +352,10 @@ export default function ArmadoPage() {
           // Establecer valor inicial a 0 o al valor ya recolectado si existe
           const siguienteProducto = productos[currentProductoIndex + 1];
           if (siguienteProducto) {
-            setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : 0);
+            setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : siguienteProducto.cantidad);
           } else {
-            setRecolectados(0);
+            // Inicializa con cantidad requerida si no hay producto
+            setRecolectados(null);
           }
           setMotivo("");
         } else {
@@ -374,7 +375,7 @@ export default function ArmadoPage() {
           }
           
           // Resetear los valores para mantener la interfaz limpia
-          setRecolectados(0);
+          setRecolectados(null);
           setMotivo("");
         }
       }
@@ -1140,7 +1141,7 @@ export default function ArmadoPage() {
               onClick={() => {
                 // Si es null, establecer a 0
                 if (recolectados === null) {
-                  setRecolectados(0);
+                  setRecolectados(producto.cantidad);
                 } else {
                   setRecolectados(Math.max(0, recolectados - 1));
                 }
@@ -1225,10 +1226,10 @@ export default function ArmadoPage() {
             onClick={() => {
               if (!producto || pausaActiva) return;
               
-              // Si recolectados es null, establecerlo como 0
+              // Si recolectados es null, establecerlo como la cantidad requerida
               if (recolectados === null) {
-                console.log("Recolectados es null, estableciendo a 0");
-                setRecolectados(0);
+                console.log("Recolectados es null, estableciendo a la cantidad requerida:", producto.cantidad);
+                setRecolectados(producto.cantidad);
                 return;
               }
               
@@ -1248,8 +1249,8 @@ export default function ArmadoPage() {
               const esUltimoProducto = currentProductoIndex >= productos.length - 1;
               console.log("¿Es último producto?", esUltimoProducto ? "SÍ" : "NO");
               
-              // Si aún es null, usar 0 como valor predeterminado
-              const cantidadRecolectada = recolectados === null ? 0 : recolectados;
+              // Si aún es null, usar cantidad solicitada como valor predeterminado
+              const cantidadRecolectada = recolectados === null ? producto.cantidad : recolectados;
               
               actualizarProductoMutation.mutate({
                 id: producto.id,
