@@ -35,6 +35,7 @@ export interface IStorage {
   createProducto(producto: InsertProducto): Promise<Producto>;
   getProductoById(id: number): Promise<Producto | undefined>;
   getProductosByPedidoId(pedidoId: number): Promise<Producto[]>;
+  getProductoByCodigo(codigo: string): Promise<Producto | undefined>;
   updateProducto(id: number, productoData: Partial<Producto>): Promise<Producto | undefined>;
   deleteProducto(id: number): Promise<boolean>;
   
@@ -279,6 +280,12 @@ export class MemStorage implements IStorage {
   async getProductosByPedidoId(pedidoId: number): Promise<Producto[]> {
     return Array.from(this.productos.values()).filter(
       producto => producto.pedidoId === pedidoId
+    );
+  }
+  
+  async getProductoByCodigo(codigo: string): Promise<Producto | undefined> {
+    return Array.from(this.productos.values()).find(
+      producto => producto.codigo === codigo
     );
   }
 

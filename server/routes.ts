@@ -951,7 +951,74 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
-  // Endpoint para obtener historial de controles
+  // Endpoint para obtener detalles de un control específico por ID
+  app.get("/api/control/historial/:id", requireAuth, requireAccess('control'), async (req, res, next) => {
+    try {
+      console.log(`Obteniendo detalles del control con ID ${req.params.id}...`);
+      const controlId = parseInt(req.params.id);
+      
+      if (isNaN(controlId)) {
+        return res.status(400).json({ error: 'ID de control inválido' });
+      }
+      
+      // Obtener el control específico por ID
+      const control = await storage.getControlHistoricoById(controlId);
+      
+      if (!control) {
+        return res.status(404).json({ error: 'Control no encontrado' });
+      }
+      
+      // Obtener datos del pedido
+      const pedido = await storage.getPedidoById(control.pedidoId);
+      
+      // Obtener datos del controlador
+      let controlador = null;
+      if (control.controladoPor) {
+        controlador = await storage.getUser(control.controladoPor);
+      }
+      
+      // Obtener detalles del control
+      const detalles = await storage.getControlDetalleByControlId(control.id);
+      
+      // Enriquecer los detalles con información de productos
+      const detallesEnriquecidos = await Promise.all(
+        detalles.map(async (detalle) => {
+          // Buscar producto por código
+          const producto = await storage.getProductoByCodigo(detalle.codigo);
+          return {
+            ...detalle,
+            producto: producto || null
+          };
+        })
+      );
+      
+      // Obtener datos del armador si existe
+      let armadorNombre = null;
+      if (pedido && pedido.armadorId) {
+        const armador = await storage.getUser(pedido.armadorId);
+        if (armador) {
+          armadorNombre = armador.firstName || armador.username;
+        }
+      }
+      
+      // Construir objeto de respuesta
+      const respuesta = {
+        ...control,
+        pedido: pedido ? {
+          ...pedido,
+          armadorNombre
+        } : null,
+        controlador,
+        detalles: detallesEnriquecidos
+      };
+      
+      res.json(respuesta);
+    } catch (error) {
+      console.error("Error al obtener detalles del control:", error);
+      next(error);
+    }
+  });
+
   app.get("/api/control/historial", requireAuth, requireAccess('control'), async (req, res, next) => {
     try {
       console.log("Obteniendo historial de controles...");
