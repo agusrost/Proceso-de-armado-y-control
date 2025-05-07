@@ -1071,10 +1071,26 @@ export default function ArmadoPage() {
     );
   }
 
+  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO
+  // Esta función asegura que un producto siempre tenga una cantidad inicial correcta
+  const asegurarCantidadInicial = (producto) => {
+    if (recolectados === null && producto) {
+      console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.cantidad}`);
+      setTimeout(() => {
+        setRecolectados(producto.cantidad);
+      }, 50);
+      return producto.cantidad;
+    }
+    return recolectados !== null ? recolectados : producto.cantidad;
+  };
+
   // Renderizar la interfaz simplificada
   if (usingSimpleInterface && currentPedido && productos.length > 0) {
     const producto = productos[currentProductoIndex];
     if (!producto) return <div>Cargando productos...</div>;
+    
+    // FORZAR INICIALIZACIÓN INMEDIATA
+    const cantidadMostrada = asegurarCantidadInicial(producto);
     
     return (
       <div className="min-h-screen flex flex-col items-center bg-blue-950 text-white">
@@ -1161,7 +1177,7 @@ export default function ArmadoPage() {
             >
               −
             </button>
-            <span className="text-2xl font-semibold">{recolectados !== null ? recolectados : producto.cantidad}</span>
+            <span className="text-2xl font-semibold">{cantidadMostrada}</span>
             <button 
               className="px-4 py-2 text-2xl font-bold"
               onClick={() => {
@@ -1181,11 +1197,11 @@ export default function ArmadoPage() {
             </button>
           </div>
           
-          {/* Selector de motivo si recolectados es 0 o menor a la cantidad requerida */}
-          {(recolectados === 0 || recolectados < producto.cantidad) && (
+          {/* Selector de motivo si la cantidad a recolectar es 0 o menor a la requerida */}
+          {(cantidadMostrada === 0 || cantidadMostrada < producto.cantidad) && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {recolectados === 0 
+                {cantidadMostrada === 0 
                   ? "Seleccione motivo para producto no recolectado:" 
                   : "Seleccione motivo para faltante parcial:"}
               </label>
@@ -1250,10 +1266,10 @@ export default function ArmadoPage() {
               }
               
               // Validación para productos no recolectados o con faltantes parciales
-              if ((recolectados === 0 || recolectados < producto.cantidad) && !motivo) {
+              if ((cantidadMostrada === 0 || cantidadMostrada < producto.cantidad) && !motivo) {
                 toast({
                   title: "Motivo requerido",
-                  description: recolectados === 0 
+                  description: cantidadMostrada === 0 
                     ? "Debe seleccionar un motivo para productos no recolectados" 
                     : "Debe seleccionar un motivo para el faltante parcial",
                   variant: "destructive",
@@ -1265,8 +1281,8 @@ export default function ArmadoPage() {
               const esUltimoProducto = currentProductoIndex >= productos.length - 1;
               console.log("¿Es último producto?", esUltimoProducto ? "SÍ" : "NO");
               
-              // Si aún es null, usar cantidad solicitada como valor predeterminado
-              const cantidadRecolectada = recolectados === null ? producto.cantidad : recolectados;
+              // Usar la cantidad visualizada en la interfaz (ya tiene la lógica correcta)
+              const cantidadRecolectada = cantidadMostrada;
               
               actualizarProductoMutation.mutate({
                 id: producto.id,
