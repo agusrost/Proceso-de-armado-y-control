@@ -461,7 +461,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
               controlPausas = await storage.getPausasByPedidoId(pedido.id, true); // Pausas de control
               
               // Si hay tiempoTotal, calcular tiempoNeto (restando pausas)
-              if (controlPausas.length > 0 && ultimoControl.tiempoTotal) {
+              if (ultimoControl.tiempoTotal) {
                 // Convertir tiempo bruto (formato HH:MM:SS o HH:MM) a segundos
                 const partesTiempo = ultimoControl.tiempoTotal.split(':').map(Number);
                 let tiempoControlSegundos = 0;
@@ -474,30 +474,80 @@ export async function registerRoutes(app: Application): Promise<Server> {
                   tiempoControlSegundos = (partesTiempo[0] * 3600) + (partesTiempo[1] * 60);
                 }
                 
-                // Calcular tiempo total de pausas en segundos
-                const tiempoPausasControlSegundos = controlPausas.reduce((total, pausa) => {
-                  if (pausa.duracion) {
-                    const partesDuracion = pausa.duracion.split(':').map(Number);
-                    if (partesDuracion.length === 3) {
-                      // Formato HH:MM:SS
-                      return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2]);
-                    } else if (partesDuracion.length === 2) {
-                      // Formato HH:MM
-                      return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60));
+                // Si hay pausas, restar su duración
+                if (controlPausas.length > 0) {
+                  // Calcular tiempo total de pausas en segundos
+                  const tiempoPausasControlSegundos = controlPausas.reduce((total, pausa) => {
+                    if (pausa.duracion) {
+                      const partesDuracion = pausa.duracion.split(':').map(Number);
+                      if (partesDuracion.length === 3) {
+                        // Formato HH:MM:SS
+                        return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2]);
+                      } else if (partesDuracion.length === 2) {
+                        // Formato HH:MM
+                        return total + ((partesDuracion[0] * 3600) + (partesDuracion[1] * 60));
+                      }
+                    } else if (pausa.inicio && pausa.fin) {
+                      // Si no hay duración pero sí inicio y fin, calculamos
+                      const pausaInicio = new Date(pausa.inicio);
+                      const pausaFin = new Date(pausa.fin);
+                      return total + Math.floor((pausaFin.getTime() - pausaInicio.getTime()) / 1000);
                     }
-                  }
-                  return total;
-                }, 0);
-                
-                // Calcular tiempo neto
-                const tiempoNetoControlSegundos = Math.max(0, tiempoControlSegundos - tiempoPausasControlSegundos);
-                const netoHorasControl = Math.floor(tiempoNetoControlSegundos / 3600);
-                const netoMinutosControl = Math.floor((tiempoNetoControlSegundos % 3600) / 60);
-                const netoSegundosControl = tiempoNetoControlSegundos % 60;
-                controlTiempoNeto = `${netoHorasControl.toString().padStart(2, '0')}:${netoMinutosControl.toString().padStart(2, '0')}:${netoSegundosControl.toString().padStart(2, '0')}`;
+                    return total;
+                  }, 0);
+                  
+                  // Calcular tiempo neto
+                  const tiempoNetoControlSegundos = Math.max(0, tiempoControlSegundos - tiempoPausasControlSegundos);
+                  const netoHorasControl = Math.floor(tiempoNetoControlSegundos / 3600);
+                  const netoMinutosControl = Math.floor((tiempoNetoControlSegundos % 3600) / 60);
+                  const netoSegundosControl = tiempoNetoControlSegundos % 60;
+                  controlTiempoNeto = `${netoHorasControl.toString().padStart(2, '0')}:${netoMinutosControl.toString().padStart(2, '0')}:${netoSegundosControl.toString().padStart(2, '0')}`;
+                } else {
+                  // Si no hay pausas, el tiempo neto es igual al tiempo bruto
+                  controlTiempoNeto = ultimoControl.tiempoTotal;
+                }
               } else {
-                // Si no hay pausas, el tiempo neto es igual al tiempo bruto
-                controlTiempoNeto = ultimoControl.tiempoTotal;
+                // Si no hay tiempoTotal, intentamos calcularlo si hay inicio y fin
+                if (controlInicio && controlFin) {
+                  const inicio = new Date(controlInicio);
+                  const fin = new Date(controlFin);
+                  
+                  // Calcular tiempo bruto en segundos
+                  const tiempoMs = fin.getTime() - inicio.getTime();
+                  const tiempoSegundos = Math.floor(tiempoMs / 1000);
+                  
+                  // Convertir a formato HH:MM:SS
+                  const horas = Math.floor(tiempoSegundos / 3600);
+                  const minutos = Math.floor((tiempoSegundos % 3600) / 60);
+                  const segundos = tiempoSegundos % 60;
+                  controlTiempo = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+                  
+                  // Si hay pausas, calcular tiempo neto
+                  if (controlPausas.length > 0) {
+                    let tiempoPausasTotalSegundos = 0;
+                    
+                    for (const pausa of controlPausas) {
+                      if (pausa.duracion) {
+                        const partesDuracion = pausa.duracion.split(':').map(Number);
+                        if (partesDuracion.length === 3) {
+                          tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60) + partesDuracion[2];
+                        } else if (partesDuracion.length === 2) {
+                          tiempoPausasTotalSegundos += (partesDuracion[0] * 3600) + (partesDuracion[1] * 60);
+                        }
+                      }
+                    }
+                    
+                    // Calcular tiempo neto
+                    const tiempoNetoSegundos = Math.max(0, tiempoSegundos - tiempoPausasTotalSegundos);
+                    const netoHoras = Math.floor(tiempoNetoSegundos / 3600);
+                    const netoMinutos = Math.floor((tiempoNetoSegundos % 3600) / 60);
+                    const netoSegundos = tiempoNetoSegundos % 60;
+                    controlTiempoNeto = `${netoHoras.toString().padStart(2, '0')}:${netoMinutos.toString().padStart(2, '0')}:${netoSegundos.toString().padStart(2, '0')}`;
+                  } else {
+                    // Si no hay pausas, tiempo neto = tiempo bruto
+                    controlTiempoNeto = controlTiempo;
+                  }
+                }
               }
             }
             
