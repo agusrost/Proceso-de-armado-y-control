@@ -218,7 +218,12 @@ export default function ControlHistorialDetallePage() {
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium">Pausas:</span>
                           <span>
-                            {controlHistorico.pausas?.length || "0"}
+                            {typeof controlHistorico.pausas === 'number' 
+                              ? controlHistorico.pausas 
+                              : (Array.isArray(controlHistorico.pausas) 
+                                  ? controlHistorico.pausas.length 
+                                  : "0")
+                            }
                           </span>
                         </div>
                       </div>

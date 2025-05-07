@@ -222,7 +222,9 @@ export default function ControlHistorialPage() {
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fecha</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Controlador</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Resultado</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Tiempo</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">T. Bruto</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">T. Neto</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pausas</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
@@ -261,6 +263,12 @@ export default function ControlHistorialPage() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
                             {control.tiempoTotal || "-"}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            {control.tiempoNeto || control.tiempoTotal || "-"}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700">
+                            {typeof control.pausas === 'number' ? control.pausas : (Array.isArray(control.pausas) ? control.pausas.length : "0")}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700 flex gap-2">
                             {/* Botón Ver detalles */}

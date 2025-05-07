@@ -45,11 +45,13 @@ export interface ControlHistoricoWithDetails {
   inicio: Date;
   fin?: Date;
   tiempoTotal?: string;
+  tiempoNeto?: string;
   comentarios?: string;
   resultado: string;
   pedido?: Pedido;
   controlador?: User;
   detalles?: ControlDetalleWithProducto[];
+  pausas?: Pausa[] | number;
 }
 
 export interface ControlDetalleWithProducto {
