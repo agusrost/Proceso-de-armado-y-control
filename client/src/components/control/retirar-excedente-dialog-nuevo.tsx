@@ -37,22 +37,24 @@ export function RetirarExcedenteDialogNuevo({
   // Calcular el excedente
   const excedente = producto.controlado - producto.cantidad;
   
-  // Mutación para retirar excedentes
+  // Mutación para retirar excedentes usando el nuevo endpoint de ajuste
   const retirarExcedenteMutation = useMutation({
     mutationFn: async () => {
       setIsProcessing(true);
       
+      // Usar el nuevo endpoint de ajuste-excedente para manejar correctamente los productos retirados
       const response = await apiRequest(
         "POST", 
-        `/api/control/pedidos/${pedidoId}/productos/${producto.codigo}/retirar-excedente`, 
+        `/api/control/pedidos/${pedidoId}/ajuste-excedente`, 
         { 
-          cantidad: excedente 
+          codigo: producto.codigo,
+          cantidadCorrecta: producto.cantidad // Enviar la cantidad correcta que debe quedar
         }
       );
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Error al retirar excedente");
+        throw new Error(errorData.message || "Error al ajustar excedente");
       }
       
       return response.json();
@@ -119,7 +121,11 @@ export function RetirarExcedenteDialogNuevo({
                 <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 mt-3">
                   <p className="text-yellow-800 text-sm flex items-start">
                     <AlertTriangle className="h-4 w-4 mr-2 mt-0.5 text-yellow-600 flex-shrink-0" />
-                    Esta acción registrará la retirada del excedente en el historial del pedido.
+                    Esta acción eliminará los registros anteriores y creará un nuevo registro con la cantidad correcta.
+                  </p>
+                  <p className="text-yellow-800 text-sm mt-2 flex items-start">
+                    <AlertTriangle className="h-4 w-4 mr-2 mt-0.5 text-yellow-600 flex-shrink-0" />
+                    Los excedentes retirados no se contabilizarán en futuros escaneos.
                   </p>
                 </div>
               </>
