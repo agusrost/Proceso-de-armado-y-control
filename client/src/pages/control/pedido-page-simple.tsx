@@ -122,12 +122,12 @@ export default function ControlPedidoSimplePage() {
       }
       
       const procesados = controlActivoQuery.data.productos.map((p: any) => {
-        // Encontrar detalles de control para este producto
+        // Encontrar detalles de control para este producto, excluyendo los retirados
         const controlDetalles = controlActivoQuery.data.detalles.filter((d: any) => 
-          d.codigo === p.codigo
+          d.codigo === p.codigo && d.estado !== 'retirado'
         );
         
-        // Calcular cantidad controlada sumando todos los escaneos
+        // Calcular cantidad controlada sumando solo los escaneos no retirados
         const cantidadControlada = controlDetalles.reduce((acc: number, d: any) => 
           acc + (d.cantidadControlada || 0), 0
         );
@@ -157,7 +157,7 @@ export default function ControlPedidoSimplePage() {
       setProductosControlados(procesados);
       
       // Filtrar sólo los productos que han sido escaneados (controlado > 0)
-      const escaneados = procesados.filter(p => p.controlado > 0);
+      const escaneados = procesados.filter((p: ProductoControlado) => p.controlado > 0);
       setProductosEscaneados(escaneados);
     }
   }, [controlActivoQuery.data]);
