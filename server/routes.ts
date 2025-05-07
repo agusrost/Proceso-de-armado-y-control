@@ -1970,7 +1970,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Obtener los detalles de control actuales
-      const detalles = await storage.getControlDetallesByControlId(controlActivo.id);
+      const detalles = await storage.getControlDetalleByControlId(controlActivo.id);
       const detallesProducto = detalles.filter(d => d.codigo === codigo);
       
       // Calcular la cantidad actual controlada
@@ -2006,7 +2006,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Verificar si este ajuste completa el pedido
       const todosProductos = await storage.getProductosByPedidoId(pedidoId);
-      const detallesActualizados = await storage.getControlDetallesByControlId(controlActivo.id);
+      const detallesActualizados = await storage.getControlDetalleByControlId(controlActivo.id);
       
       let pedidoCompleto = true;
       for (const p of todosProductos) {
