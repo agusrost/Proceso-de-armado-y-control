@@ -501,6 +501,48 @@ export default function ControlPedidoSimplePage() {
         </DialogContent>
       </Dialog>
       
+      {/* Diálogo para producto excedente */}
+      <Dialog open={productoExcedenteDialog.open} onOpenChange={(open) => 
+        setProductoExcedenteDialog(prev => ({ ...prev, open }))
+      }>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Producto con excedente detectado</DialogTitle>
+            <DialogDescription>
+              El producto <strong>{productoExcedenteDialog.codigo}</strong> tiene una cantidad excedente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Atención</AlertTitle>
+              <AlertDescription>
+                El pedido solo requiere <strong>{productoExcedenteDialog.cantidad}</strong> unidades de este producto, 
+                pero se han escaneado <strong>{productoExcedenteDialog.cantidad + productoExcedenteDialog.excedente}</strong>.
+                <div className="mt-2 font-semibold">
+                  Por favor retire <strong>{productoExcedenteDialog.excedente}</strong> unidades del pedido.
+                </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => {
+              setProductoExcedenteDialog(prev => ({ ...prev, open: false }));
+              
+              // Enfocar el campo de código después de cerrar el diálogo
+              setTimeout(() => {
+                const codigoInput = document.querySelector('input[placeholder="Escanea o ingresa el código"]') as HTMLInputElement;
+                if (codigoInput) {
+                  codigoInput.focus();
+                }
+              }, 100);
+            }}>
+              Confirmar retiro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       {/* Diálogo para control finalizado */}
       <Dialog open={finalizadoDialogOpen} onOpenChange={setFinalizadoDialogOpen}>
         <DialogContent>
@@ -567,48 +609,6 @@ export default function ControlPedidoSimplePage() {
               className="sm:w-auto w-full"
             >
               Finalizar de todos modos
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Diálogo para producto excedente */}
-      <Dialog open={productoExcedenteDialog.open} onOpenChange={(open) => 
-        setProductoExcedenteDialog(prev => ({ ...prev, open }))
-      }>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Producto con excedente detectado</DialogTitle>
-            <DialogDescription>
-              El producto <strong>{productoExcedenteDialog.codigo}</strong> tiene una cantidad excedente.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Atención</AlertTitle>
-              <AlertDescription>
-                El pedido solo requiere <strong>{productoExcedenteDialog.cantidad}</strong> unidades de este producto, 
-                pero se han escaneado <strong>{productoExcedenteDialog.cantidad + productoExcedenteDialog.excedente}</strong>.
-                <div className="mt-2 font-semibold">
-                  Por favor retire <strong>{productoExcedenteDialog.excedente}</strong> unidades del pedido.
-                </div>
-              </AlertDescription>
-            </Alert>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => {
-              setProductoExcedenteDialog(prev => ({ ...prev, open: false }));
-              
-              // Enfocar el campo de código después de cerrar el diálogo
-              setTimeout(() => {
-                const codigoInput = document.querySelector('input[placeholder="Escanea o ingresa el código"]') as HTMLInputElement;
-                if (codigoInput) {
-                  codigoInput.focus();
-                }
-              }, 100);
-            }}>
-              Confirmar retiro
             </Button>
           </DialogFooter>
         </DialogContent>
