@@ -3942,36 +3942,118 @@ export async function registerRoutes(app: Application): Promise<Server> {
           // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
           const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
           
-          if (productosFaltantes.length > 0) {
-            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
+          // Obtener el pedido actual
+          const pedidoActual = await storage.getPedidoById(pedidoId);
+          
+          // NUEVA FUNCIONALIDAD: Finalizar el pedido automáticamente
+          if (pedidoActual && pedidoActual.estado === 'en-proceso') {
+            console.log(`🚀 FINALIZACIÓN AUTOMÁTICA: El pedido ${pedidoId} será finalizado automáticamente`);
             
-            // Actualizar estado a "armado-pendiente-stock"
-            await storage.updatePedido(pedidoId, { estado: 'armado-pendiente-stock' });
+            // Preparar datos para actualización
+            const ahora = new Date();
+            let datosActualizacion: any = { 
+              finalizado: ahora.toISOString() 
+            };
             
-            // Crear solicitudes de transferencia para cada producto faltante
-            for (const producto of productosFaltantes) {
-              try {
-                // Crear solicitud de stock
-                const solicitudData = {
-                  fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
-                  horario: new Date(),
-                  codigo: producto.codigo,
-                  cantidad: producto.cantidad,
-                  motivo: `Faltante en pedido ${pedidoId} - ${producto.motivo || 'Sin stock'}`,
-                  estado: 'pendiente',
-                  solicitadoPor: req.user?.id,
-                  solicitante: req.user?.username
-                };
-                
-                console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
-                await storage.createStockSolicitud(solicitudData);
-              } catch (error) {
-                console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+            // Actualizar estado según si hay faltantes o no
+            if (productosFaltantes.length > 0) {
+              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, cambiando a armado-pendiente-stock`);
+              datosActualizacion.estado = 'armado-pendiente-stock';
+            } else {
+              console.log(`El pedido ${pedidoId} completado totalmente, cambiando a armado`);
+              datosActualizacion.estado = 'armado';
+            }
+            
+            // Calcular tiempos si el pedido tiene fecha de inicio
+            if (pedidoActual.inicio) {
+              const inicio = new Date(pedidoActual.inicio);
+              
+              // Cálculo del tiempo bruto en segundos
+              const tiempoBrutoMs = ahora.getTime() - inicio.getTime();
+              const tiempoBrutoSegundos = Math.floor(tiempoBrutoMs / 1000);
+              
+              // Formatear tiempo bruto como HH:MM:SS
+              const horasBruto = Math.floor(tiempoBrutoSegundos / 3600);
+              const minutosBruto = Math.floor((tiempoBrutoSegundos % 3600) / 60);
+              const segundosBruto = tiempoBrutoSegundos % 60;
+              const tiempoBrutoFormateado = `${horasBruto.toString().padStart(2, '0')}:${minutosBruto.toString().padStart(2, '0')}:${segundosBruto.toString().padStart(2, '0')}`;
+              
+              // Obtener las pausas finalizadas para calcular el tiempo neto
+              const pausasFinalizadas = await storage.getPausasFinalizadasByPedidoId(pedidoId);
+              let tiempoPausasTotalSegundos = 0;
+              
+              console.log(`Calculando tiempos para pedido ${pedidoActual.pedidoId} (id: ${pedidoId}):`);
+              console.log(`- Inicio: ${inicio.toISOString()}`);
+              console.log(`- Fin: ${ahora.toISOString()}`);
+              console.log(`- Tiempo bruto: ${tiempoBrutoFormateado} (${tiempoBrutoSegundos} segundos)`);
+              console.log(`- ${pausasFinalizadas.length} pausas finalizadas encontradas`);
+              
+              // Calcular tiempo total de pausas
+              for (const pausa of pausasFinalizadas) {
+                if (pausa.inicio && pausa.fin && pausa.duracion) {
+                  console.log(`  - Pausa #${pausa.id}: ${pausa.duracion}`);
+                  
+                  // Convertir el formato HH:MM:SS a segundos
+                  const [horas, minutos, segundos] = pausa.duracion.split(':').map(Number);
+                  const duracionSegundos = horas * 3600 + minutos * 60 + segundos;
+                  tiempoPausasTotalSegundos += duracionSegundos;
+                }
+              }
+              
+              // Calcular tiempo neto (tiempo bruto - tiempo de pausas)
+              const tiempoNetoSegundos = Math.max(0, tiempoBrutoSegundos - tiempoPausasTotalSegundos);
+              
+              // Formatear tiempo neto como HH:MM:SS
+              const horasNeto = Math.floor(tiempoNetoSegundos / 3600);
+              const minutosNeto = Math.floor((tiempoNetoSegundos % 3600) / 60);
+              const segundosNeto = tiempoNetoSegundos % 60;
+              const tiempoNetoFormateado = `${horasNeto.toString().padStart(2, '0')}:${minutosNeto.toString().padStart(2, '0')}:${segundosNeto.toString().padStart(2, '0')}`;
+              
+              console.log(`- Tiempo total de pausas: ${Math.floor(tiempoPausasTotalSegundos / 3600)}:${Math.floor((tiempoPausasTotalSegundos % 3600) / 60)}:${tiempoPausasTotalSegundos % 60} (${tiempoPausasTotalSegundos} segundos)`);
+              console.log(`- Tiempo neto: ${tiempoNetoFormateado} (${tiempoNetoSegundos} segundos)`);
+              
+              // Agregar tiempos a los datos a actualizar
+              datosActualizacion.tiempoBruto = tiempoBrutoFormateado;
+              datosActualizacion.tiempoNeto = tiempoNetoFormateado;
+            }
+            
+            // Actualizar el pedido con todos los datos calculados
+            await storage.updatePedido(pedidoId, datosActualizacion);
+            
+            // Si hay productos faltantes, crear solicitudes de stock para cada uno
+            if (productosFaltantes.length > 0) {
+              for (const producto of productosFaltantes) {
+                try {
+                  // Crear solicitud de stock
+                  const solicitudData = {
+                    fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+                    horario: new Date(),
+                    codigo: producto.codigo,
+                    cantidad: producto.cantidad,
+                    motivo: `Faltante en pedido ${pedidoActual.pedidoId} - ${producto.motivo || 'Sin stock'}`,
+                    estado: 'pendiente',
+                    solicitadoPor: req.user?.id,
+                    solicitante: req.user?.username
+                  };
+                  
+                  console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
+                  await storage.createStockSolicitud(solicitudData);
+                } catch (error) {
+                  console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+                }
               }
             }
+            
+            console.log(`✅ FINALIZACIÓN AUTOMÁTICA COMPLETADA: Pedido ${pedidoId} finalizado como "${datosActualizacion.estado}"`);
           } else {
-            // Si no hay faltantes, marcar como armado normal
-            await storage.updatePedido(pedidoId, { estado: 'armado' });
+            // Si el pedido no está en proceso, solo actualizamos su estado sin finalizarlo
+            if (productosFaltantes.length > 0) {
+              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
+              await storage.updatePedido(pedidoId, { estado: 'armado-pendiente-stock' });
+            } else {
+              // Si no hay faltantes, marcar como armado normal
+              await storage.updatePedido(pedidoId, { estado: 'armado' });
+            }
           }
         }
       }
