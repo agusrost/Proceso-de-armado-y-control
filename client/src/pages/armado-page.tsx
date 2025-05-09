@@ -848,7 +848,7 @@ export default function ArmadoPage() {
           const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
           
           console.log(`SELECCIÓN DEFAULT: Producto pendiente encontrado: ${primerProductoPendiente.codigo}`);
-          console.log(`Iniciando cantidad recolectada con: ${primerProductoPendiente.cantidad} unidades (cantidad solicitada)`);
+          console.log(`Iniciando cantidad recolectada con: 0 unidades (forzando selección manual)`);
           
           setCurrentProductoIndex(primerProductoPendienteIndex);
           setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
@@ -860,8 +860,8 @@ export default function ArmadoPage() {
         setCurrentProductoIndex(0);
         // También establecer recolectados para el primer producto
         if (data.length > 0) {
-          console.log(`Iniciando cantidad recolectada del primer producto con: ${data[0].cantidad} unidades`);
-          setRecolectados(data[0].cantidad);
+          console.log(`Iniciando cantidad recolectada del primer producto con 0 unidades para forzar la selección manual`);
+          setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
         }
       };
       
@@ -936,8 +936,8 @@ export default function ArmadoPage() {
               
               setCurrentProductoIndex(primerSinProcesarIndex);
               // Inicializar con la cantidad solicitada, siempre
-              setRecolectados(primerSinProcesar.cantidad);
-              console.log(`Inicializando cantidad: ${primerSinProcesar.cantidad} para ${primerSinProcesar.codigo}`);
+              setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+              console.log(`Inicializando cantidad: 0 unidades para ${primerSinProcesar.codigo} (forzando selección manual)`);
               return;
             }
             
@@ -1383,8 +1383,8 @@ export default function ArmadoPage() {
               // Usar siempre la cantidad del producto como cantidad inicial
               // No importa si recolectados es null
               if (recolectados === null) {
-                console.log("Recolectados es null, estableciendo a la cantidad requerida:", producto.cantidad);
-                setRecolectados(producto.cantidad);
+                console.log("Recolectados es null, estableciendo a 0 para forzar la selección manual:");
+                setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
                 // No retornamos - seguimos con el proceso
               }
               
