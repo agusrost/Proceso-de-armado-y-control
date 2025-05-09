@@ -3924,7 +3924,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
           req.body.motivo = productoExistente.motivo;
         }
       }
-        
+      
       // Eliminar flags temporales utilizados para la protección
       delete req.body.preservarFaltante;
       delete req.body.correccionEmergencia;
