@@ -820,6 +820,42 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
   
+  /**
+   * Obtener todas las pausas finalizadas (con fin != null) para un pedido específico
+   * @param pedidoId ID del pedido
+   * @param esControl Si es true, busca pausas de control; si es false, busca pausas de armado/otros
+   * @returns Array de pausas finalizadas
+   */
+  async getPausasFinalizadasByPedidoId(pedidoId: number, esControl: boolean = false): Promise<Pausa[]> {
+    const conditions = [
+      eq(pausas.pedidoId, pedidoId),
+      not(isNull(pausas.fin)) // Condición para pausas finalizadas
+    ];
+    
+    // Aplicar el mismo filtro de tipo que en getPausasActivasByPedidoId
+    if (esControl) {
+      conditions.push(or(
+        eq(pausas.tipo, 'control'),
+        isNull(pausas.tipo) // Para pausas antiguas que no tengan tipo
+      ));
+    } else {
+      // NOT operator para excluir pausas de control
+      conditions.push(not(eq(pausas.tipo, 'control')));
+    }
+    
+    console.log(`Buscando pausas finalizadas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
+    
+    // Ejecutar la consulta con las condiciones actualizadas
+    const result = await db
+      .select()
+      .from(pausas)
+      .where(and(...conditions));
+      
+    console.log(`Encontradas ${result.length} pausas finalizadas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
+    
+    return result;
+  }
+  
   async updatePausa(id: number, pausaData: Partial<Pausa>): Promise<Pausa | undefined> {
     const [pausa] = await db
       .update(pausas)
