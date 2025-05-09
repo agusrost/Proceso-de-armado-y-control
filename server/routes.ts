@@ -3197,23 +3197,53 @@ export async function registerRoutes(app: Application): Promise<Server> {
         console.log(`✅ Pausa ${pausaId} tiene último producto ID (formato alternativo): ${ultimoProductoId}`);
       }
       
-      // Si no tiene último producto en la pausa, obtener el último producto sin procesar
-      if (!ultimoProductoId && pausa.pedidoId) {
-        console.log(`🔍 Buscando último producto sin procesar para pedido ${pausa.pedidoId}`);
+      // NUEVO: Implementar protección de productos con faltantes
+      if (pausa.pedidoId) {
+        console.log(`🛡️ PROTECCIÓN DE PRODUCTOS: Verificando productos del pedido ${pausa.pedidoId} antes de finalizar la pausa`);
         
         const productos = await storage.getProductosByPedidoId(pausa.pedidoId);
         
-        // Ordenar productos por código (FIFO)
-        const productosOrdenados = productos.sort((a, b) => 
-          a.codigo.localeCompare(b.codigo)
-        );
+        // Identificar productos con motivos de faltante para protegerlos específicamente
+        const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
         
-        // Encontrar el primer producto sin procesar
-        const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
+        if (productosFaltantes.length > 0) {
+          console.log(`🛡️ PROTECCIÓN DE PRODUCTOS: Encontrados ${productosFaltantes.length} productos con faltantes:`);
+          
+          for (const producto of productosFaltantes) {
+            console.log(`  - Producto ${producto.id} (${producto.codigo} - ${producto.descripcion}): ${producto.recolectado}/${producto.cantidad}, motivo: "${producto.motivo}"`);
+            
+            // Forzar explícitamente la actualización para evitar reset automático
+            try {
+              await storage.updateProducto(producto.id, {
+                recolectado: producto.recolectado,
+                motivo: producto.motivo,
+                actualizacionAutomatica: false // Flag para indicar que es una actualización preventiva
+              });
+              console.log(`  ✅ Producto ${producto.id} protegido exitosamente`);
+            } catch (protectError) {
+              console.error(`  ❌ Error al proteger producto ${producto.id}:`, protectError);
+            }
+          }
+        } else {
+          console.log(`🛡️ PROTECCIÓN DE PRODUCTOS: No se encontraron productos con faltantes que requieran protección especial`);
+        }
         
-        if (primerSinProcesar) {
-          ultimoProductoId = primerSinProcesar.id;
-          console.log(`📋 Usando primer producto sin procesar como referencia: ${primerSinProcesar.codigo} (ID: ${ultimoProductoId})`);
+        // Si no tiene último producto en la pausa, obtener el último producto sin procesar
+        if (!ultimoProductoId) {
+          console.log(`🔍 Buscando último producto sin procesar para pedido ${pausa.pedidoId}`);
+          
+          // Ordenar productos por código (FIFO)
+          const productosOrdenados = productos.sort((a, b) => 
+            a.codigo.localeCompare(b.codigo)
+          );
+          
+          // Encontrar el primer producto sin procesar
+          const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
+          
+          if (primerSinProcesar) {
+            ultimoProductoId = primerSinProcesar.id;
+            console.log(`📋 Usando primer producto sin procesar como referencia: ${primerSinProcesar.codigo} (ID: ${ultimoProductoId})`);
+          }
         }
       }
       
@@ -3264,7 +3294,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
       });
       
       // Definir valores para la actualización
-      const ahora = new Date().toISOString();
+      const ahora = new Date(); // Usar objeto Date directamente
       
       // Usar transacción para asegurar que la actualización sea atómica
       try {
