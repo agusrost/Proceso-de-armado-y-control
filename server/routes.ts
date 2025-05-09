@@ -4044,7 +4044,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Preparar datos para actualización
             const ahora = new Date();
             let datosActualizacion: any = { 
-              finalizado: ahora.toISOString() 
+              finalizado: ahora // Usar objeto Date directamente en lugar de string ISO
             };
             
             // Actualizar estado según si hay faltantes o no
@@ -4118,7 +4118,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 try {
                   // Crear solicitud de stock
                   const solicitudData = {
-                    fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+                    fecha: new Date(), // Usar objeto Date directamente
                     horario: new Date(),
                     codigo: producto.codigo,
                     cantidad: producto.cantidad,
