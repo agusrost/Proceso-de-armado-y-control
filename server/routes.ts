@@ -3811,6 +3811,36 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para obtener un producto específico por ID
+  app.get("/api/productos/:id", requireAuth, async (req, res, next) => {
+    try {
+      const productoId = parseInt(req.params.id);
+      if (isNaN(productoId)) {
+        return res.status(400).json({ message: "ID de producto inválido" });
+      }
+      
+      console.log(`Obteniendo producto con ID ${productoId}`);
+      const producto = await storage.getProductoById(productoId);
+      
+      if (!producto) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
+      
+      // Verificación adicional para detección de inconsistencias en productos con faltantes
+      if (producto.motivo && producto.motivo.trim() !== '' && producto.recolectado >= producto.cantidad) {
+        console.log(`⚠️ INCONSISTENCIA DETECTADA: Producto ${productoId} (${producto.codigo}) tiene motivo "${producto.motivo}" pero aparece completo (${producto.recolectado}/${producto.cantidad})`);
+        
+        // Registrar advertencia pero no corregir automáticamente desde este endpoint (solo lectura)
+      }
+      
+      console.log(`Producto encontrado: ${producto.codigo}, recolectado: ${producto.recolectado}/${producto.cantidad}, motivo: "${producto.motivo || 'ninguno'}"`);
+      res.json(producto);
+    } catch (error) {
+      console.error(`Error al obtener producto con ID ${req.params.id}:`, error);
+      next(error);
+    }
+  });
+  
   // Actualizar un producto específico (para marcar como recolectado o faltante)
   app.patch("/api/productos/:id", requireAuth, async (req, res, next) => {
     try {
