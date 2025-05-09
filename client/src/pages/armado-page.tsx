@@ -2476,7 +2476,7 @@ export default function ArmadoPage() {
                       <div className="mt-1">
                         <div className="text-green-600 text-sm flex items-center justify-end">
                           <span className="mr-1">Parcial con motivo</span>
-                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-green-600">✓</span>
                         </div>
                         <div className="text-xs text-right mt-0.5">
                           Recolectado: <span className="font-medium">{producto.recolectado}</span>/{producto.cantidad}
@@ -2609,7 +2609,7 @@ export default function ArmadoPage() {
               {productos.some(p => !esProductoCompletado(p)) && (
                 <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm mb-4">
                   <div className="flex items-center gap-2">
-                    <XCircle size={16} />
+                    <span className="text-red-600">⚠</span>
                     <span className="font-medium">Advertencia:</span>
                   </div>
                   <p className="ml-6">Hay productos pendientes por completar o con faltantes sin motivo registrado.</p>
@@ -2629,7 +2629,7 @@ export default function ArmadoPage() {
               {!productos.some(p => !esProductoCompletado(p)) && (
                 <div className="bg-green-50 border border-green-200 p-3 rounded text-green-800 text-sm">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={16} />
+                    <span className="text-green-600">✓</span>
                     <span className="font-medium">Correcto:</span>
                   </div>
                   <p className="ml-6">Todos los productos están procesados correctamente y puedes finalizar el armado.</p>
@@ -2683,7 +2683,7 @@ export default function ArmadoPage() {
             </DialogHeader>
             
             <div className="flex justify-center mb-4">
-              <CheckCircle2 className="h-16 w-16 text-green-600" />
+              <div className="h-16 w-16 text-green-600 flex items-center justify-center text-5xl">✓</div>
             </div>
             
             <p className="text-center text-lg mb-2">
