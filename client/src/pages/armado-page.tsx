@@ -2415,101 +2415,22 @@ export default function ArmadoPage() {
           )}
         </div>
         
-        {/* Producto actual */}
+        {/* Producto actual - Usando el nuevo componente ArmadoSimpleControls */}
         {productos[currentProductoIndex] && !pausaActiva && (
-          <div className="bg-white border p-6 rounded-lg shadow-sm mb-6">
-            <h2 className="text-xl font-semibold mb-4">Producto Actual</h2>
-            <div className="mb-4">
-              <p className="text-xl font-mono">{productos[currentProductoIndex].codigo}</p>
-              <p className="text-lg">{productos[currentProductoIndex].descripcion || 'Sin descripción'}</p>
-              <div className="mt-2 grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Ubicación</p>
-                  <p className="font-medium">{productos[currentProductoIndex].ubicacion || 'No especificada'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Cantidad Requerida</p>
-                  <p className="font-medium">{productos[currentProductoIndex].cantidad}</p>
-                </div>
-              </div>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="recolectados" className="block mb-1 font-medium">
-                  Cantidad Recolectada
-                </label>
-                <Input
-                  id="recolectados"
-                  type="number"
-                  value={recolectados}
-                  onChange={(e) => setRecolectados(parseInt(e.target.value) || 0)}
-                  min={0}
-                  max={productos[currentProductoIndex].cantidad}
-                  className="w-full"
-                />
-              </div>
-              
-              {recolectados === 0 && (
-                <div>
-                  <label htmlFor="motivo" className="block mb-1 font-medium">
-                    Motivo del Faltante
-                  </label>
-                  <select
-                    id="motivo"
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    required
-                  >
-                    <option value="">Seleccione un motivo</option>
-                    {motivosPreestablecidos.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  
-                  {motivo === "Otro motivo" && (
-                    <Input
-                      type="text"
-                      placeholder="Especifique el motivo"
-                      className="w-full mt-2"
-                      value={
-                        motivosPreestablecidos.includes(motivo) && motivo !== "Otro motivo" 
-                          ? "" 
-                          : motivo
-                      }
-                      onChange={(e) => setMotivo(e.target.value)}
-                    />
-                  )}
-                </div>
-              )}
-              
-              {recolectados > 0 && recolectados < productos[currentProductoIndex].cantidad && (
-                <div>
-                  <label htmlFor="motivo-parcial" className="block mb-1 font-medium">
-                    Motivo del Faltante Parcial
-                  </label>
-                  <Input
-                    id="motivo-parcial"
-                    type="text"
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    placeholder="Indicar motivo del faltante"
-                    className="w-full"
-                  />
-                </div>
-              )}
-              
-              <div className="flex justify-end">
-                <Button 
-                  type="submit" 
-                  disabled={actualizarProductoMutation.isPending || pausaActiva}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {actualizarProductoMutation.isPending ? 'Guardando...' : 'Guardar y Continuar'}
-                </Button>
-              </div>
-            </form>
+          <div className="bg-white border rounded-lg shadow-sm mb-6">
+            <ArmadoSimpleControls
+              productos={productos}
+              currentProductoIndex={currentProductoIndex}
+              recolectados={recolectados}
+              setRecolectados={setRecolectados}
+              motivo={motivo}
+              setMotivo={setMotivo}
+              onGuardar={handleSubmit}
+              pausaActiva={pausaActiva}
+              onFinalizarPedido={handleFinalizarPedido}
+              mutationIsPending={actualizarProductoMutation.isPending}
+              esReanudacion={!!currentPedido?.pausas?.some(p => p.fin === null)}
+            />
           </div>
         )}
         
