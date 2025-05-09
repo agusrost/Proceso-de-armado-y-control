@@ -742,48 +742,28 @@ export default function ArmadoPage() {
                 console.log(`Usando último producto ${ultimoProducto.codigo}`);
                 setCurrentProductoIndex(ultimoProductoIndex);
                 
-                // No necesitamos actualizar nada, solo continuar desde este producto
-                const pendientes = ultimoProducto.cantidad - ultimoProducto.recolectado;
-                console.log(`Completando automáticamente ${pendientes} unidades pendientes`);
+                // Solamente posicionar en este producto sin modificar sus valores
+                console.log(`Posicionando en el producto ${ultimoProducto.codigo} sin cambiar sus valores`);
                 
-                // Ejecutar la actualización
-                actualizarProductoMutation.mutate(
-                  {
-                    id: ultimoProducto.id,
-                    recolectado: ultimoProducto.cantidad, // Marcar como completamente recolectado
-                    motivo: null,
-                    actualizacionAutomatica: true // Flag para indicar que es una actualización automática desde la reanudación
-                  },
-                  {
-                    onSuccess: () => {
-                      console.log(`Producto completado automáticamente, avanzando al siguiente`);
-                      
-                      // Movernos al siguiente producto si existe
-                      if (ultimoProductoIndex < data.length - 1) {
-                        console.log(`Avanzando al siguiente producto (index: ${ultimoProductoIndex + 1})`);
-                        setCurrentProductoIndex(ultimoProductoIndex + 1);
-                        
-                        // Establecer la cantidad del siguiente producto
-                        if (data[ultimoProductoIndex + 1]) {
-                          setRecolectados(data[ultimoProductoIndex + 1].cantidad);
-                        }
-                      }
-                    },
-                    onError: (error) => {
-                      console.error("Error al completar producto parcial automáticamente:", error);
-                      toast({
-                        title: "Error al procesar producto",
-                        description: "No se pudo completar el producto automáticamente",
-                        variant: "destructive",
-                      });
-                      
-                      // A pesar del error, intentamos avanzar al siguiente producto
-                      if (ultimoProductoIndex < data.length - 1) {
-                        setCurrentProductoIndex(ultimoProductoIndex + 1);
-                      }
-                    }
-                  }
-                );
+                // Si el producto tiene un valor de recolectado, usamos ese
+                if (ultimoProducto.recolectado !== null) {
+                  console.log(`El producto tiene ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} unidades recolectadas`);
+                  setRecolectados(ultimoProducto.recolectado);
+                } else {
+                  // Si no tiene valor de recolectado, inicializamos en 0
+                  console.log(`El producto no tiene unidades recolectadas, inicializando en 0`);
+                  setRecolectados(0);
+                }
+                
+                // Si tiene motivo de faltante, lo preservamos
+                if (ultimoProducto.motivo) {
+                  console.log(`Preservando motivo de faltante: "${ultimoProducto.motivo}"`);
+                  setMotivo(ultimoProducto.motivo);
+                } else {
+                  setMotivo("");
+                }
+                
+                // No realizamos ninguna actualización automática, solo posicionamos el cursor en este producto
               }
             } else {
               console.warn(`No se encontró el último producto ID ${currentPedido.ultimoProductoId} en la lista de productos`);
