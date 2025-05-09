@@ -338,12 +338,33 @@ export default function ArmadoPage() {
         try {
           const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
           const productosActualizados = await res.json();
-          const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
+          
+          // Un producto está completamente procesado si:
+          // 1. Ha sido recolectado completamente (recolectado = cantidad), O
+          // 2. Ha sido recolectado parcialmente pero tiene motivo de faltante
+          const todosProductosProcesados = productosActualizados.every((p: any) => 
+            p.recolectado !== null && 
+            (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
+          );
           
           // Si todos los productos están procesados, finalizar el pedido automáticamente
           if (todosProductosProcesados) {
-            console.log("Todos los productos están procesados. Finalizando pedido automáticamente...");
-            finalizarPedidoMutation.mutate(currentPedido!.id);
+            console.log("Todos los productos están procesados correctamente. Finalizando pedido automáticamente...");
+            
+            // Mostrar mensaje de éxito
+            toast({
+              title: "¡Pedido completado!",
+              description: "Todos los productos han sido procesados correctamente",
+              className: "bg-green-100 border-green-500",
+            });
+            
+            // Mostrar modal de éxito
+            setMostrarModalExito(true);
+            
+            // Finalizar el pedido con un pequeño retraso para mostrar la notificación
+            setTimeout(() => {
+              finalizarPedidoMutation.mutate(currentPedido!.id);
+            }, 800);
           }
         } catch (error) {
           console.error("Error al verificar productos procesados:", error);
@@ -367,12 +388,33 @@ export default function ArmadoPage() {
           try {
             const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
             const productosActualizados = await res.json();
-            const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
+            
+            // Un producto está completamente procesado si:
+            // 1. Ha sido recolectado completamente (recolectado = cantidad), O
+            // 2. Ha sido recolectado parcialmente pero tiene motivo de faltante
+            const todosProductosProcesados = productosActualizados.every((p: any) => 
+              p.recolectado !== null && 
+              (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
+            );
             
             // Si todos los productos están procesados, finalizar el pedido automáticamente
             if (todosProductosProcesados) {
-              console.log("Último producto procesado y todos los productos tienen estado. Finalizando pedido automáticamente...");
-              finalizarPedidoMutation.mutate(currentPedido!.id);
+              console.log("Último producto procesado y todos tienen estado completo. Finalizando pedido automáticamente...");
+              
+              // Mostrar mensaje de éxito
+              toast({
+                title: "¡Pedido completado!",
+                description: "Todos los productos han sido procesados correctamente",
+                className: "bg-green-100 border-green-500",
+              });
+              
+              // Mostrar modal de éxito
+              setMostrarModalExito(true);
+              
+              // Finalizar el pedido con un pequeño retraso para mostrar la notificación
+              setTimeout(() => {
+                finalizarPedidoMutation.mutate(currentPedido!.id);
+              }, 800);
             }
           } catch (error) {
             console.error("Error al verificar productos procesados:", error);
@@ -2536,6 +2578,44 @@ export default function ArmadoPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
           Está procesando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
         </div>
+        
+        {/* Modal de pedido completado con éxito */}
+        <Dialog 
+          open={mostrarModalExito} 
+          onOpenChange={(open) => {
+            // Si se cierra manualmente, evitar que vuelva a mostrarse
+            if (!open) setMostrarModalExito(false);
+          }}
+        >
+          <DialogContent className="bg-green-50 border-green-500">
+            <DialogHeader>
+              <DialogTitle className="text-center text-2xl font-bold text-green-800">
+                ¡Pedido Completado!
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="flex justify-center mb-4">
+              <CheckCircle2 className="h-16 w-16 text-green-600" />
+            </div>
+            
+            <p className="text-center text-lg mb-2">
+              El pedido <span className="font-bold">{currentPedido.pedidoId}</span> ha sido preparado con éxito.
+            </p>
+            
+            <p className="text-center text-gray-600 mb-4">
+              Todos los productos han sido procesados correctamente.
+            </p>
+            
+            <DialogFooter className="justify-center">
+              <Button 
+                className="bg-green-600 hover:bg-green-700 px-8 py-2 text-lg" 
+                onClick={() => setMostrarModalExito(false)}
+              >
+                Aceptar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
