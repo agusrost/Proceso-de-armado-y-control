@@ -3829,24 +3829,36 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Actualizando producto ID ${productoId}:`, req.body);
       
-      // ⚠️ CORRECCIÓN CRÍTICA: Manejar caso especial para productos con motivo de faltante
-      // Si el producto ya tiene un motivo registrado y se intenta actualizar con un recolectado que
-      // sería igual a la cantidad total (completar), bloqueamos esta acción para preservar el faltante
-      if (
-        productoExistente.motivo && 
-        productoExistente.motivo.trim() !== '' && 
-        req.body.recolectado !== undefined &&
-        req.body.recolectado >= productoExistente.cantidad
-      ) {
-        console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene un motivo de faltante "${productoExistente.motivo}" y se intenta cambiar de ${productoExistente.recolectado} a ${req.body.recolectado}/${productoExistente.cantidad} unidades.`);
+      // ⚠️ CORRECCIÓN CRÍTICA: Implementación robusta anti-autocompletado para productos con faltantes
+      console.log(`🔍 VERIFICANDO PRODUCTO: ID=${productoId}, Código=${productoExistente.codigo}, Recolectado=${productoExistente.recolectado}/${productoExistente.cantidad}, Motivo="${productoExistente.motivo || 'ninguno'}"`);
+      
+      // Verificamos si hay un motivo de faltante y debemos protegerlo
+      const tieneMotivoDeFaltante = productoExistente.motivo && productoExistente.motivo.trim() !== '';
+      
+      // Verificamos si se está intentando completar
+      const intentandoCompletar = req.body.recolectado !== undefined && req.body.recolectado >= productoExistente.cantidad;
+      
+      // Flag especial de preservación forzada para casos críticos como reanudar pausa
+      const esActualizacionDeProteccion = req.body.preservarFaltante === true;
+      
+      // Casos donde debemos preservar el faltante:
+      // 1. Si tiene motivo y se intenta completar automáticamente
+      // 2. Si viene solicitud explícita de preservarFaltante=true (reanudar pausa)
+      if ((tieneMotivoDeFaltante && intentandoCompletar) || (tieneMotivoDeFaltante && esActualizacionDeProteccion)) {
+        console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene motivo "${productoExistente.motivo}" y se intenta modificar de ${productoExistente.recolectado} a ${req.body.recolectado || 'N/A'}/${productoExistente.cantidad}`);
+        
+        // Verificar si proviene de reanudación de pausa (tienen valor actualizacionAutomatica)
+        if (req.body.actualizacionAutomatica !== undefined) {
+          console.log(`🛡️ DETECCIÓN DE REANUDACIÓN DE PAUSA: Actualizacion automática bloqueada`);
+        }
         
         // No permitimos completar un producto que ya tenía un motivo de faltante
-        console.log(`✅ PRESERVANDO FALTANTE: Se mantiene el valor recolectado=${productoExistente.recolectado} con motivo="${productoExistente.motivo}"`);
+        console.log(`✅ PRESERVANDO FALTANTE: Mantenemos recolectado=${productoExistente.recolectado} con motivo="${productoExistente.motivo}"`);
         
-        // Mantenemos el valor actual y no permitimos el cambio a "completado"
-        delete req.body.recolectado;
+        // Forzamos a mantener el valor original de recolectado
+        req.body.recolectado = productoExistente.recolectado;
         
-        // Aseguramos que el motivo se mantenga también
+        // Aseguramos que el motivo se mantenga (NUNCA se debe borrar)
         if (!req.body.motivo || req.body.motivo.trim() === '') {
           req.body.motivo = productoExistente.motivo;
         }
