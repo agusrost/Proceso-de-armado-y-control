@@ -3847,19 +3847,56 @@ export async function registerRoutes(app: Application): Promise<Server> {
         console.log(`Pausa activa: ${pausaActiva.id}, motivo: ${pausaActiva.motivo}`);
         
         // Si la actualización automática viene de nuestra lógica de reanudar con un producto parcialmente completado,
-        // vamos a actualizar el último producto procesado en la pausa
+        // vamos a actualizar el último producto procesado en la pausa, pero NO modificaremos productos con motivo de faltante
+
         if (req.body.actualizacionAutomatica) {
-          console.log(`Actualizando último producto procesado en la pausa: ${productoId}`);
-          await storage.updatePausa(pausaActiva.id, {
-            ultimoProductoId: productoId
-          });
+          console.log(`⚠️ CORRECCIÓN: Se detectó una actualizacionAutomatica para el producto ${productoId}`);
+          
+          // PRIMERA CORRECCIÓN: Verificar si el producto ya tiene un motivo de faltante
+          if (productoExistente.motivo && productoExistente.motivo.trim() !== '') {
+            console.log(`✅ MEJORA: El producto ${productoId} ya tiene un motivo de faltante registrado ("${productoExistente.motivo}"). No se cambiará su cantidad.`);
+            
+            // Solo actualizamos la referencia al último producto procesado, pero NO cambiamos el producto
+            await storage.updatePausa(pausaActiva.id, {
+              ultimoProductoId: productoId
+            });
+            
+            // Si había una solicitud de actualización automática para un producto con motivo de faltante,
+            // cancelamos la actualización para preservar el faltante y su motivo registrado
+            // Esto evita que se modifiquen cantidades automáticamente al reanudar una pausa
+            delete req.body.recolectado;
+            delete req.body.motivo;
+          } else {
+            console.log(`Actualizando último producto procesado en la pausa: ${productoId}`);
+            await storage.updatePausa(pausaActiva.id, {
+              ultimoProductoId: productoId
+            });
+          }
         }
       } else {
-        // Verificar si todos los productos tienen un valor en recolectado (no null)
-        const todosCompletados = productos.every(p => p.recolectado !== null);
+        // SEGUNDA CORRECCIÓN: Mejorar la verificación de completitud de productos
+        // Utilizamos la misma lógica que en el cliente: un producto está completado si
+        // 1. recolectado no es null, Y
+        // 2. recolectado === cantidad O (recolectado < cantidad Y tiene motivo)
+        const esProductoCompletado = (p: any): boolean => {
+          // Si recolectado es null, no está completado
+          if (p.recolectado === null) return false;
+          
+          // Si recolectado es igual a cantidad, está completado
+          if (p.recolectado === p.cantidad) return true;
+          
+          // Si es una recolección parcial pero tiene motivo, se considera completado
+          if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') return true;
+          
+          // En cualquier otro caso, no está completado
+          return false;
+        };
+        
+        // Verificar si todos los productos están completados según la lógica mejorada
+        const todosCompletados = productos.every(esProductoCompletado);
         
         if (todosCompletados) {
-          console.log(`Todos los productos del pedido ${pedidoId} han sido procesados y no hay pausas activas`);
+          console.log(`✅ MEJORA: Todos los productos del pedido ${pedidoId} han sido correctamente procesados según la lógica mejorada y no hay pausas activas`);
           
           // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
           const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
