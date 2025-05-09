@@ -1195,15 +1195,7 @@ export default function ArmadoPage() {
           )}
         </div>
         
-        <div className={`w-full max-w-md rounded-md p-6 mx-4 ${
-        producto.recolectado !== null 
-          ? (producto.recolectado === producto.cantidad 
-              ? 'bg-green-100 text-green-900 border border-green-300' // Producto completamente recolectado (verde claro)
-              : currentProductoIndex > 0 && productos[currentProductoIndex-1]?.recolectado !== null  
-                ? 'bg-green-200 text-green-900 border border-green-400' // Producto actual (verde más intenso)
-                : 'bg-red-100 text-red-900 border border-red-300') // Producto con recolección incompleta (rojo)
-          : 'bg-white text-gray-900' // Producto sin procesar (blanco)
-      }`}>
+        <div className="w-full max-w-md rounded-md p-6 mx-4 bg-white text-gray-900 border border-gray-300">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-semibold">Código SKU: {producto.codigo}</h2>
             

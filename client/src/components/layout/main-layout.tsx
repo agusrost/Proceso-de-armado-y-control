@@ -13,9 +13,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   // For armadores, we use a simpler layout without the sidebar
   if (user?.role === 'armador') {
     return (
-      <div className="min-h-screen flex flex-col bg-blue-950">
+      <div className="min-h-screen flex flex-col bg-neutral-800">
         <Header />
-        <main className="flex-1">
+        <main className="flex-1 bg-neutral-800">
           {children}
         </main>
       </div>
@@ -23,11 +23,11 @@ export function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-950">
+    <div className="min-h-screen flex flex-col bg-neutral-800">
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-neutral-800">
           {children}
         </main>
       </div>
