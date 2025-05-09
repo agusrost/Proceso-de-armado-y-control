@@ -6,11 +6,50 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshCw, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Play, Pause, Flag, Edit, RefreshCw, Loader2, XCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls";
+import { ArmadoSimpleControlsNew } from "@/components/armado/armado-simple-controls-new";
+
+// Tipo de Producto (para evitar errores tipo any)
+type Producto = {
+  id: number;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  recolectado: number | null;
+  motivo: string | null;
+  ubicacion: string | null;
+  pedidoId: number;
+};
+
+// Tipo de Pedido
+type Pedido = {
+  id: number;
+  pedidoId: string;
+  clienteId: string;
+  fecha: string;
+  items: number;
+  totalProductos: number;
+  vendedor: string | null;
+  estado: string;
+  puntaje: number;
+  armadorId: number | null;
+  tiempoBruto: string | null;
+  armadorNombre: string | null;
+  tiempoNeto: string | null;
+  porcAvance: number;
+  iniciado: string | null;
+  finalizado: string | null;
+  controladoId: number | null;
+  controlInicio: string | null;
+  controlTiempo: string | null;
+  numeroPausas?: number | null;
+  pausaActiva?: boolean;
+  pausas?: any[];
+  ultimoProductoId?: number;
+};
 
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
@@ -1214,19 +1253,65 @@ export default function ArmadoPage() {
           
           {/* NUEVO COMPONENTE DE CONTROLES SIMPLIFICADOS CON MOTIVO */}
           <div className="mb-4">
-            <ArmadoSimpleControls 
-              cantidadSolicitada={producto.cantidad}
-              cantidadInicial={cantidadMostrada}
-              onCantidadChange={(nuevaCantidad) => {
-                console.log(`COMPONENTE - Cantidad cambiada a: ${nuevaCantidad}`);
-                setRecolectados(nuevaCantidad);
-              }}
-              necesitaMotivo={true}
+            <ArmadoSimpleControlsNew 
+              productos={productos}
+              currentProductoIndex={currentProductoIndex}
+              recolectados={recolectados}
+              setRecolectados={setRecolectados}
               motivo={motivo}
-              onMotivoChange={(nuevoMotivo) => {
-                console.log(`COMPONENTE - Motivo cambiado a: ${nuevoMotivo}`);
-                setMotivo(nuevoMotivo);
+              setMotivo={setMotivo}
+              onGuardar={() => {
+                // Solo guardar si tenemos todos los datos necesarios
+                if (currentPedido && productos[currentProductoIndex]) {
+                  const producto = productos[currentProductoIndex];
+                  
+                  // Validar que tengamos recolectados definido
+                  if (recolectados === null) {
+                    toast({
+                      title: "Error",
+                      description: "Debe indicar la cantidad recolectada",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  // Validar que tengamos motivo si es necesario
+                  if (recolectados < producto.cantidad && !motivo) {
+                    toast({
+                      title: "Error",
+                      description: "Debe indicar un motivo para el faltante",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  // Actualizar el producto
+                  actualizarProductoMutation.mutate({
+                    id: producto.id,
+                    recolectado: recolectados,
+                    motivo: recolectados < producto.cantidad ? motivo : ""
+                  }, {
+                    onSuccess: () => {
+                      // Avanzar al siguiente producto si hay más
+                      if (currentProductoIndex < productos.length - 1) {
+                        setCurrentProductoIndex(prev => prev + 1);
+                        setRecolectados(productos[currentProductoIndex + 1].cantidad);
+                        setMotivo("");
+                      } else {
+                        // Si es el último, mostrar mensaje
+                        toast({
+                          title: "Pedido completado",
+                          description: "Todos los productos han sido procesados"
+                        });
+                      }
+                    }
+                  });
+                }
               }}
+              pausaActiva={pausaActiva}
+              onFinalizarPedido={() => setMostrarAlertaFinal(true)}
+              mutationIsPending={actualizarProductoMutation.isPending}
+              esReanudacion={currentPedido?.numeroPausas ? currentPedido.numeroPausas > 0 : false}
             />
           </div>
           
