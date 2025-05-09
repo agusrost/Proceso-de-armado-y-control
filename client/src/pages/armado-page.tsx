@@ -1297,7 +1297,70 @@ export default function ArmadoPage() {
                 }
               });
             }}
-            disabled={actualizarProductoMutation.isPending || pausaActiva}
+            disabled={actualizarProductoMutation.isPending && !pausaActiva}
+            onClick={(e) => {
+              // Si hay una pausa activa, reanudar la pausa en lugar de la acción normal
+              if (pausaActiva && pausaActualId) {
+                e.preventDefault(); // Detener el comportamiento normal
+                e.stopPropagation(); // Evitar propagación
+
+                console.log(`⚠️ REANUDANDO PAUSA: ID=${pausaActualId}`);
+                
+                // Mostrar mensaje de procesamiento
+                toast({
+                  title: "Reanudando...",
+                  description: "Finalizando pausa, espere un momento",
+                });
+                
+                // Optimista: actualizar estado local inmediatamente
+                setPausaActiva(false);
+                setPausaActualId(null);
+                
+                // Ejecutar la finalización de pausa
+                finalizarPausaMutation.mutate(pausaActualId, {
+                  onSuccess: (data) => {
+                    console.log("✅ Pausa finalizada con éxito");
+                    
+                    // Extraer el ID del último producto
+                    const ultimoProductoId = data.ultimoProductoId;
+                    console.log(`PAUSA FINALIZADA: ultimoProductoId=${ultimoProductoId}`);
+                    
+                    // Actualizar los datos del pedido y productos
+                    queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+                    
+                    if (currentPedido?.id) {
+                      queryClient.invalidateQueries({ 
+                        queryKey: [`/api/productos/pedido/${currentPedido.id}`]
+                      });
+                    }
+                    
+                    // Mensaje de éxito
+                    toast({
+                      title: "Pausa finalizada",
+                      description: "El pedido ha sido reanudado correctamente",
+                    });
+                  },
+                  onError: (error) => {
+                    console.error("❌ Error al finalizar pausa:", error);
+                    
+                    // Restaurar estado en caso de error
+                    setPausaActiva(true);
+                    setPausaActualId(pausaActualId);
+                    
+                    toast({
+                      title: "Error",
+                      description: "No se pudo finalizar la pausa. Intente nuevamente.",
+                      variant: "destructive",
+                    });
+                  }
+                });
+                
+                return; // Salir de la función aquí
+              }
+              
+              // Si no hay pausa, seguir con el comportamiento normal del botón
+              // Este código lo manejará el onClick existente del botón
+            }}
           >
             {pausaActiva 
               ? 'PAUSADO - REANUDAR PRIMERO' 
