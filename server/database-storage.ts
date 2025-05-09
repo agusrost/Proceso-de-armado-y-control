@@ -681,8 +681,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateProducto(id: number, productoData: Partial<Producto>): Promise<Producto | undefined> {
-    // PROTECCIÓN DEFINITIVA: Verificar si el producto tiene faltantes parciales registrados
-    // antes de permitir cualquier actualización que pueda autocompletarlo
+    // PROTECCIÓN DEFINITIVA MEJORADA: Verificar si el producto tiene faltantes parciales registrados
+    // antes de permitir cualquier actualización que pueda autocompletarlo o modificar sus cantidades
     if (productoData.recolectado !== undefined) {
       try {
         // Primero obtenemos el producto actual para verificar su estado
@@ -694,10 +694,11 @@ export class DatabaseStorage implements IStorage {
         if (productoExistente) {
           const tieneMotivoDeFaltante = productoExistente.motivo && productoExistente.motivo.trim() !== '';
           const intentandoCompletar = productoData.recolectado >= productoExistente.cantidad;
+          const aumentandoCantidad = productoData.recolectado > productoExistente.recolectado;
           
-          // Si tiene motivo de faltante y se está intentando completar, BLOQUEAR LA OPERACIÓN
+          // NIVEL 1: Si tiene motivo de faltante y se está intentando completar, BLOQUEAR LA OPERACIÓN
           if (tieneMotivoDeFaltante && intentandoCompletar) {
-            console.log(`⛔ PROTECCIÓN A NIVEL DB: Bloqueando autocompletado producto ${id} (${productoExistente.codigo})`);
+            console.log(`⛔ PROTECCIÓN NIVEL 1: Bloqueando autocompletado producto ${id} (${productoExistente.codigo})`);
             console.log(`   Estado actual: ${productoExistente.recolectado}/${productoExistente.cantidad}`);
             console.log(`   Intento bloqueado: ${productoData.recolectado}/${productoExistente.cantidad}`);
             
@@ -708,6 +709,28 @@ export class DatabaseStorage implements IStorage {
             }
             
             console.log(`   Valores preservados: ${productoData.recolectado}/${productoExistente.cantidad}, motivo: "${productoData.motivo}"`);
+          }
+          
+          // NIVEL 2: Si tiene motivo de faltante y se está intentando aumentar la cantidad (incluso sin completar), BLOQUEAR
+          else if (tieneMotivoDeFaltante && aumentandoCantidad) {
+            console.log(`⛔ PROTECCIÓN NIVEL 2: Bloqueando aumento de cantidad en producto con faltante ${id} (${productoExistente.codigo})`);
+            console.log(`   Estado actual: ${productoExistente.recolectado}/${productoExistente.cantidad}`);
+            console.log(`   Intento bloqueado: ${productoData.recolectado}/${productoExistente.cantidad}`);
+            
+            // Preservar siempre los valores originales
+            productoData.recolectado = productoExistente.recolectado;
+            if (!productoData.motivo || productoData.motivo.trim() === '') {
+              productoData.motivo = productoExistente.motivo;
+            }
+            
+            console.log(`   Valores preservados: ${productoData.recolectado}/${productoExistente.cantidad}, motivo: "${productoData.motivo}"`);
+          }
+          
+          // NIVEL 3: Si se está intentando eliminar un motivo existente sin cambiar cantidad, PRESERVAR MOTIVO
+          else if (tieneMotivoDeFaltante && (!productoData.motivo || productoData.motivo.trim() === '')) {
+            console.log(`⚠️ PROTECCIÓN NIVEL 3: Preservando motivo de faltante para producto ${id} (${productoExistente.codigo})`);
+            productoData.motivo = productoExistente.motivo;
+            console.log(`   Motivo preservado: "${productoData.motivo}"`);
           }
         }
       } catch (error) {
