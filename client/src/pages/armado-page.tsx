@@ -1395,7 +1395,17 @@ export default function ArmadoPage() {
                                   console.log(`REANUDAR: Continuando desde producto ${ultimoProducto.codigo} (ID: ${ultimoProductoId})`);
                                   
                                   setCurrentProductoIndex(ultimoProductoIndex);
+                                  // Establecer recolectados y motivo si existieran
                                   setRecolectados(ultimoProducto.recolectado !== null ? ultimoProducto.recolectado : 0);
+                                  
+                                  // Importante: Preservar el motivo de faltante
+                                  if (ultimoProducto.motivo) {
+                                    console.log(`REANUDAR: Restaurando motivo de faltante: "${ultimoProducto.motivo}"`);
+                                    setMotivo(ultimoProducto.motivo);
+                                  } else {
+                                    setMotivo("");
+                                  }
+                                  
                                   return; // Salir temprano si encontramos el último producto
                                 } else {
                                   console.log(`⚠️ No se encontró el producto con ID ${ultimoProductoId}, buscando alternativas...`);
@@ -1414,6 +1424,7 @@ export default function ArmadoPage() {
                                 console.log(`REANUDAR FIFO: Primer producto sin procesar: ${primerSinProcesar.codigo} (Índice ${primerSinProcesarIndex})`);
                                 setCurrentProductoIndex(primerSinProcesarIndex);
                                 setRecolectados(0);
+                                setMotivo("");  // Restablecer el motivo
                                 return;
                               }
                               
@@ -1430,6 +1441,7 @@ export default function ArmadoPage() {
                                 
                                 setCurrentProductoIndex(parcialSinMotivoIndex);
                                 setRecolectados(parcialSinMotivo.recolectado);
+                                setMotivo(""); // Limpiar motivo ya que este producto no tiene
                                 return;
                               }
                               
@@ -1444,6 +1456,14 @@ export default function ArmadoPage() {
                                 
                                 setCurrentProductoIndex(incompletoIndex);
                                 setRecolectados(productoIncompleto.recolectado);
+                                
+                                // Preservar el motivo del producto si existe
+                                if (productoIncompleto.motivo) {
+                                  console.log(`REANUDAR: Producto incompleto con motivo: "${productoIncompleto.motivo}"`);
+                                  setMotivo(productoIncompleto.motivo);
+                                } else {
+                                  setMotivo("");
+                                }
                               } else {
                                 console.log("REANUDAR: Todos los productos ya están procesados correctamente");
                               }

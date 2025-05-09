@@ -51,9 +51,11 @@ export function ProductoEscanerSeguroV2({
       setCantidad(1);
       
       // Foco en input de código
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 10); // Breve retraso para asegurar que el foco funcione correctamente
     } catch (error) {
       console.error("Error en escaneo:", error);
     } finally {
@@ -138,8 +140,17 @@ export function ProductoEscanerSeguroV2({
               <Input
                 type="number"
                 min={1}
-                value={cantidad}
-                onChange={(e) => setCantidad(parseInt(e.target.value) || 1)}
+                value={cantidad === 0 ? "" : cantidad}
+                onChange={(e) => {
+                  // Si el campo está vacío, permitimos que quede en blanco momentáneamente
+                  // estableciendo el valor en cero (pero en la UI mostrará campo vacío)
+                  if (e.target.value === "") {
+                    setCantidad(0);
+                  } else {
+                    const parsedValue = parseInt(e.target.value);
+                    setCantidad(isNaN(parsedValue) ? 0 : parsedValue);
+                  }
+                }}
                 className="text-center"
                 disabled={isLoading || disabled}
               />
