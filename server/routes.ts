@@ -3925,13 +3925,34 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
       }
       
+      // PROTECCIÓN ADICIONAL A NIVEL DE RUTA: Verificar si este producto tiene motivo de faltante
+      // y protegerlo contra intentos de autocompletado
+      if (productoExistente.motivo && productoExistente.motivo.trim() !== "") {
+        if (req.body.recolectado >= productoExistente.cantidad) {
+          console.log(`⛔ PROTECCIÓN DE RUTA: Bloqueando autocompletado de producto ${productoId}`);
+          console.log(`   Estado actual: ${productoExistente.recolectado}/${productoExistente.cantidad}`);
+          console.log(`   Intento bloqueado: ${req.body.recolectado}/${productoExistente.cantidad}`);
+          
+          // Preservar la cantidad recolectada original y el motivo
+          req.body.recolectado = productoExistente.recolectado;
+          if (!req.body.motivo || req.body.motivo.trim() === "") {
+            req.body.motivo = productoExistente.motivo;
+          }
+          
+          console.log(`   Valores preservados: ${req.body.recolectado}/${productoExistente.cantidad}, motivo: "${req.body.motivo}"`);
+          // Agregar un flag para que la respuesta indique que se aplicó protección
+          req.body.proteccionAplicada = true;
+        }
+      }
+      
       // Eliminar flags temporales utilizados para la protección
       delete req.body.preservarFaltante;
       delete req.body.correccionEmergencia;
       delete req.body.actualizacionAutomatica;
       delete req.body.tiempoAplicacion; // Eliminar timestamps de aplicación
+      delete req.body.proteccionAplicada; // Eliminar el flag que solo usamos para logging interno
       
-      // Actualizar el producto con los datos posiblemente modificados
+      // Actualizar el producto con los datos posiblemente modificados por la protección
       const productoActualizado = await storage.updateProducto(productoId, req.body);
       
       // Verificar si todos los productos del pedido están recolectados o marcados como faltantes

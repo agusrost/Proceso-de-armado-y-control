@@ -681,11 +681,48 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateProducto(id: number, productoData: Partial<Producto>): Promise<Producto | undefined> {
+    // PROTECCIÓN DEFINITIVA: Verificar si el producto tiene faltantes parciales registrados
+    // antes de permitir cualquier actualización que pueda autocompletarlo
+    if (productoData.recolectado !== undefined) {
+      try {
+        // Primero obtenemos el producto actual para verificar su estado
+        const [productoExistente] = await db
+          .select()
+          .from(productos)
+          .where(eq(productos.id, id));
+        
+        if (productoExistente) {
+          const tieneMotivoDeFaltante = productoExistente.motivo && productoExistente.motivo.trim() !== '';
+          const intentandoCompletar = productoData.recolectado >= productoExistente.cantidad;
+          
+          // Si tiene motivo de faltante y se está intentando completar, BLOQUEAR LA OPERACIÓN
+          if (tieneMotivoDeFaltante && intentandoCompletar) {
+            console.log(`⛔ PROTECCIÓN A NIVEL DB: Bloqueando autocompletado producto ${id} (${productoExistente.codigo})`);
+            console.log(`   Estado actual: ${productoExistente.recolectado}/${productoExistente.cantidad}`);
+            console.log(`   Intento bloqueado: ${productoData.recolectado}/${productoExistente.cantidad}`);
+            
+            // Preservar siempre los valores originales
+            productoData.recolectado = productoExistente.recolectado;
+            if (!productoData.motivo || productoData.motivo.trim() === '') {
+              productoData.motivo = productoExistente.motivo;
+            }
+            
+            console.log(`   Valores preservados: ${productoData.recolectado}/${productoExistente.cantidad}, motivo: "${productoData.motivo}"`);
+          }
+        }
+      } catch (error) {
+        console.error(`Error al verificar protección de faltantes para producto ${id}:`, error);
+        // Continuamos con la actualización normal en caso de error
+      }
+    }
+    
+    // Ahora realizamos la actualización con valores posiblemente modificados
     const [producto] = await db
       .update(productos)
       .set(productoData)
       .where(eq(productos.id, id))
       .returning();
+    
     return producto;
   }
   
