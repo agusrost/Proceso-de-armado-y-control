@@ -3829,7 +3829,30 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Actualizando producto ID ${productoId}:`, req.body);
       
-      // Actualizar el producto
+      // ⚠️ CORRECCIÓN CRÍTICA: Manejar caso especial para productos con motivo de faltante
+      // Si el producto ya tiene un motivo registrado y se intenta actualizar con un recolectado que
+      // sería igual a la cantidad total (completar), bloqueamos esta acción para preservar el faltante
+      if (
+        productoExistente.motivo && 
+        productoExistente.motivo.trim() !== '' && 
+        req.body.recolectado !== undefined &&
+        req.body.recolectado >= productoExistente.cantidad
+      ) {
+        console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene un motivo de faltante "${productoExistente.motivo}" y se intenta cambiar de ${productoExistente.recolectado} a ${req.body.recolectado}/${productoExistente.cantidad} unidades.`);
+        
+        // No permitimos completar un producto que ya tenía un motivo de faltante
+        console.log(`✅ PRESERVANDO FALTANTE: Se mantiene el valor recolectado=${productoExistente.recolectado} con motivo="${productoExistente.motivo}"`);
+        
+        // Mantenemos el valor actual y no permitimos el cambio a "completado"
+        delete req.body.recolectado;
+        
+        // Aseguramos que el motivo se mantenga también
+        if (!req.body.motivo || req.body.motivo.trim() === '') {
+          req.body.motivo = productoExistente.motivo;
+        }
+      }
+      
+      // Actualizar el producto con los datos posiblemente modificados
       const productoActualizado = await storage.updateProducto(productoId, req.body);
       
       // Verificar si todos los productos del pedido están recolectados o marcados como faltantes
@@ -3852,7 +3875,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         if (req.body.actualizacionAutomatica) {
           console.log(`⚠️ CORRECCIÓN: Se detectó una actualizacionAutomatica para el producto ${productoId}`);
           
-          // PRIMERA CORRECCIÓN: Verificar si el producto ya tiene un motivo de faltante
+          // VERIFICACIÓN ADICIONAL: Verificar si el producto ya tiene un motivo de faltante
           if (productoExistente.motivo && productoExistente.motivo.trim() !== '') {
             console.log(`✅ MEJORA: El producto ${productoId} ya tiene un motivo de faltante registrado ("${productoExistente.motivo}"). No se cambiará su cantidad.`);
             
@@ -3866,6 +3889,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Esto evita que se modifiquen cantidades automáticamente al reanudar una pausa
             delete req.body.recolectado;
             delete req.body.motivo;
+            
+            // IMPORTANTE: Revertir cualquier cambio que se haya hecho previamente
+            await storage.updateProducto(productoId, {
+              recolectado: productoExistente.recolectado,
+              motivo: productoExistente.motivo
+            });
           } else {
             console.log(`Actualizando último producto procesado en la pausa: ${productoId}`);
             await storage.updatePausa(pausaActiva.id, {
