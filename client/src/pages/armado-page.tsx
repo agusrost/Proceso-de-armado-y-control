@@ -1444,20 +1444,51 @@ export default function ArmadoPage() {
                                     setRecolectados(ultimoProducto.recolectado);
                                     setMotivo(ultimoProducto.motivo);
                                     
-                                    // IMPORTANTE: Para evitar autocompletado incorrecto, forzamos inmediatamente
-                                    // una actualización para asegurar que el estado del servidor sea correcto
-                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO: Preservando estado del producto ${ultimoProducto.id}`);
+                                    // MEJORA CRÍTICA: Doble protección para productos con faltantes
+                                    // 1. Actualización inmediata para preservar el estado en servidor
+                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO (PASO 1): Preservando estado del producto ${ultimoProducto.id} en el servidor`);
                                     
                                     // Forzar actualización inmediata para proteger el faltante registrado
+                                    actualizarProductoMutation.mutate({
+                                      id: ultimoProducto.id,
+                                      recolectado: ultimoProducto.recolectado,
+                                      motivo: ultimoProducto.motivo,
+                                      actualizacionAutomatica: false,
+                                      preservarFaltante: true // Flag explícito para indicar que es una actualización de protección
+                                    });
+                                    
+                                    // 2. Segunda actualización después de un breve retraso para asegurar que no haya sido sobrescrita
+                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO (PASO 2): Programando segunda verificación en 500ms`);
                                     setTimeout(() => {
-                                      actualizarProductoMutation.mutate({
-                                        id: ultimoProducto.id,
-                                        recolectado: ultimoProducto.recolectado,
-                                        motivo: ultimoProducto.motivo,
-                                        actualizacionAutomatica: false,
-                                        preservarFaltante: true // Nuevo flag que indica que es una actualización de protección
-                                      });
-                                    }, 300);
+                                      // Re-verificar el estado actual del producto desde el servidor
+                                      apiRequest("GET", `/api/productos/${ultimoProducto.id}`)
+                                        .then(res => res.json())
+                                        .then(productoActual => {
+                                          console.log(`Verificación de producto ${ultimoProducto.id} después de reanudar pausa:`, productoActual);
+                                          
+                                          // Si el producto debería tener un faltante pero está completo, corregimos el problema
+                                          if (productoActual.motivo && productoActual.motivo.trim() !== '' && 
+                                              productoActual.recolectado >= productoActual.cantidad) {
+                                            console.log(`⚠️ CORRECCIÓN EMERGENCIA: El producto ${ultimoProducto.id} tiene faltante pero su cantidad aparece completa`);
+                                            
+                                            // Corregir inmediatamente el problema (volver al valor parcial original)
+                                            actualizarProductoMutation.mutate({
+                                              id: ultimoProducto.id,
+                                              recolectado: ultimoProducto.recolectado, // Usar valor original conocido
+                                              motivo: ultimoProducto.motivo,
+                                              actualizacionAutomatica: false,
+                                              preservarFaltante: true,
+                                              correccionEmergencia: true
+                                            });
+                                            
+                                            // Actualizar el estado local también
+                                            setRecolectados(ultimoProducto.recolectado);
+                                          }
+                                        })
+                                        .catch(err => {
+                                          console.error(`Error al verificar producto ${ultimoProducto.id} después de reanudar pausa:`, err);
+                                        });
+                                    }, 500);
                                   } 
                                   else {
                                     // Caso normal: producto sin motivo de faltante

@@ -3844,8 +3844,20 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Casos donde debemos preservar el faltante:
       // 1. Si tiene motivo y se intenta completar automáticamente
       // 2. Si viene solicitud explícita de preservarFaltante=true (reanudar pausa)
-      if ((tieneMotivoDeFaltante && intentandoCompletar) || (tieneMotivoDeFaltante && esActualizacionDeProteccion)) {
-        console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene motivo "${productoExistente.motivo}" y se intenta modificar de ${productoExistente.recolectado} a ${req.body.recolectado || 'N/A'}/${productoExistente.cantidad}`);
+      // 3. Si viene una corrección de emergencia (detectada por verificación post-pausa)
+      const esCorreccionEmergencia = req.body.correccionEmergencia === true;
+      
+      if ((tieneMotivoDeFaltante && intentandoCompletar) || 
+          (tieneMotivoDeFaltante && esActualizacionDeProteccion) ||
+          esCorreccionEmergencia) {
+        
+        if (esCorreccionEmergencia) {
+          console.log(`🚨 CORRECCIÓN DE EMERGENCIA: Producto ${productoId} (${productoExistente.codigo}) detectado con inconsistencia`);
+          console.log(`   Estado actual: recolectado=${productoExistente.recolectado}/${productoExistente.cantidad}, motivo="${productoExistente.motivo || 'ninguno'}"`);
+          console.log(`   Solicitado: recolectado=${req.body.recolectado}/${productoExistente.cantidad}, motivo="${req.body.motivo || 'ninguno'}"`);
+        } else {
+          console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene motivo "${productoExistente.motivo}" y se intenta modificar de ${productoExistente.recolectado} a ${req.body.recolectado || 'N/A'}/${productoExistente.cantidad}`);
+        }
         
         // Verificar si proviene de reanudación de pausa (tienen valor actualizacionAutomatica)
         if (req.body.actualizacionAutomatica !== undefined) {
@@ -3853,15 +3865,22 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
         
         // No permitimos completar un producto que ya tenía un motivo de faltante
-        console.log(`✅ PRESERVANDO FALTANTE: Mantenemos recolectado=${productoExistente.recolectado} con motivo="${productoExistente.motivo}"`);
+        console.log(`✅ PRESERVANDO FALTANTE: Mantenemos recolectado=${esCorreccionEmergencia ? req.body.recolectado : productoExistente.recolectado} con motivo="${req.body.motivo || productoExistente.motivo}"`);
         
-        // Forzamos a mantener el valor original de recolectado
-        req.body.recolectado = productoExistente.recolectado;
+        // Si no es una corrección de emergencia, forzamos a mantener el valor original
+        if (!esCorreccionEmergencia) {
+          req.body.recolectado = productoExistente.recolectado;
+        }
         
         // Aseguramos que el motivo se mantenga (NUNCA se debe borrar)
         if (!req.body.motivo || req.body.motivo.trim() === '') {
           req.body.motivo = productoExistente.motivo;
         }
+        
+        // Eliminar flags temporales utilizados para la protección
+        delete req.body.preservarFaltante;
+        delete req.body.correccionEmergencia;
+        delete req.body.actualizacionAutomatica;
       }
       
       // Actualizar el producto con los datos posiblemente modificados
