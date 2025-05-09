@@ -989,7 +989,8 @@ export default function ArmadoPage() {
             // 4. Si todo lo anterior falla, usar el primer producto
             console.log("ULTIMO RECURSO: Usando el primer producto de la lista");
             setCurrentProductoIndex(0);
-            setRecolectados(productos[0].recolectado !== null ? productos[0].recolectado : productos[0].cantidad);
+            // Establecer recolectados en 0 para forzar al usuario a elegir una cantidad
+            setRecolectados(0);
           }
         } catch (error) {
           console.error("Error al cargar productos para cantidad predeterminada:", error);
@@ -1162,26 +1163,23 @@ export default function ArmadoPage() {
     );
   }
 
-  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - VERSIÓN MEJORADA
+  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - NUEVA VERSIÓN
   const asegurarCantidadInicial = (producto) => {
-    // Forzar siempre el valor correcto
-    console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.cantidad}`);
+    // Ya no forzamos automáticamente el valor a producto.cantidad
+    // En su lugar, queremos que si no hay un valor establecido, comience en 0
+    // para obligar al usuario a elegir una cantidad
+    console.log(`INICIALIZACIÓN: Producto SKU ${producto.codigo}, valor estado actual: ${recolectados}`);
     
-    // Usar el valor del estado si existe, si no, forzar la cantidad del producto
-    const valorActual = recolectados !== null ? recolectados : producto.cantidad;
-    
-    // Siempre actualizar el estado para garantizar la consistencia
-    if (recolectados === null || recolectados !== producto.cantidad) {
-      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${producto.cantidad}`);
-      // Actualización inmediata y programada para garantizar que se aplique
-      setRecolectados(producto.cantidad);
-      setTimeout(() => {
-        setRecolectados(producto.cantidad);
-      }, 50);
+    // Si no hay valor previo, establecer a 0 (debe elegir cantidad y posible motivo)
+    if (recolectados === null) {
+      console.log(`No hay valor previo, estableciendo a 0`);
+      setRecolectados(0);
+      return 0;
     }
     
-    // SIEMPRE retornar la cantidad del producto, no el estado
-    return producto.cantidad;
+    // Si hay un valor previo, mantenerlo
+    console.log(`Manteniendo valor previo: ${recolectados}`);
+    return recolectados;
   };
 
   // Renderizar la interfaz simplificada
