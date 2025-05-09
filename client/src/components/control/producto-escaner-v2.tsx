@@ -87,9 +87,11 @@ export function ProductoEscanerSeguroV2({
             setCantidad(1);
             
             // Foco en input de código
-            if (inputRef.current) {
-              inputRef.current.focus();
-            }
+            setTimeout(() => {
+              if (inputRef.current) {
+                inputRef.current.focus();
+              }
+            }, 10); // Breve retraso para asegurar que el foco funcione correctamente
           } catch (error) {
             console.error("Error en escaneo automático:", error);
           } finally {
