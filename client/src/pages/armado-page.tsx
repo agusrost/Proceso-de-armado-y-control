@@ -2441,19 +2441,62 @@ export default function ArmadoPage() {
           </div>
         )}
         
-        {/* Lista de productos */}
+        {/* Lista de productos - Resumen mejorado */}
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Resumen de Productos</h2>
           <div className="bg-white border rounded-lg overflow-hidden">
-            <div className="max-h-64 overflow-y-auto">
+            <div className="p-4 border-b bg-gray-50 flex justify-between text-sm font-medium text-gray-600">
+              <div>Producto</div>
+              <div>Estado de Recolección</div>
+            </div>
+            <div className="max-h-64 overflow-y-auto divide-y">
               {productos.map((producto, index) => (
-                <ProductoArmadoItem
-                  key={producto.id}
-                  producto={producto}
-                  isActive={index === currentProductoIndex && !pausaActiva}
-                  isCompleted={producto.recolectado !== null && producto.recolectado > 0}
-                  isPending={producto.recolectado === null}
-                />
+                <div key={producto.id} className={`p-4 flex justify-between items-center ${
+                  index === currentProductoIndex && !pausaActiva 
+                    ? 'bg-green-50' 
+                    : ''
+                }`}>
+                  <div className="flex-1">
+                    <div className="font-mono font-medium text-base">{producto.codigo}</div>
+                    <div className="text-sm text-gray-600 mt-1">{producto.descripcion}</div>
+                    <div className="text-xs text-gray-500 mt-1">Ubicación: {producto.ubicacion || 'No especificada'}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium">
+                      Solicitado: {producto.cantidad}
+                    </div>
+                    {producto.recolectado === null ? (
+                      <div className="mt-1 text-red-600 text-sm">Pendiente</div>
+                    ) : producto.recolectado === producto.cantidad ? (
+                      <div className="mt-1 text-green-600 text-sm flex items-center justify-end">
+                        <span className="mr-1">Completo</span> 
+                        <CheckCircle2 className="h-4 w-4" />
+                      </div>
+                    ) : producto.motivo ? (
+                      <div className="mt-1">
+                        <div className="text-green-600 text-sm flex items-center justify-end">
+                          <span className="mr-1">Parcial con motivo</span>
+                          <CheckCircle2 className="h-4 w-4" />
+                        </div>
+                        <div className="text-xs text-right mt-0.5">
+                          Recolectado: <span className="font-medium">{producto.recolectado}</span>/{producto.cantidad}
+                        </div>
+                        <div className="text-xs italic text-right mt-0.5 text-gray-600 max-w-[200px] truncate">
+                          Motivo: {producto.motivo}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1">
+                        <div className="text-orange-600 text-sm">
+                          Parcial sin motivo
+                        </div>
+                        <div className="text-xs text-right mt-0.5">
+                          Recolectado: <span className="font-medium">{producto.recolectado}</span>/{producto.cantidad}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
