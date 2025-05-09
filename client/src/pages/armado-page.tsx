@@ -2500,21 +2500,68 @@ export default function ArmadoPage() {
           )}
         </div>
         
-        {/* Producto actual - Usando el nuevo componente ArmadoSimpleControls */}
+        {/* Producto actual - Usando el nuevo componente ArmadoSimpleControlsNew */}
         {productos[currentProductoIndex] && !pausaActiva && (
           <div className="bg-white border rounded-lg shadow-sm mb-6">
-            <ArmadoSimpleControls
+            <ArmadoSimpleControlsNew
               productos={productos}
               currentProductoIndex={currentProductoIndex}
               recolectados={recolectados}
               setRecolectados={setRecolectados}
               motivo={motivo}
               setMotivo={setMotivo}
-              onGuardar={handleSubmit}
+              onGuardar={() => {
+                // Solo guardar si tenemos todos los datos necesarios
+                if (currentPedido && productos[currentProductoIndex]) {
+                  const producto = productos[currentProductoIndex];
+                  
+                  // Validar que tengamos recolectados definido
+                  if (recolectados === null) {
+                    toast({
+                      title: "Error",
+                      description: "Debe indicar la cantidad recolectada",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  // Validar que tengamos motivo si es necesario
+                  if (recolectados < producto.cantidad && !motivo) {
+                    toast({
+                      title: "Error",
+                      description: "Debe indicar un motivo para el faltante",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
+                  // Actualizar el producto
+                  actualizarProductoMutation.mutate({
+                    id: producto.id,
+                    recolectado: recolectados,
+                    motivo: recolectados < producto.cantidad ? motivo : ""
+                  }, {
+                    onSuccess: () => {
+                      // Avanzar al siguiente producto si hay más
+                      if (currentProductoIndex < productos.length - 1) {
+                        setCurrentProductoIndex(prev => prev + 1);
+                        setRecolectados(productos[currentProductoIndex + 1].cantidad);
+                        setMotivo("");
+                      } else {
+                        // Si es el último, mostrar mensaje
+                        toast({
+                          title: "Pedido completado",
+                          description: "Todos los productos han sido procesados"
+                        });
+                      }
+                    }
+                  });
+                }
+              }}
               pausaActiva={pausaActiva}
-              onFinalizarPedido={handleFinalizarPedido}
+              onFinalizarPedido={() => setMostrarAlertaFinal(true)}
               mutationIsPending={actualizarProductoMutation.isPending}
-              esReanudacion={!!currentPedido?.pausas?.some(p => p.fin === null)}
+              esReanudacion={currentPedido?.numeroPausas ? currentPedido.numeroPausas > 0 : false}
             />
           </div>
         )}
