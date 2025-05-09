@@ -1434,61 +1434,83 @@ export default function ArmadoPage() {
                                   console.log(`REANUDAR: Continuando desde producto ${ultimoProducto.codigo} (ID: ${ultimoProductoId})`);
                                   
                                   setCurrentProductoIndex(ultimoProductoIndex);
-                                  // ⚠️ CORRECCIÓN CRÍTICA: Preservar siempre el valor original para productos con faltantes
+                                  // ⚠️ SOLUCIÓN DEFINITIVA: Prevenir completamente el problema de faltantes que se autocompletan
                                   // Si el producto tiene un motivo registrado, significa que es un faltante parcial
-                                  // y debemos preservar su cantidad original sin completarla
+                                  // y debemos preservar siempre su cantidad original sin completarla
                                   if (ultimoProducto.motivo && ultimoProducto.motivo.trim() !== '') {
-                                    console.log(`⚠️ PRODUCTO CON FALTANTE: ${ultimoProducto.codigo} - Recolectado: ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} - Motivo: "${ultimoProducto.motivo}"`);
+                                    console.log(`🚨 PRODUCTO CON FALTANTE DETECTADO: ${ultimoProducto.codigo} - Recolectado: ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} - Motivo: "${ultimoProducto.motivo}"`);
                                     
-                                    // Preservar SIEMPRE los valores originales
+                                    // Preservar siempre los valores originales
                                     setRecolectados(ultimoProducto.recolectado);
                                     setMotivo(ultimoProducto.motivo);
                                     
-                                    // MEJORA CRÍTICA: Doble protección para productos con faltantes
-                                    // 1. Actualización inmediata para preservar el estado en servidor
-                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO (PASO 1): Preservando estado del producto ${ultimoProducto.id} en el servidor`);
+                                    // PROTECCIÓN DE FALTANTES MEJORADA:
+                                    // 1. Protección inmediata - forzar el valor correcto en el servidor
+                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO: Verificando y corrigiendo estado del producto ${ultimoProducto.id}`);
                                     
-                                    // Forzar actualización inmediata para proteger el faltante registrado
-                                    actualizarProductoMutation.mutate({
-                                      id: ultimoProducto.id,
-                                      recolectado: ultimoProducto.recolectado,
-                                      motivo: ultimoProducto.motivo,
-                                      actualizacionAutomatica: false,
-                                      preservarFaltante: true // Flag explícito para indicar que es una actualización de protección
-                                    });
-                                    
-                                    // 2. Segunda actualización después de un breve retraso para asegurar que no haya sido sobrescrita
-                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO (PASO 2): Programando segunda verificación en 500ms`);
-                                    setTimeout(() => {
-                                      // Re-verificar el estado actual del producto desde el servidor
+                                    // Esta es una función auxiliar que ejecuta la corrección
+                                    const aplicarProteccion = () => {
+                                      // Primero verificamos el estado actual
                                       apiRequest("GET", `/api/productos/${ultimoProducto.id}`)
                                         .then(res => res.json())
                                         .then(productoActual => {
-                                          console.log(`Verificación de producto ${ultimoProducto.id} después de reanudar pausa:`, productoActual);
+                                          console.log(`Estado actual del producto ${ultimoProducto.id}:`, productoActual);
                                           
-                                          // Si el producto debería tener un faltante pero está completo, corregimos el problema
-                                          if (productoActual.motivo && productoActual.motivo.trim() !== '' && 
-                                              productoActual.recolectado >= productoActual.cantidad) {
-                                            console.log(`⚠️ CORRECCIÓN EMERGENCIA: El producto ${ultimoProducto.id} tiene faltante pero su cantidad aparece completa`);
+                                          // Detectar cualquier inconsistencia
+                                          const tieneInconsistencia = 
+                                            (productoActual.motivo && productoActual.motivo.trim() !== '' && productoActual.recolectado >= productoActual.cantidad) ||
+                                            (productoActual.recolectado !== ultimoProducto.recolectado) ||
+                                            (productoActual.motivo !== ultimoProducto.motivo);
+                                          
+                                          if (tieneInconsistencia) {
+                                            console.log(`⚠️ INCONSISTENCIA DETECTADA: Producto ${ultimoProducto.id}`);
+                                            console.log(`  - Estado esperado: recolectado=${ultimoProducto.recolectado}/${ultimoProducto.cantidad}, motivo="${ultimoProducto.motivo}"`);
+                                            console.log(`  - Estado actual: recolectado=${productoActual.recolectado}/${productoActual.cantidad}, motivo="${productoActual.motivo || 'ninguno'}"`);
                                             
-                                            // Corregir inmediatamente el problema (volver al valor parcial original)
+                                            // Aplicar corrección inmediata
+                                            console.log(`⚡ APLICANDO CORRECCIÓN FORZADA para producto ${ultimoProducto.id}`);
+                                            
+                                            // Para evitar cualquier cambio de valor por parte del sistema, solicitamos explícitamente:
+                                            // 1. Forzar el valor de recolectado exactamente como estaba guardado
+                                            // 2. Forzar el motivo exactamente como estaba guardado
+                                            // 3. Marcar como corrección de emergencia para máxima prioridad
                                             actualizarProductoMutation.mutate({
                                               id: ultimoProducto.id,
-                                              recolectado: ultimoProducto.recolectado, // Usar valor original conocido
+                                              recolectado: ultimoProducto.recolectado,
                                               motivo: ultimoProducto.motivo,
                                               actualizacionAutomatica: false,
                                               preservarFaltante: true,
-                                              correccionEmergencia: true
+                                              correccionEmergencia: true,
+                                              tiempoAplicacion: new Date().toISOString() // Añadir timestamp para evitar caché
                                             });
                                             
-                                            // Actualizar el estado local también
+                                            // También actualizar el estado local
                                             setRecolectados(ultimoProducto.recolectado);
+                                            setMotivo(ultimoProducto.motivo);
+                                            
+                                            // Mostrar notificación al usuario sobre la corrección aplicada
+                                            toast({
+                                              title: "Protección anti-faltantes activada",
+                                              description: `Se ha preservado un faltante parcial registrado para el producto ${ultimoProducto.codigo}`,
+                                              variant: "default"
+                                            });
+                                          } else {
+                                            console.log(`✅ Producto ${ultimoProducto.id} está en estado correcto, no se requiere intervención`);
                                           }
                                         })
                                         .catch(err => {
-                                          console.error(`Error al verificar producto ${ultimoProducto.id} después de reanudar pausa:`, err);
+                                          console.error(`Error al verificar producto ${ultimoProducto.id}:`, err);
                                         });
-                                    }, 500);
+                                    };
+                                    
+                                    // Ejecutar la protección inmediatamente
+                                    aplicarProteccion();
+                                    
+                                    // Y también después de un breve retraso para asegurar que no hay cambios posteriores
+                                    setTimeout(aplicarProteccion, 500);
+                                    
+                                    // Y una tercera vez para máxima seguridad después de 1.5 segundos
+                                    setTimeout(aplicarProteccion, 1500);
                                   } 
                                   else {
                                     // Caso normal: producto sin motivo de faltante

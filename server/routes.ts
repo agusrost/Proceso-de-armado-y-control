@@ -3877,41 +3877,59 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // 3. Si viene una corrección de emergencia (detectada por verificación post-pausa)
       const esCorreccionEmergencia = req.body.correccionEmergencia === true;
       
-      if ((tieneMotivoDeFaltante && intentandoCompletar) || 
-          (tieneMotivoDeFaltante && esActualizacionDeProteccion) ||
-          esCorreccionEmergencia) {
+      // SOLUCIÓN DEFINITIVA PARA PRODUCTOS CON FALTANTES
+      // Regla: Si un producto ya tiene un motivo de faltante registrado, NUNCA se puede 
+      // completar automáticamente - solo permitimos mantener o reducir su cantidad
+      
+      if (tieneMotivoDeFaltante) {
+        console.log(`⛔ PROTECCIÓN MÁXIMA PARA PRODUCTO CON FALTANTE: ID=${productoId}, Código=${productoExistente.codigo}`);
+        console.log(`   Estado actual: recolectado=${productoExistente.recolectado}/${productoExistente.cantidad}, motivo="${productoExistente.motivo}"`);
         
+        // Caso 1: Corrección de emergencia (prioridad máxima) - respeta explícitamente los valores enviados
         if (esCorreccionEmergencia) {
-          console.log(`🚨 CORRECCIÓN DE EMERGENCIA: Producto ${productoId} (${productoExistente.codigo}) detectado con inconsistencia`);
-          console.log(`   Estado actual: recolectado=${productoExistente.recolectado}/${productoExistente.cantidad}, motivo="${productoExistente.motivo || 'ninguno'}"`);
-          console.log(`   Solicitado: recolectado=${req.body.recolectado}/${productoExistente.cantidad}, motivo="${req.body.motivo || 'ninguno'}"`);
-        } else {
-          console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene motivo "${productoExistente.motivo}" y se intenta modificar de ${productoExistente.recolectado} a ${req.body.recolectado || 'N/A'}/${productoExistente.cantidad}`);
+          console.log(`🚨 CORRECCIÓN DE EMERGENCIA APLICADA: Producto ${productoId}`);
+          console.log(`   Valores a establecer: recolectado=${req.body.recolectado}/${productoExistente.cantidad}, motivo="${req.body.motivo}"`);
+          
+          // Siempre aseguramos que haya un motivo
+          if (!req.body.motivo || req.body.motivo.trim() === '') {
+            req.body.motivo = productoExistente.motivo;
+          }
         }
-        
-        // Verificar si proviene de reanudación de pausa (tienen valor actualizacionAutomatica)
-        if (req.body.actualizacionAutomatica !== undefined) {
-          console.log(`🛡️ DETECCIÓN DE REANUDACIÓN DE PAUSA: Actualizacion automática bloqueada`);
-        }
-        
-        // No permitimos completar un producto que ya tenía un motivo de faltante
-        console.log(`✅ PRESERVANDO FALTANTE: Mantenemos recolectado=${esCorreccionEmergencia ? req.body.recolectado : productoExistente.recolectado} con motivo="${req.body.motivo || productoExistente.motivo}"`);
-        
-        // Si no es una corrección de emergencia, forzamos a mantener el valor original
-        if (!esCorreccionEmergencia) {
+        // Caso 2: Actualización automática o intento de completar - SIEMPRE BLOQUEADO
+        else if (req.body.actualizacionAutomatica || intentandoCompletar) {
+          console.log(`🛡️ BLOQUEO AUTOMÁTICO: Intentando ${req.body.actualizacionAutomatica ? 'actualización automática' : 'completar'} producto con faltante (${req.body.recolectado}/${productoExistente.cantidad})`);
+          console.log(`   Restaurando valores originales...`);
+          
+          // PROTECCIÓN ABSOLUTA: Forzar los valores originales
           req.body.recolectado = productoExistente.recolectado;
+          req.body.motivo = productoExistente.motivo;
+          
+          console.log(`✅ VALORES RESTAURADOS: recolectado=${productoExistente.recolectado}/${productoExistente.cantidad}, motivo="${productoExistente.motivo}"`);
         }
-        
-        // Aseguramos que el motivo se mantenga (NUNCA se debe borrar)
-        if (!req.body.motivo || req.body.motivo.trim() === '') {
+        // Caso 3: Actualización manual de cantidad (pero sin completar) - PERMITIDO
+        else if (req.body.recolectado !== undefined && req.body.recolectado < productoExistente.cantidad) {
+          console.log(`⚠️ ACTUALIZACIÓN PARCIAL PERMITIDA: De ${productoExistente.recolectado} a ${req.body.recolectado}/${productoExistente.cantidad}`);
+          
+          // Siempre aseguramos que el motivo se mantenga
+          if (!req.body.motivo || req.body.motivo.trim() === '') {
+            req.body.motivo = productoExistente.motivo;
+          }
+        }
+        // Caso 4: Cualquier otro tipo de modificación - BLOQUEADO por seguridad
+        else {
+          console.log(`🔒 PROTECCIÓN GENÉRICA: Preservando estado de producto con faltante`);
+          
+          // Por seguridad, preservamos los valores originales
+          req.body.recolectado = productoExistente.recolectado;
           req.body.motivo = productoExistente.motivo;
         }
-        
-        // Eliminar flags temporales utilizados para la protección
-        delete req.body.preservarFaltante;
-        delete req.body.correccionEmergencia;
-        delete req.body.actualizacionAutomatica;
       }
+        
+      // Eliminar flags temporales utilizados para la protección
+      delete req.body.preservarFaltante;
+      delete req.body.correccionEmergencia;
+      delete req.body.actualizacionAutomatica;
+      delete req.body.tiempoAplicacion; // Eliminar timestamps de aplicación
       
       // Actualizar el producto con los datos posiblemente modificados
       const productoActualizado = await storage.updateProducto(productoId, req.body);
@@ -3938,24 +3956,28 @@ export async function registerRoutes(app: Application): Promise<Server> {
           
           // VERIFICACIÓN ADICIONAL: Verificar si el producto ya tiene un motivo de faltante
           if (productoExistente.motivo && productoExistente.motivo.trim() !== '') {
-            console.log(`✅ MEJORA: El producto ${productoId} ya tiene un motivo de faltante registrado ("${productoExistente.motivo}"). No se cambiará su cantidad.`);
+            console.log(`⛔ PROTECCIÓN MÁXIMA ACTIVADA: El producto ${productoId} tiene un motivo de faltante registrado ("${productoExistente.motivo}"). Bloqueando cualquier intento de autocompletado.`);
             
-            // Solo actualizamos la referencia al último producto procesado, pero NO cambiamos el producto
+            // Solo actualizamos la referencia al último producto procesado, pero NO cambiamos el producto bajo ninguna circunstancia
             await storage.updatePausa(pausaActiva.id, {
               ultimoProductoId: productoId
             });
             
-            // Si había una solicitud de actualización automática para un producto con motivo de faltante,
-            // cancelamos la actualización para preservar el faltante y su motivo registrado
+            // PROTECCIÓN DEFINITIVA: Siempre preservamos los datos originales del producto con faltante
             // Esto evita que se modifiquen cantidades automáticamente al reanudar una pausa
             delete req.body.recolectado;
             delete req.body.motivo;
             
-            // IMPORTANTE: Revertir cualquier cambio que se haya hecho previamente
-            await storage.updateProducto(productoId, {
+            // PROTECCIÓN REFORZADA: Revertir cualquier cambio que se haya intentado hacer al producto
+            console.log(`🔒 PRESERVANDO datos originales del producto ${productoId} - Recolectado: ${productoExistente.recolectado}/${productoExistente.cantidad} - Motivo: "${productoExistente.motivo}"`);
+            
+            const productoRestablecido = await storage.updateProducto(productoId, {
               recolectado: productoExistente.recolectado,
               motivo: productoExistente.motivo
             });
+            
+            // IMPORTANTE: Devolver el producto con sus valores originales y salir, sin procesar más modificaciones
+            return res.json(productoRestablecido);
           } else {
             console.log(`Actualizando último producto procesado en la pausa: ${productoId}`);
             await storage.updatePausa(pausaActiva.id, {
