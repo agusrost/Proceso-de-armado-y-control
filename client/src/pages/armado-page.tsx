@@ -130,6 +130,9 @@ export default function ArmadoPage() {
   // Interfaz simplificada
   const [usingSimpleInterface, setUsingSimpleInterface] = useState(true);
   
+  // Modal de éxito al completar todos los productos
+  const [mostrarModalExito, setMostrarModalExito] = useState(false);
+  
   // Fetch pedido en proceso
   const { data: pedidoArmador, isLoading: isLoadingPedido } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
