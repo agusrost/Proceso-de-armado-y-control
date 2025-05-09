@@ -264,14 +264,14 @@ export default function ArmadoPage() {
               if (siguienteIndex !== -1) {
                 console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo}`);
                 setCurrentProductoIndex(siguienteIndex);
-                setRecolectados(productos[siguienteIndex].cantidad);
+                setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
                 return true;
               }
               
               // Si todos están procesados, usar el primero
               console.log("No hay productos sin procesar, usando el primero");
               setCurrentProductoIndex(0);
-              setRecolectados(productos[0].cantidad);
+              setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
               return false;
             };
             
@@ -296,7 +296,7 @@ export default function ArmadoPage() {
                   console.log(`Continuando con el último producto no procesado: ${ultimoProducto.codigo}`);
                   const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
                   setCurrentProductoIndex(index);
-                  setRecolectados(ultimoProducto.cantidad);
+                  setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
                 }
               } else {
                 // Si no se encuentra el último producto, buscar el siguiente no procesado
@@ -851,7 +851,7 @@ export default function ArmadoPage() {
           console.log(`Iniciando cantidad recolectada con: ${primerProductoPendiente.cantidad} unidades (cantidad solicitada)`);
           
           setCurrentProductoIndex(primerProductoPendienteIndex);
-          setRecolectados(primerProductoPendiente.cantidad); // Inicializar con la cantidad solicitada
+          setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
           return;
         }
         
@@ -2543,7 +2543,7 @@ export default function ArmadoPage() {
                       // Avanzar al siguiente producto si hay más
                       if (currentProductoIndex < productos.length - 1) {
                         setCurrentProductoIndex(prev => prev + 1);
-                        setRecolectados(productos[currentProductoIndex + 1].cantidad);
+                        setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
                         setMotivo("");
                       } else {
                         // Si es el último, mostrar mensaje
