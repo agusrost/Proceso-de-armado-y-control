@@ -2470,7 +2470,7 @@ export default function ArmadoPage() {
                     ) : producto.recolectado === producto.cantidad ? (
                       <div className="mt-1 text-green-600 text-sm flex items-center justify-end">
                         <span className="mr-1">Completo</span> 
-                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-green-600">✓</span>
                       </div>
                     ) : producto.motivo ? (
                       <div className="mt-1">
