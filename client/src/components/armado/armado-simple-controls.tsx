@@ -87,7 +87,6 @@ export function ArmadoSimpleControls({
       toast({
         title: "Producto con faltante parcial",
         description: `Este producto ya tiene registrado un faltante parcial (${producto.recolectado}/${producto.cantidad}) con motivo: "${producto.motivo}"`,
-        variant: "warning",
       });
     } else {
       setMostrarAvisoFaltanteReanudado(false);
@@ -116,7 +115,6 @@ export function ArmadoSimpleControls({
           toast({
             title: "Alerta: Modificando faltante parcial",
             description: `Está disminuyendo la cantidad recolectada desde ${producto.recolectado} a ${val}. Esto actualizará el faltante parcial.`,
-            variant: "warning",
           });
         }
         
@@ -209,7 +207,7 @@ export function ArmadoSimpleControls({
               <Input
                 id="recolectados"
                 type="number"
-                value={recolectados}
+                value={recolectados || ""}
                 onChange={handleRecolectadosChange}
                 className="w-full"
                 disabled={pausaActiva}
@@ -261,7 +259,7 @@ export function ArmadoSimpleControls({
               </div>
             )}
             
-            {recolectados > 0 && recolectados < productos[currentProductoIndex].cantidad && (
+            {recolectados !== null && recolectados > 0 && recolectados < producto.cantidad && (
               <div className="space-y-2 mt-4">
                 <label htmlFor="motivo" className="block mb-1 font-medium">
                   Motivo del Faltante Parcial:
