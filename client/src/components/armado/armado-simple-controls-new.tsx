@@ -63,6 +63,9 @@ export function ArmadoSimpleControlsNew({
   
   // Determinar si es un faltante total
   const esFaltanteTotal = cantidadActual === 0;
+  
+  // Asegurar que cuando hay faltante parcial o total pero no hay motivo, se desactive el botón de guardar
+  const requiereMotivo = (hayFaltanteParcial || esFaltanteTotal) && !motivo;
 
   // Incrementar cantidad
   const incrementar = () => {
@@ -144,10 +147,10 @@ export function ArmadoSimpleControlsNew({
         </div>
       </div>
       
-      {/* Selector de motivo para faltantes (total o parcial) */}
+      {/* Selector de motivo para faltantes (total o parcial) - Siempre visible cuando hay menos unidades que las solicitadas */}
       {(esFaltanteTotal || hayFaltanteParcial) && (
         <div className="mb-2">
-          <Label className="text-red-600">
+          <Label className={`font-semibold ${requiereMotivo ? 'text-red-600' : 'text-amber-600'}`}>
             {esFaltanteTotal ? "Motivo de faltante total:" : "Motivo de faltante parcial:"}
           </Label>
           <Select 
@@ -155,7 +158,7 @@ export function ArmadoSimpleControlsNew({
             onValueChange={setMotivo}
             disabled={pausaActiva || mutationIsPending}
           >
-            <SelectTrigger className={motivo ? "" : "text-muted-foreground"}>
+            <SelectTrigger className={`${motivo ? "" : "text-muted-foreground"} ${requiereMotivo ? 'border-red-300 ring-1 ring-red-200' : ''}`}>
               <SelectValue placeholder="Seleccione un motivo" />
             </SelectTrigger>
             <SelectContent>
@@ -166,6 +169,13 @@ export function ArmadoSimpleControlsNew({
               ))}
             </SelectContent>
           </Select>
+          
+          {requiereMotivo && (
+            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              <span>Debe indicar un motivo cuando hay menos unidades que las solicitadas</span>
+            </p>
+          )}
         </div>
       )}
       
@@ -193,14 +203,6 @@ export function ArmadoSimpleControlsNew({
           </Button>
         )}
       </div>
-      
-      {/* Mensaje de alerta si hay faltante y no se ha seleccionado motivo */}
-      {((hayFaltanteParcial || esFaltanteTotal) && !motivo) && (
-        <div className="text-red-600 text-sm mt-1 flex items-center gap-1">
-          <AlertTriangle className="h-4 w-4" />
-          <span>Debe seleccionar un motivo para el faltante</span>
-        </div>
-      )}
     </div>
   );
 }
