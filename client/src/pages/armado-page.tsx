@@ -294,11 +294,14 @@ export default function ArmadoPage() {
   
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
-    mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
+    mutationFn: async (params: { id: number, recolectado: number, motivo?: string, actualizacionAutomatica?: boolean }) => {
       try {
+        console.log(`Actualizando producto ID=${params.id}, recolectado=${params.recolectado}, motivo=${params.motivo || ''}, actualizacionAutomatica=${params.actualizacionAutomatica || false}`);
+        
         const res = await apiRequest("PATCH", `/api/productos/${params.id}`, {
           recolectado: params.recolectado,
-          motivo: params.motivo
+          motivo: params.motivo,
+          actualizacionAutomatica: params.actualizacionAutomatica || false
         });
         
         // Verificar que la respuesta es JSON antes de procesarla
