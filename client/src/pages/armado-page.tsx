@@ -1293,7 +1293,7 @@ export default function ArmadoPage() {
                       // Avanzar al siguiente producto si hay más
                       if (currentProductoIndex < productos.length - 1) {
                         setCurrentProductoIndex(prev => prev + 1);
-                        setRecolectados(productos[currentProductoIndex + 1].cantidad);
+                        setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
                         setMotivo("");
                       } else {
                         // Si es el último, mostrar mensaje

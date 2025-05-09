@@ -55,9 +55,9 @@ export function ArmadoSimpleControlsNew({
   // Obtener el producto actual
   const producto = productos[currentProductoIndex];
   
-  // Valor seguro para recolectados (nunca null en la UI)
-  // Siempre permitir editar la cantidad, con un valor por defecto
-  const cantidadActual = recolectados !== null ? recolectados : (producto?.cantidad || 0);
+  // Valor seguro para recolectados
+  // Si no hay un valor (null), comenzaremos con 0 para forzar al usuario a elegir una cantidad
+  const cantidadActual = recolectados !== null ? recolectados : 0;
   
   // Determinar si hay faltante parcial
   const hayFaltanteParcial = cantidadActual < (producto?.cantidad || 0) && cantidadActual > 0;
