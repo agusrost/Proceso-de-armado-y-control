@@ -6,7 +6,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, ArrowLeft, CheckCircle2, Minus, Plus } from "lucide-react";
+import { 
+  Loader2, ArrowLeft, CheckCircle2, Minus, Plus, Pause, 
+  FileText, ClipboardList, X
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
@@ -16,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 // Interfaz mínima requerida
 interface Producto {
@@ -36,6 +49,29 @@ export default function ArmadoPageSimple() {
   const [currentProductoIndex, setCurrentProductoIndex] = useState<number>(0);
   const [recolectados, setRecolectados] = useState<number | null>(null);
   const [motivo, setMotivo] = useState("");
+  
+  // Estados para modales
+  const [mostrarModalPausa, setMostrarModalPausa] = useState(false);
+  const [motivoPausa, setMotivoPausa] = useState("");
+  const [motivoPausaDetalle, setMotivoPausaDetalle] = useState("");
+  const [mostrarModalVerPedido, setMostrarModalVerPedido] = useState(false);
+  const [mostrarModalExito, setMostrarModalExito] = useState(false);
+  
+  // Opciones de motivos
+  const motivosFaltantes = [
+    "Faltante de stock",
+    "No se encontró el artículo",
+    "Producto defectuoso",
+    "Otro motivo"
+  ];
+  
+  // Opciones de motivos de pausa
+  const motivosPausa = [
+    "Motivos sanitarios",
+    "Almuerzo",
+    "Fin de turno",
+    "Otro: especificar"
+  ];
   
   // Obtener el pedido actual
   const { data: pedido, isLoading } = useQuery({
@@ -93,20 +129,33 @@ export default function ArmadoPageSimple() {
       console.log("Producto actualizado:", data);
       
       // Actualizar el producto en la lista
-      setProductos(productos => {
-        return productos.map(p => {
-          if (p.id === data.id) {
-            return { ...p, recolectado: data.recolectado, motivo: data.motivo };
-          }
-          return p;
-        });
+      const nuevosProductos = productos.map(p => {
+        if (p.id === data.id) {
+          return { ...p, recolectado: data.recolectado, motivo: data.motivo };
+        }
+        return p;
       });
+      
+      setProductos(nuevosProductos);
+      
+      // Verificar si todos los productos están recolectados
+      const todosRecolectados = nuevosProductos.every(
+        p => p.recolectado !== null && p.recolectado > 0
+      );
+      
+      if (todosRecolectados) {
+        console.log("¡Todos los productos han sido recolectados!");
+        setMostrarModalExito(true);
+        return;
+      }
       
       // Avanzar al siguiente producto si hay
       if (currentProductoIndex < productos.length - 1) {
         const nextIndex = currentProductoIndex + 1;
         setCurrentProductoIndex(nextIndex);
-        setRecolectados(productos[nextIndex].cantidad);
+        setRecolectados(productos[nextIndex].recolectado !== null 
+          ? productos[nextIndex].recolectado 
+          : productos[nextIndex].cantidad);
         setMotivo("");
       } else {
         toast({
@@ -137,12 +186,51 @@ export default function ArmadoPageSimple() {
         title: "Pedido finalizado",
         description: "El pedido ha sido finalizado correctamente."
       });
+      setMostrarModalExito(false);
       setLocation('/armador');
     },
     onError: (error: Error) => {
       console.error("Error al finalizar pedido:", error);
       toast({
         title: "Error al finalizar pedido",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Mutation para crear pausa
+  const crearPausaMutation = useMutation({
+    mutationFn: async ({ pedidoId, motivo }: { pedidoId: number, motivo: string }) => {
+      console.log(`Creando pausa para pedido ${pedidoId} con motivo: ${motivo}`);
+      
+      // Determinar el último producto ID
+      let ultimoProductoId = null;
+      if (currentProductoIndex >= 0 && currentProductoIndex < productos.length) {
+        ultimoProductoId = productos[currentProductoIndex].id;
+      }
+      
+      const res = await apiRequest("POST", `/api/pausas`, {
+        pedidoId,
+        motivo,
+        tipo: "armado",
+        ultimoProductoId,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Armado pausado",
+        description: "El armado del pedido ha sido pausado correctamente.",
+      });
+      
+      // Redirigir a la pantalla de armador
+      setLocation('/armador');
+    },
+    onError: (error: Error) => {
+      console.error("Error al crear pausa:", error);
+      toast({
+        title: "Error al pausar armado",
         description: error.message,
         variant: "destructive",
       });
@@ -177,6 +265,49 @@ export default function ArmadoPageSimple() {
     if (pedido) {
       finalizarPedidoMutation.mutate(pedido.id);
     }
+  };
+  
+  // Manejar la pausa del armado
+  const handlePausarArmado = () => {
+    if (!pedido) return;
+    
+    if (motivoPausa === "") {
+      toast({
+        title: "Selecciona un motivo",
+        description: "Debes seleccionar un motivo para pausar el armado.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Si el motivo es "Otro", debe especificar el detalle
+    if (motivoPausa === "Otro: especificar" && motivoPausaDetalle.trim() === "") {
+      toast({
+        title: "Especifica el motivo",
+        description: "Debes especificar el detalle del motivo de pausa.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Construir el motivo final
+    const motivoFinal = motivoPausa === "Otro: especificar" 
+      ? motivoPausaDetalle 
+      : motivoPausa;
+    
+    console.log(`Pausando armado del pedido ${pedido.id} con motivo: ${motivoFinal}`);
+    crearPausaMutation.mutate({ 
+      pedidoId: pedido.id, 
+      motivo: motivoFinal 
+    });
+    
+    // Cerrar el modal
+    setMostrarModalPausa(false);
+  };
+  
+  // Verificar si un producto está completado
+  const esProductoCompletado = (producto: Producto): boolean => {
+    return producto.recolectado === producto.cantidad;
   };
   
   // Si no hay usuario o está cargando
@@ -233,88 +364,98 @@ export default function ArmadoPageSimple() {
             </div>
           </div>
           
-          <Button 
-            variant="outline"
-            onClick={handleFinalizarPedido}
-            disabled={finalizarPedidoMutation.isPending}
-          >
-            {finalizarPedidoMutation.isPending ? 
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-            }
-            Finalizar Armado
-          </Button>
+          <div className="flex items-center space-x-3">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => setMostrarModalPausa(true)}
+              className="gap-1"
+            >
+              <Pause className="h-4 w-4" />
+              Pausar
+            </Button>
+            
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => setMostrarModalVerPedido(true)}
+              className="gap-1"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Ver Pedido
+            </Button>
+          </div>
         </div>
       </header>
       
       {/* Contenido principal */}
-      <div className="flex-grow p-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Lista de productos */}
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-4">Lista de Productos ({productos.length})</h2>
-            <div className="grid gap-3">
-              {productos.map((producto, index) => (
-                <div 
-                  key={producto.id}
-                  className={`p-4 rounded-md border cursor-pointer ${
-                    index === currentProductoIndex 
-                      ? "bg-blue-800/30 border-blue-500"
-                      : producto.recolectado !== null
-                        ? "bg-green-800/20 border-green-500/30"
-                        : "bg-slate-800/30 border-slate-600"
-                  }`}
-                  onClick={() => {
-                    setCurrentProductoIndex(index);
-                    setRecolectados(producto.recolectado !== null ? producto.recolectado : producto.cantidad);
-                    setMotivo(producto.motivo || "");
-                  }}
-                >
-                  <div className="flex justify-between">
-                    <div>
-                      <p className="font-medium">{producto.codigo} - {producto.descripcion}</p>
-                      <p className="text-sm text-white/60 mt-1">
-                        Ubicación: {producto.ubicacion || "N/A"} | 
-                        Cantidad: {producto.cantidad}
-                      </p>
+      <div className="flex-grow p-5">
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold">Lista de Productos ({productos.length})</h2>
+          </div>
+          
+          {/* Productos como tarjetas */}
+          <div className="grid gap-2 mb-6">
+            {productos.map((producto, index) => (
+              <div 
+                key={producto.id}
+                className={`p-3 border rounded-md cursor-pointer ${
+                  index === currentProductoIndex 
+                    ? "bg-blue-900 border-blue-500"
+                    : producto.recolectado !== null
+                      ? producto.recolectado === producto.cantidad
+                        ? "bg-green-900/20 border-green-500"
+                        : "bg-amber-900/20 border-amber-500"
+                      : "bg-slate-800 border-slate-600"
+                }`}
+                onClick={() => {
+                  setCurrentProductoIndex(index);
+                  setRecolectados(producto.recolectado !== null ? producto.recolectado : producto.cantidad);
+                  setMotivo(producto.motivo || "");
+                }}
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium">{producto.codigo} - {producto.descripcion}</div>
+                    <div className="text-xs text-white/60 mt-1">
+                      Ubicación: {producto.ubicacion || "N/A"} | Cantidad: {producto.cantidad}
                     </div>
-                    
-                    {producto.recolectado !== null && (
-                      <div className="text-right">
-                        <p className={`font-medium ${
-                          producto.recolectado === producto.cantidad
-                            ? "text-green-400"
-                            : "text-yellow-400"
-                        }`}>
-                          {producto.recolectado}/{producto.cantidad}
-                        </p>
-                        {producto.motivo && <p className="text-sm text-yellow-400">{producto.motivo}</p>}
-                      </div>
-                    )}
                   </div>
+                  
+                  {producto.recolectado !== null && (
+                    <div className="text-right">
+                      <div className={`${
+                        producto.recolectado === producto.cantidad
+                          ? "text-green-400"
+                          : "text-amber-400"
+                      }`}>
+                        {producto.recolectado}/{producto.cantidad}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
           
           {/* Producto actual */}
           {productos[currentProductoIndex] && (
-            <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-xl font-bold mb-4">
+            <div className="bg-slate-800 rounded-md border border-slate-700 p-5">
+              <h3 className="text-xl font-medium mb-4">
                 Producto Actual ({currentProductoIndex + 1} de {productos.length})
               </h3>
               
-              <div className="mb-6">
-                <p className="text-lg mb-1">{productos[currentProductoIndex].codigo} - {productos[currentProductoIndex].descripcion}</p>
-                <p className="text-sm text-white/60">
-                  Ubicación: {productos[currentProductoIndex].ubicacion || "N/A"} | 
-                  Cantidad solicitada: {productos[currentProductoIndex].cantidad}
-                </p>
+              <div className="mb-5">
+                <div className="text-lg font-medium mb-1">{productos[currentProductoIndex].codigo} - {productos[currentProductoIndex].descripcion}</div>
+                <div className="text-sm text-white/70">
+                  Ubicación: <span className="font-medium">{productos[currentProductoIndex].ubicacion || "N/A"}</span>
+                </div>
               </div>
               
-              <div className="bg-slate-700 p-6 rounded-md mb-6">
-                <Label htmlFor="cantidad" className="block mb-2">Cantidad recolectada</Label>
-                <div className="flex items-center space-x-4">
+              <div className="mb-6">
+                <div className="text-sm font-medium mb-2">Cantidad recolectada</div>
+                <div className="flex items-center gap-3">
                   <Button 
                     variant="outline" 
                     size="icon"
@@ -323,12 +464,12 @@ export default function ArmadoPageSimple() {
                       setRecolectados(recolectados - 1);
                     }}
                     disabled={recolectados === null || recolectados <= 0}
+                    className="h-10 w-10"
                   >
-                    <Minus className="h-4 w-4" />
+                    <Minus className="h-5 w-5" />
                   </Button>
                   
                   <Input 
-                    id="cantidad"
                     type="number"
                     value={recolectados ?? 0}
                     onChange={(e) => {
@@ -341,7 +482,7 @@ export default function ArmadoPageSimple() {
                         setRecolectados(value);
                       }
                     }}
-                    className="w-20 text-center"
+                    className="w-20 text-center h-10 text-lg"
                   />
                   
                   <Button 
@@ -357,20 +498,21 @@ export default function ArmadoPageSimple() {
                       }
                     }}
                     disabled={recolectados !== null && recolectados >= productos[currentProductoIndex].cantidad}
+                    className="h-10 w-10"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-5 w-5" />
                   </Button>
                   
-                  <span className="text-sm text-white/60">
-                    de {productos[currentProductoIndex].cantidad}
-                  </span>
+                  <div className="text-white/70">
+                    de <span className="font-medium">{productos[currentProductoIndex].cantidad}</span>
+                  </div>
                 </div>
               </div>
               
               {/* Motivo si es necesario */}
               {recolectados !== null && recolectados < productos[currentProductoIndex].cantidad && (
                 <div className="mb-6">
-                  <Label htmlFor="motivo" className="block mb-2">
+                  <Label htmlFor="motivo" className="block text-sm font-medium mb-2">
                     Motivo de faltante <span className="text-red-400">*</span>
                   </Label>
                   <Select 
@@ -381,10 +523,9 @@ export default function ArmadoPageSimple() {
                       <SelectValue placeholder="Seleccionar motivo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Faltante de stock">Faltante de stock</SelectItem>
-                      <SelectItem value="No se encontró el artículo">No se encontró el artículo</SelectItem>
-                      <SelectItem value="Producto defectuoso">Producto defectuoso</SelectItem>
-                      <SelectItem value="Otro motivo">Otro motivo</SelectItem>
+                      {motivosFaltantes.map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -409,8 +550,172 @@ export default function ArmadoPageSimple() {
         </div>
       </div>
       
+      {/* Modal de pausa */}
+      <Dialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pausar armado</DialogTitle>
+            <DialogDescription>
+              Selecciona un motivo para pausar el armado de este pedido. Podrás retomarlo más tarde.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Label htmlFor="motivo-pausa" className="block text-sm font-medium mb-2">
+              Motivo de pausa <span className="text-red-500">*</span>
+            </Label>
+            <Select 
+              value={motivoPausa} 
+              onValueChange={setMotivoPausa}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar motivo" />
+              </SelectTrigger>
+              <SelectContent>
+                {motivosPausa.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Detalle para "Otro" */}
+            {motivoPausa === "Otro: especificar" && (
+              <div className="mt-4">
+                <Label htmlFor="motivo-pausa-detalle" className="block text-sm font-medium mb-2">
+                  Especificar motivo <span className="text-red-500">*</span>
+                </Label>
+                <Input 
+                  id="motivo-pausa-detalle"
+                  value={motivoPausaDetalle}
+                  onChange={(e) => setMotivoPausaDetalle(e.target.value)}
+                  placeholder="Detalla el motivo de la pausa"
+                />
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMostrarModalPausa(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handlePausarArmado}
+              disabled={crearPausaMutation.isPending}
+            >
+              {crearPausaMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Pausando...
+                </>
+              ) : "Pausar armado"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de ver pedido completo */}
+      <Dialog open={mostrarModalVerPedido} onOpenChange={setMostrarModalVerPedido}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Detalle del Pedido {pedido.pedidoId}</DialogTitle>
+            <DialogDescription>
+              Detalle completo de todos los productos en este pedido.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[60vh] rounded-md">
+            <div className="p-4">
+              <div className="space-y-3">
+                {productos.map((producto) => (
+                  <div 
+                    key={producto.id}
+                    className={`p-4 rounded-md border ${
+                      esProductoCompletado(producto)
+                        ? "bg-green-900/20 border-green-500"
+                        : producto.recolectado !== null
+                          ? "bg-amber-900/20 border-amber-500"
+                          : "bg-slate-800 border-slate-600"
+                    }`}
+                  >
+                    <div className="flex justify-between">
+                      <div>
+                        <div className="font-medium">{producto.codigo} - {producto.descripcion}</div>
+                        <div className="text-sm text-white/60 mt-1">
+                          Ubicación: {producto.ubicacion || "N/A"} | 
+                          Cantidad solicitada: {producto.cantidad}
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        {producto.recolectado !== null ? (
+                          <Badge
+                            className={
+                              producto.recolectado === producto.cantidad
+                                ? "bg-green-500"
+                                : "bg-amber-500"
+                            }
+                          >
+                            {producto.recolectado}/{producto.cantidad}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Pendiente</Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Mostrar motivo si hay */}
+                    {producto.motivo && (
+                      <div className="mt-2 text-sm text-amber-400">
+                        Motivo: {producto.motivo}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter>
+            <Button onClick={() => setMostrarModalVerPedido(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de éxito al completar */}
+      <Dialog open={mostrarModalExito} onOpenChange={setMostrarModalExito}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-bold">
+              ¡Armado completado!
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-6 text-center">
+            <CheckCircle2 className="mx-auto h-16 w-16 text-green-500 mb-4" />
+            <p className="text-lg mb-6">
+              Ha finalizado el armado del pedido con éxito
+            </p>
+            
+            <Button 
+              onClick={handleFinalizarPedido} 
+              className="w-full"
+              disabled={finalizarPedidoMutation.isPending}
+            >
+              {finalizarPedidoMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Finalizando...
+                </>
+              ) : "Continuar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Mensaje de confirmación */}
-      {actualizarProductoMutation.isSuccess && (
+      {actualizarProductoMutation.isSuccess && !mostrarModalExito && (
         <div className="fixed bottom-4 right-4 z-50">
           <Alert className="bg-green-900 border-green-600">
             <CheckCircle2 className="h-4 w-4 text-green-400" />
