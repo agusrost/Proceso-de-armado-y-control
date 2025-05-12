@@ -1339,29 +1339,37 @@ export default function ArmadoPage() {
                     const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
                     const productosActualizados = await res.json();
                     
-                    // Un producto está procesado si tiene recolectado diferente de null 
-                    // y si tiene un motivo de faltante (cuando corresponde)
-                    const todosProductosProcesados = productosActualizados.every((p: any) => 
-                      p.recolectado !== null && 
-                      (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
-                    );
-                    
-                    console.log("¿Todos los productos procesados?", todosProductosProcesados ? "SÍ" : "NO");
-                    
-                    if (todosProductosProcesados) {
-                      console.log("Todos los productos están procesados. Finalizando automáticamente.");
-                      toast({
-                        title: "Pedido completo",
-                        description: "Todos los productos han sido procesados. Finalizando automáticamente..."
+                    // Asegurarse de que hay productos para verificar
+                    if (productosActualizados && Array.isArray(productosActualizados) && productosActualizados.length > 0) {
+                      // Un producto está procesado si tiene recolectado diferente de null 
+                      // y si tiene un motivo de faltante (cuando corresponde)
+                      const todosProductosProcesados = productosActualizados.every((p: any) => {
+                        // Verificación segura de cada producto
+                        if (!p || typeof p !== 'object') return false;
+                        
+                        return p.recolectado !== null && 
+                          (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo));
                       });
-                      finalizarPedidoMutation.mutate(currentPedido.id);
-                    } else if (esUltimoProducto) {
-                      // Solo mostrar mensaje si es el último producto y aún faltan productos por procesar
-                      console.log("Último producto procesado pero aún hay otros sin procesar.");
-                      toast({
-                        title: "Productos pendientes",
-                        description: "Hay productos que aún no han sido procesados. Revise la lista.",
-                      });
+                      
+                      console.log("¿Todos los productos procesados?", todosProductosProcesados ? "SÍ" : "NO");
+                      
+                      if (todosProductosProcesados) {
+                        console.log("Todos los productos están procesados. Finalizando automáticamente.");
+                        toast({
+                          title: "Pedido completo",
+                          description: "Todos los productos han sido procesados. Finalizando automáticamente..."
+                        });
+                        finalizarPedidoMutation.mutate(currentPedido.id);
+                      } else if (esUltimoProducto) {
+                        // Solo mostrar mensaje si es el último producto y aún faltan productos por procesar
+                        console.log("Último producto procesado pero aún hay otros sin procesar.");
+                        toast({
+                          title: "Productos pendientes",
+                          description: "Hay productos que aún no han sido procesados. Revise la lista.",
+                        });
+                      }
+                    } else {
+                      console.log("No se encontraron productos para verificar o respuesta inválida.");
                     }
                   } catch (error) {
                     console.error("Error al verificar productos procesados:", error);
