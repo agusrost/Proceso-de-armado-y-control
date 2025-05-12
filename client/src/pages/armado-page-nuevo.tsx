@@ -675,21 +675,23 @@ export default function ArmadoPageNuevo() {
         {productoActual && (
           <div>
             <div className="mb-6">
-              <div className="text-2xl font-bold mb-2">{productoActual.codigo}</div>
-              <div className="text-xl mb-3">{productoActual.descripcion}</div>
-              <div className="text-lg bg-gray-900 inline-block px-3 py-1 rounded border border-gray-700">Ubicación: {productoActual.ubicacion}</div>
+              <div className="text-3xl font-bold mb-2 text-yellow-300">{productoActual.codigo}</div>
+              <div className="text-2xl mb-3 text-white">{productoActual.descripcion}</div>
+              <div className="text-lg bg-blue-900 inline-block px-4 py-2 rounded">
+                Ubicación: <span className="font-medium text-yellow-200">{productoActual.ubicacion || "N/A"}</span>
+              </div>
             </div>
             
             <div className="mb-6">
-              <label className="block mb-3 text-xl">Cantidad recolectada</label>
+              <label className="block mb-3 text-xl font-medium">Cantidad recolectada</label>
               <div className="flex items-center">
                 <Button 
                   variant="outline" 
                   size="lg"
                   onClick={handleDecrement}
-                  className="bg-gray-900 hover:bg-gray-800 border border-gray-700 h-14 w-14"
+                  className="bg-slate-700 hover:bg-slate-600 border-white/20 h-16 w-16 rounded-l-md rounded-r-none"
                 >
-                  <Minus className="h-6 w-6" />
+                  <Minus className="h-7 w-7" />
                 </Button>
                 <Input
                   type="number"
@@ -697,33 +699,35 @@ export default function ArmadoPageNuevo() {
                   onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
                   min={0}
                   max={productoActual.cantidad}
-                  className="mx-3 w-24 h-14 text-center bg-gray-900 border border-gray-700 text-white text-2xl font-bold"
+                  className="w-28 h-16 text-center bg-white border-0 text-black text-3xl font-bold rounded-none"
                 />
                 <Button 
                   variant="outline" 
                   size="lg"
                   onClick={handleIncrement}
-                  className="bg-gray-900 hover:bg-gray-800 border border-gray-700 h-14 w-14"
+                  className="bg-slate-700 hover:bg-slate-600 border-white/20 h-16 w-16 rounded-r-md rounded-l-none"
                 >
-                  <Plus className="h-6 w-6" />
+                  <Plus className="h-7 w-7" />
                 </Button>
-                <span className="ml-4 text-xl font-medium">de {productoActual.cantidad}</span>
+                <div className="ml-4 flex items-center">
+                  <span className="text-lg font-medium bg-blue-900 px-3 py-1 rounded-md">de <span className="text-yellow-300 font-bold">{productoActual.cantidad}</span></span>
+                </div>
               </div>
             </div>
             
             {cantidad < productoActual.cantidad && (
               <div className="mb-6">
-                <label className="block mb-3 text-xl">Motivo de faltante</label>
+                <label className="block mb-3 text-xl font-medium text-red-400">Motivo de faltante</label>
                 <Select value={motivo} onValueChange={setMotivo}>
-                  <SelectTrigger className="bg-gray-900 border-gray-700 h-12 text-lg">
+                  <SelectTrigger className="bg-slate-800 border-red-800 h-14 text-xl">
                     <SelectValue placeholder="Selecciona un motivo" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-900 border-gray-700 text-white">
-                    <SelectItem value="No encontrado">No encontrado</SelectItem>
-                    <SelectItem value="Stock insuficiente">Stock insuficiente</SelectItem>
-                    <SelectItem value="Ubicación errónea">Ubicación errónea</SelectItem>
-                    <SelectItem value="Producto dañado">Producto dañado</SelectItem>
-                    <SelectItem value="Otro">Otro</SelectItem>
+                  <SelectContent className="bg-slate-800 border-red-800 text-white">
+                    <SelectItem value="No encontrado" className="text-lg">No encontrado</SelectItem>
+                    <SelectItem value="Stock insuficiente" className="text-lg">Stock insuficiente</SelectItem>
+                    <SelectItem value="Ubicación errónea" className="text-lg">Ubicación errónea</SelectItem>
+                    <SelectItem value="Producto dañado" className="text-lg">Producto dañado</SelectItem>
+                    <SelectItem value="Otro" className="text-lg">Otro</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
