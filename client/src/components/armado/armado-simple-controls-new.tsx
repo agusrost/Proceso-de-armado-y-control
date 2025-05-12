@@ -187,7 +187,7 @@ export function ArmadoSimpleControlsNew({
             onClick={onFinalizarPedido}
             disabled={pausaActiva || mutationIsPending || (hayFaltanteParcial && !motivo) || (esFaltanteTotal && !motivo)}
             className="flex-1"
-            variant="primary"
+            variant="default"
           >
             <FastForward className="h-4 w-4 mr-1" />
             Finalizar

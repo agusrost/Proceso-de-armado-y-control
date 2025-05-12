@@ -1867,6 +1867,15 @@ export default function ArmadoPage() {
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
     // Verificar si todos los productos tienen un estado de recolección definido
     const todosProductosProcesados = productos.every(p => p.recolectado !== null);
+    
+    // Efecto para finalizar automáticamente cuando todos los productos están procesados
+    useEffect(() => {
+      if (todosProductosProcesados && productos.length > 0 && currentPedido && !usingSimpleInterface) {
+        console.log("Todos los productos están procesados, finalizando el pedido automáticamente");
+        // Finalizar directamente sin mostrar diálogo
+        finalizarPedidoMutation.mutate(currentPedido.id);
+      }
+    }, [todosProductosProcesados, productos.length, currentPedido, usingSimpleInterface]);
     return (
       <div className="min-h-screen flex flex-col bg-blue-950 text-white">
         <div className="p-6 text-center">
