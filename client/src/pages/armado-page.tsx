@@ -1301,6 +1301,12 @@ export default function ArmadoPage() {
                           title: "Pedido completado",
                           description: "Todos los productos han sido procesados"
                         });
+                          // Verificar si todos los productos están procesados y finalizar automáticamente
+                          const todosProductosProcesados = productos.every(p => p.recolectado !== null);
+                          if (todosProductosProcesados) {
+                            console.log("Todos los productos procesados, finalizando automáticamente");
+                            setMostrarAlertaFinal(true);
+                          }
                       }
                     }
                   });
@@ -2551,6 +2557,12 @@ export default function ArmadoPage() {
                           title: "Pedido completado",
                           description: "Todos los productos han sido procesados"
                         });
+                          // Verificar si todos los productos están procesados y finalizar automáticamente
+                          const todosProductosProcesados = productos.every(p => p.recolectado !== null);
+                          if (todosProductosProcesados) {
+                            console.log("Todos los productos procesados, finalizando automáticamente");
+                            setMostrarAlertaFinal(true);
+                          }
                       }
                     }
                   });
