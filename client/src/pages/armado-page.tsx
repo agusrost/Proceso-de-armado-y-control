@@ -1800,12 +1800,38 @@ export default function ArmadoPage() {
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
     // Verificar si todos los productos tienen un estado de recolección definido
     const todosProductosProcesados = productos.every(p => p.recolectado !== null);
+    
+    // Estado para el diálogo de confirmación de finalización
+    const [mostrarFinalizadoDialog, setMostrarFinalizadoDialog] = useState(false);
+    
     return (
       <div className="min-h-screen flex flex-col bg-blue-950 text-white">
         <div className="p-6 text-center">
           <h1 className="text-4xl font-bold mb-6">KONECTA</h1>
           <h2 className="text-xl font-medium mb-4">Resumen de Productos</h2>
         </div>
+        
+        {/* Diálogo de finalización exitosa */}
+        <Dialog open={mostrarFinalizadoDialog} onOpenChange={setMostrarFinalizadoDialog}>
+          <DialogContent className="bg-white text-center">
+            <div className="py-10 px-4">
+              <div className="flex justify-center mb-4">
+                <CheckCircle2 className="h-16 w-16 text-green-500" />
+              </div>
+              <DialogTitle className="text-xl mb-4">
+                El armado del pedido ha finalizado con éxito
+              </DialogTitle>
+              <DialogFooter className="flex justify-center mt-6">
+                <Button 
+                  onClick={() => setMostrarFinalizadoDialog(false)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  OK
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
         
         <div className="flex-1 overflow-auto p-4 mx-auto max-w-3xl w-full">
           {productos.map((producto) => (
@@ -2039,7 +2065,14 @@ export default function ArmadoPage() {
               {/* Mostrar botón de finalizar solo si todos los productos están procesados */}
               {todosProductosProcesados && (
                 <Button 
-                  onClick={() => finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id })}
+                  onClick={() => {
+                    finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id }, {
+                      onSuccess: () => {
+                        // Mostrar el diálogo de finalización exitosa
+                        setMostrarFinalizadoDialog(true);
+                      }
+                    });
+                  }}
                   className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-md text-lg font-medium"
                 >
                   Finalizar armado
