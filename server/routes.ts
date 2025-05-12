@@ -3560,33 +3560,41 @@ export async function registerRoutes(app: Application): Promise<Server> {
           if (ultimoProducto) {
             console.log(`Encontrado último producto ${ultimoProducto.codigo} con estado recolectado: ${ultimoProducto.recolectado}`);
             
-            // Si el producto ya fue procesado, buscar el SIGUIENTE EN SECUENCIA
+            // Si el producto ya fue procesado, buscar el siguiente en la secuencia FIFO
             if (ultimoProducto.recolectado !== null) {
-              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado. Buscando siguiente en secuencia FIFO...`);
+              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado. Buscando siguiente sin procesar...`);
               
               // Ordenar productos por código (FIFO) para mantener secuencia correcta
               const productosOrdenados = productos.sort((a, b) => a.codigo.localeCompare(b.codigo));
+              console.log(`Productos ordenados por código: ${productosOrdenados.map(p => p.codigo).join(', ')}`);
               
-              // Encontrar el índice del último producto procesado
+              // Encontramos el índice del último producto procesado en la secuencia
               const ultimoProductoIndex = productosOrdenados.findIndex(p => p.id === ultimoProductoId);
+              console.log(`Índice del último producto procesado: ${ultimoProductoIndex}`);
               
-              if (ultimoProductoIndex !== -1 && ultimoProductoIndex < productosOrdenados.length - 1) {
-                // Obtener el siguiente producto en la secuencia FIFO (el que está después del último procesado)
-                const siguienteProducto = productosOrdenados[ultimoProductoIndex + 1];
-                console.log(`Encontrado siguiente producto en secuencia FIFO: ${siguienteProducto.codigo}`);
-                
-                // Usar este producto como el siguiente a procesar
+              // Buscamos el siguiente producto sin procesar después del último procesado en la secuencia FIFO
+              let siguienteProducto = null;
+              
+              // Primero buscamos desde la posición del último procesado hacia adelante
+              for (let i = ultimoProductoIndex + 1; i < productosOrdenados.length; i++) {
+                if (productosOrdenados[i].recolectado === null) {
+                  siguienteProducto = productosOrdenados[i];
+                  break;
+                }
+              }
+              
+              if (siguienteProducto) {
+                console.log(`Encontrado siguiente producto sin procesar en secuencia: ${siguienteProducto.codigo}`);
                 ultimoProductoId = siguienteProducto.id;
                 console.log(`Cambiando ultimoProductoId a ${ultimoProductoId} (${siguienteProducto.codigo})`);
               } else {
-                console.log(`No se encontró un siguiente producto en la secuencia o es el último`);
+                console.log(`No se encontraron productos sin procesar después del último procesado`);
                 
-                // Si por alguna razón no podemos encontrar el siguiente, buscar cualquiera sin procesar
-                const siguienteProductoSinProcesar = productos.find(p => p.recolectado === null);
-                
-                if (siguienteProductoSinProcesar) {
-                  console.log(`Como alternativa, usando primer producto sin procesar: ${siguienteProductoSinProcesar.codigo}`);
-                  ultimoProductoId = siguienteProductoSinProcesar.id;
+                // Si no encontramos ninguno, buscamos cualquier producto sin procesar
+                const primerSinProcesar = productos.find(p => p.recolectado === null);
+                if (primerSinProcesar) {
+                  console.log(`Utilizando primer producto sin procesar: ${primerSinProcesar.codigo}`);
+                  ultimoProductoId = primerSinProcesar.id;
                 } else {
                   console.log(`No se encontraron productos sin procesar`);
                 }
