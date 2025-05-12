@@ -117,7 +117,19 @@ export default function ArmadoPageNuevo() {
     }) => {
       console.log("actualizarProductoMutation: Enviando petición...", { id, recolectado, motivo });
       
+      // Verificación extra para prevenir errores
+      if (!id) {
+        console.error("ERROR: ID de producto no válido", id);
+        throw new Error("ID de producto no válido o no definido");
+      }
+      
+      if (typeof recolectado !== 'number') {
+        console.error("ERROR: Cantidad recolectada no válida", recolectado);
+        throw new Error("La cantidad recolectada debe ser un número");
+      }
+      
       try {
+        console.log(`Enviando petición a: /api/productos/${id}/recolectar`);
         const res = await apiRequest("POST", `/api/productos/${id}/recolectar`, { 
           recolectado, 
           motivo
@@ -410,8 +422,8 @@ export default function ArmadoPageNuevo() {
 
   if (pedidoLoading || productosLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
+        <Loader2 className="h-8 w-8 animate-spin text-green-500" />
         <p className="mt-4">Cargando información...</p>
       </div>
     );
@@ -419,10 +431,15 @@ export default function ArmadoPageNuevo() {
 
   if (!pedido) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
         <p className="text-lg mb-4">No se encontró el pedido asignado.</p>
         <p className="text-sm mb-4 text-gray-500">Detalles: Pedido no está disponible en la API.</p>
-        <Button onClick={handleVolverArmador}>Volver</Button>
+        <Button 
+          onClick={handleVolverArmador}
+          className="bg-green-800 hover:bg-green-900 text-white"
+        >
+          Volver
+        </Button>
       </div>
     );
   }
@@ -430,19 +447,24 @@ export default function ArmadoPageNuevo() {
   if (productos.length === 0) {
     // Si ya cargó el pedido pero no hay productos, mostramos un mensaje específico
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
         <p className="text-lg mb-4">El pedido #{pedido.pedidoId} no tiene productos asignados.</p>
         <p className="text-sm mb-4 text-gray-500">
           ID del pedido: {pedido.id} | Estado: {pedido.estado}
         </p>
-        <Button onClick={handleVolverArmador}>Volver</Button>
+        <Button 
+          onClick={handleVolverArmador}
+          className="bg-green-800 hover:bg-green-900 text-white"
+        >
+          Volver
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto max-w-6xl">
-      <header className="bg-[#0a2463] text-white p-4 rounded-b-lg">
+    <div className="container mx-auto max-w-6xl min-h-screen bg-black text-white">
+      <header className="bg-black text-white p-4 border-b border-gray-800">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Armado de Pedido</h1>
@@ -463,7 +485,7 @@ export default function ArmadoPageNuevo() {
               variant="outline" 
               size="sm" 
               onClick={handleVolverArmador}
-              className="text-white border-white hover:bg-white/20 text-base px-4 py-2"
+              className="text-white border-gray-600 hover:bg-gray-800 text-base px-4 py-2"
             >
               <ChevronLeft className="h-5 w-5 mr-1" />
               Volver
@@ -472,7 +494,7 @@ export default function ArmadoPageNuevo() {
               variant="outline" 
               size="sm" 
               onClick={handleCerrarSesion}
-              className="text-white border-white hover:bg-white/20 text-base px-4 py-2"
+              className="text-white border-gray-600 hover:bg-gray-800 text-base px-4 py-2"
             >
               Cerrar Sesión
             </Button>
@@ -480,7 +502,7 @@ export default function ArmadoPageNuevo() {
         </div>
       </header>
 
-      <div className="my-6 bg-[#121f35] rounded-lg shadow-lg p-6 text-white">
+      <div className="my-6 bg-black border border-gray-800 rounded-lg shadow-lg p-6 text-white">
         <h2 className="text-2xl font-bold mb-6">Producto Actual</h2>
         
         {productoActual && (
@@ -488,7 +510,7 @@ export default function ArmadoPageNuevo() {
             <div className="mb-6">
               <div className="text-2xl font-bold mb-2">{productoActual.codigo}</div>
               <div className="text-xl mb-3">{productoActual.descripcion}</div>
-              <div className="text-lg bg-gray-700 inline-block px-3 py-1 rounded">Ubicación: {productoActual.ubicacion}</div>
+              <div className="text-lg bg-gray-900 inline-block px-3 py-1 rounded border border-gray-700">Ubicación: {productoActual.ubicacion}</div>
             </div>
             
             <div className="mb-6">
@@ -498,7 +520,7 @@ export default function ArmadoPageNuevo() {
                   variant="outline" 
                   size="lg"
                   onClick={handleDecrement}
-                  className="bg-gray-700 hover:bg-gray-600 h-14 w-14"
+                  className="bg-gray-900 hover:bg-gray-800 border border-gray-700 h-14 w-14"
                 >
                   <Minus className="h-6 w-6" />
                 </Button>
@@ -508,13 +530,13 @@ export default function ArmadoPageNuevo() {
                   onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
                   min={0}
                   max={productoActual.cantidad}
-                  className="mx-3 w-24 h-14 text-center bg-gray-700 text-white text-2xl font-bold"
+                  className="mx-3 w-24 h-14 text-center bg-gray-900 border border-gray-700 text-white text-2xl font-bold"
                 />
                 <Button 
                   variant="outline" 
                   size="lg"
                   onClick={handleIncrement}
-                  className="bg-gray-700 hover:bg-gray-600 h-14 w-14"
+                  className="bg-gray-900 hover:bg-gray-800 border border-gray-700 h-14 w-14"
                 >
                   <Plus className="h-6 w-6" />
                 </Button>
@@ -526,10 +548,10 @@ export default function ArmadoPageNuevo() {
               <div className="mb-6">
                 <label className="block mb-3 text-xl">Motivo de faltante</label>
                 <Select value={motivo} onValueChange={setMotivo}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 h-12 text-lg">
+                  <SelectTrigger className="bg-gray-900 border-gray-700 h-12 text-lg">
                     <SelectValue placeholder="Selecciona un motivo" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-gray-900 border-gray-700 text-white">
                     <SelectItem value="No encontrado">No encontrado</SelectItem>
                     <SelectItem value="Stock insuficiente">Stock insuficiente</SelectItem>
                     <SelectItem value="Ubicación errónea">Ubicación errónea</SelectItem>
@@ -543,7 +565,7 @@ export default function ArmadoPageNuevo() {
             <div className="flex flex-col gap-4 mt-8">
               <Button
                 onClick={handleGuardar}
-                className="w-full bg-[#3c6e71] hover:bg-[#284b4f] text-white text-xl py-6"
+                className="w-full bg-green-800 hover:bg-green-900 text-white text-xl py-6"
                 disabled={actualizarProductoMutation.isPending}
               >
                 {actualizarProductoMutation.isPending ? (
@@ -555,7 +577,7 @@ export default function ArmadoPageNuevo() {
               <Button
                 onClick={handlePausar}
                 variant="outline"
-                className="w-full border-gray-600 text-white hover:bg-gray-700 text-xl py-4"
+                className="w-full bg-gray-900 border-gray-700 text-white hover:bg-gray-800 text-xl py-4"
                 disabled={pausarPedidoMutation.isPending}
               >
                 {pausarPedidoMutation.isPending ? (
@@ -572,7 +594,7 @@ export default function ArmadoPageNuevo() {
         <Button 
           variant="link" 
           asChild
-          className="text-gray-400"
+          className="text-gray-500 hover:text-gray-300"
         >
           <Link href="/armador">
             <ChevronLeft className="h-4 w-4 mr-1" />
@@ -583,12 +605,12 @@ export default function ArmadoPageNuevo() {
       
       {/* Modal de Éxito */}
       <Dialog open={mostrarExito} onOpenChange={setMostrarExito}>
-        <DialogContent className="sm:max-w-md bg-[#0a2463] border-[#3c6e71] text-white">
+        <DialogContent className="sm:max-w-md bg-black border border-gray-800 text-white">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">¡Pedido Completado!</DialogTitle>
-            <DialogDescription className="text-gray-300 text-lg">
+            <DialogDescription className="text-gray-400 text-lg">
               Has terminado de armar todos los productos del pedido #{pedido?.pedidoId}.
-              <div className="mt-4 p-3 bg-[#121f35] rounded-md">
+              <div className="mt-4 p-3 bg-gray-900 border border-gray-700 rounded-md">
                 <p className="mb-1"><strong>Cliente:</strong> {pedido?.clienteId}</p>
                 <p className="mb-1"><strong>Total de productos:</strong> {productos.length}</p>
                 <p><strong>Fecha:</strong> {new Date().toLocaleString()}</p>
@@ -598,7 +620,7 @@ export default function ArmadoPageNuevo() {
           <DialogFooter className="sm:justify-center mt-4">
             <Button 
               onClick={handleVolverArmador}
-              className="bg-[#3c6e71] hover:bg-[#284b4f] text-white px-8 py-2 text-lg"
+              className="bg-green-800 hover:bg-green-900 text-white px-8 py-2 text-lg"
             >
               Volver al inicio
             </Button>
