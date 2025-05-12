@@ -1450,6 +1450,7 @@ export default function ArmadoPage() {
                                     
                                     // Forzar actualización inmediata para proteger el faltante registrado
                                     setTimeout(() => {
+                                      // Primera protección - garantiza que se mantenga el faltante
                                       actualizarProductoMutation.mutate({
                                         id: ultimoProducto.id,
                                         recolectado: ultimoProducto.recolectado,
@@ -1457,6 +1458,19 @@ export default function ArmadoPage() {
                                         actualizacionAutomatica: false,
                                         preservarFaltante: true // Nuevo flag que indica que es una actualización de protección
                                       });
+                                      
+                                      // Segunda protección - registramos una operación adicional después
+                                      setTimeout(() => {
+                                        console.log(`🔒 DOBLE PROTECCIÓN: Verificando nuevamente el producto ${ultimoProducto.id}`);
+                                        actualizarProductoMutation.mutate({
+                                          id: ultimoProducto.id,
+                                          recolectado: ultimoProducto.recolectado,
+                                          motivo: ultimoProducto.motivo,
+                                          actualizacionAutomatica: false,
+                                          preservarFaltante: true,
+                                          proteccionDoble: true // Flag adicional para la segunda capa de protección
+                                        });
+                                      }, 500);
                                     }, 300);
                                   } 
                                   else {

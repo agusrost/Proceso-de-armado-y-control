@@ -4000,8 +4000,19 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Casos donde debemos preservar el faltante:
       // 1. Si tiene motivo y se intenta completar automáticamente
       // 2. Si viene solicitud explícita de preservarFaltante=true (reanudar pausa)
-      if ((tieneMotivoDeFaltante && intentandoCompletar) || (tieneMotivoDeFaltante && esActualizacionDeProteccion)) {
+      // 3. Si es una operación de protección doble (redundante pero para más seguridad)
+      const esProteccionDoble = req.body.proteccionDoble === true;
+      
+      if ((tieneMotivoDeFaltante && intentandoCompletar) || 
+          (tieneMotivoDeFaltante && esActualizacionDeProteccion) ||
+          esProteccionDoble) {
+        
         console.log(`⛔ PROTECCIÓN DE FALTANTES: El producto ${productoId} (${productoExistente.codigo}) tiene motivo "${productoExistente.motivo}" y se intenta modificar de ${productoExistente.recolectado} a ${req.body.recolectado || 'N/A'}/${productoExistente.cantidad}`);
+        
+        // Si es una protección doble, registrar que es la segunda capa de protección
+        if (esProteccionDoble) {
+          console.log(`🔒 DOBLE PROTECCIÓN: Protección redundante para el producto ${productoId}`);
+        }
         
         // Verificar si proviene de reanudación de pausa (tienen valor actualizacionAutomatica)
         if (req.body.actualizacionAutomatica !== undefined) {
@@ -4040,7 +4051,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         // Si la actualización automática viene de nuestra lógica de reanudar con un producto parcialmente completado,
         // vamos a actualizar el último producto procesado en la pausa, pero NO modificaremos productos con motivo de faltante
 
-        if (req.body.actualizacionAutomatica) {
+        if (req.body.actualizacionAutomatica || req.body.preservarFaltante) {
           console.log(`⚠️ CORRECCIÓN: Se detectó una actualizacionAutomatica para el producto ${productoId}`);
           
           // VERIFICACIÓN ADICIONAL: Verificar si el producto ya tiene un motivo de faltante
@@ -4052,6 +4063,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
               ultimoProductoId: productoId
             });
             
+            // FUERTE PROTECCIÓN: Verificar si se trata de la protección doble especial
+            if (req.body.proteccionDoble === true) {
+              console.log(`🔐 TRIPLE PROTECCIÓN: Verificación adicional para el producto ${productoId} con faltante`);
+            }
+            
             // Si había una solicitud de actualización automática para un producto con motivo de faltante,
             // cancelamos la actualización para preservar el faltante y su motivo registrado
             // Esto evita que se modifiquen cantidades automáticamente al reanudar una pausa
@@ -4059,9 +4075,25 @@ export async function registerRoutes(app: Application): Promise<Server> {
             delete req.body.motivo;
             
             // IMPORTANTE: Revertir cualquier cambio que se haya hecho previamente
-            await storage.updateProducto(productoId, {
+            const datosOriginales = {
               recolectado: productoExistente.recolectado,
               motivo: productoExistente.motivo
+            };
+            
+            console.log(`🛡️ RESTAURANDO ESTADO: Forzando recolectado=${datosOriginales.recolectado} con motivo="${datosOriginales.motivo}" para el producto ${productoId}`);
+            
+            await storage.updateProducto(productoId, datosOriginales);
+            
+            // Forzamos la respuesta a devolver los datos originales sin procesar la actualización
+            return res.json({
+              message: "Se preservó el estado del faltante registrado",
+              producto: {
+                ...productoExistente,
+                // Aseguramos que se devuelven exactamente los mismos valores
+                recolectado: productoExistente.recolectado,
+                motivo: productoExistente.motivo
+              },
+              proteccion: true
             });
           } else {
             console.log(`Actualizando último producto procesado en la pausa: ${productoId}`);
