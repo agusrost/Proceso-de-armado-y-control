@@ -3670,24 +3670,29 @@ export async function registerRoutes(app: Application): Promise<Server> {
           if (ultimoProducto) {
             console.log(`Encontrado último producto ${ultimoProducto.codigo} con estado recolectado: ${ultimoProducto.recolectado}`);
             
-            // CRITERIO MEJORADO: Considerar como procesado si:
-            // 1. recolectado !== null (cualquier valor significa que se procesó)
-            // 2. O si recolectado > 0 (se ha recolectado algo)
-            const estaProcesado = 
-              ultimoProducto.recolectado !== null || 
-              (typeof ultimoProducto.recolectado === 'number' && ultimoProducto.recolectado > 0);
+            // CRITERIO ACTUALIZADO: Un producto se considera PROCESADO si:
+            // 1. recolectado > 0 (se ha recolectado algo), O
+            // 2. tiene un motivo de faltante registrado (incluso si recolectado = 0)
+            const tieneRecolectado = typeof ultimoProducto.recolectado === 'number' && ultimoProducto.recolectado > 0;
+            const tieneMotivo = ultimoProducto.motivo && ultimoProducto.motivo.trim() !== '';
+            const estaProcesado = tieneRecolectado || tieneMotivo;
             
             if (estaProcesado) {
-              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado (recolectado=${ultimoProducto.recolectado}). Buscando siguiente sin procesar...`);
+              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado (recolectado=${ultimoProducto.recolectado}, tiene motivo: ${tieneMotivo}). Buscando siguiente sin procesar...`);
               
-              // CRITERIO MEJORADO: Un producto no está procesado si:
-              // 1. recolectado === null, O
-              // 2. recolectado === 0 (inicializado pero no se ha recolectado nada)
-              // 3. Y NO tiene un motivo registrado (si tiene motivo, ya se procesó como faltante)
-              const siguienteProductoSinProcesar = productos.find(p => 
-                (p.recolectado === null || p.recolectado === 0) && 
-                (!p.motivo || p.motivo.trim() === '')
-              );
+              // CRITERIO ACTUALIZADO: Un producto se considera NO PROCESADO SOLO si:
+              // 1. NO tiene ninguna cantidad recolectada, Y
+              // 2. NO tiene motivo registrado
+              const siguienteProductoSinProcesar = productos.find(p => {
+                // Si tiene cualquier cantidad recolectada, se considera procesado
+                const productoTieneRecolectado = typeof p.recolectado === 'number' && p.recolectado > 0;
+                
+                // Si tiene motivo de faltante, se considera procesado
+                const productoTieneMotivo = p.motivo && p.motivo.trim() !== '';
+                
+                // Solo si NO tiene recolección Y NO tiene motivo, se considera sin procesar
+                return !productoTieneRecolectado && !productoTieneMotivo;
+              });
               
               if (siguienteProductoSinProcesar) {
                 console.log(`Encontrado siguiente producto sin procesar: ${siguienteProductoSinProcesar.codigo}`);
