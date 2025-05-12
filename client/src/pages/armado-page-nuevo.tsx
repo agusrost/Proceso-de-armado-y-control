@@ -115,51 +115,87 @@ export default function ArmadoPageNuevo() {
       recolectado: number; 
       motivo?: string;
     }) => {
-      const res = await apiRequest("POST", `/api/productos/${id}/recolectar`, { 
-        recolectado, 
-        motivo
-      });
-      return await res.json();
+      console.log("actualizarProductoMutation: Enviando petición...", { id, recolectado, motivo });
+      
+      try {
+        const res = await apiRequest("POST", `/api/productos/${id}/recolectar`, { 
+          recolectado, 
+          motivo
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Error en respuesta del servidor:", errorText);
+          throw new Error(`Error del servidor: ${res.status} ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        console.log("actualizarProductoMutation: Respuesta recibida:", data);
+        return data;
+      } catch (error) {
+        console.error("actualizarProductoMutation: Error en la petición:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
-      // Actualizar lista de productos
-      const nuevosProductos = [...productos];
-      nuevosProductos[currentIndex] = {
-        ...nuevosProductos[currentIndex],
-        recolectado: data.recolectado,
-        motivo: data.motivo
-      };
-      setProductos(nuevosProductos);
+      console.log("actualizarProductoMutation onSuccess: Actualizando productos con datos:", data);
       
-      // Verificar si todos están recolectados
-      const todosCompletados = nuevosProductos.every(p => 
-        p.recolectado !== null && p.recolectado > 0
-      );
-      
-      if (todosCompletados) {
-        finalizarPedidoMutation.mutate(pedidoId as number);
-        return;
-      }
-      
-      // Avanzar al siguiente producto
-      if (currentIndex < nuevosProductos.length - 1) {
-        const nextIndex = currentIndex + 1;
-        setCurrentIndex(nextIndex);
+      try {
+        // Actualizar lista de productos
+        const nuevosProductos = [...productos];
+        nuevosProductos[currentIndex] = {
+          ...nuevosProductos[currentIndex],
+          recolectado: data.recolectado,
+          motivo: data.motivo
+        };
+        console.log("Productos actualizados:", nuevosProductos);
+        setProductos(nuevosProductos);
         
-        const nextProducto = nuevosProductos[nextIndex];
-        setCantidad(nextProducto.cantidad);
-        setMotivo("");
-      } else {
+        // Verificar si todos están recolectados
+        const todosCompletados = nuevosProductos.every(p => 
+          p.recolectado !== null && p.recolectado > 0
+        );
+        
+        if (todosCompletados) {
+          console.log("Todos los productos completados, finalizando pedido...");
+          finalizarPedidoMutation.mutate(pedidoId as number);
+          return;
+        }
+        
+        // Avanzar al siguiente producto
+        if (currentIndex < nuevosProductos.length - 1) {
+          console.log("Avanzando al siguiente producto...");
+          const nextIndex = currentIndex + 1;
+          setCurrentIndex(nextIndex);
+          
+          const nextProducto = nuevosProductos[nextIndex];
+          setCantidad(nextProducto.cantidad);
+          setMotivo("");
+          
+          toast({
+            title: "Producto guardado",
+            description: "Se ha guardado el producto correctamente.",
+          });
+        } else {
+          toast({
+            title: "Último producto completado",
+            description: "Todos los productos han sido recolectados.",
+          });
+        }
+      } catch (error) {
+        console.error("Error en onSuccess:", error);
         toast({
-          title: "Último producto completado",
-          description: "Todos los productos han sido recolectados.",
+          title: "Error al procesar datos",
+          description: "Ocurrió un error al procesar los datos del producto.",
+          variant: "destructive",
         });
       }
     },
     onError: (error: Error) => {
+      console.error("actualizarProductoMutation onError:", error);
       toast({
         title: "Error al guardar producto",
-        description: error.message,
+        description: error.message || "Ocurrió un error al guardar el producto.",
         variant: "destructive",
       });
     }
@@ -230,12 +266,23 @@ export default function ArmadoPageNuevo() {
     }
   };
 
-  const handleGuardar = () => {
-    if (!productoActual) return;
+  const handleGuardar = async () => {
+    console.log("handleGuardar: Iniciando...");
+    
+    if (!productoActual) {
+      console.error("handleGuardar: Error - No hay producto actual");
+      toast({
+        title: "Error",
+        description: "No se puede continuar porque no hay un producto seleccionado.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const necesitaMotivo = cantidad < productoActual.cantidad;
     
     if (necesitaMotivo && !motivo) {
+      console.log("handleGuardar: Se requiere motivo pero no se seleccionó");
       toast({
         title: "Motivo requerido",
         description: "Debes seleccionar un motivo para la cantidad faltante.",
@@ -244,11 +291,27 @@ export default function ArmadoPageNuevo() {
       return;
     }
     
-    actualizarProductoMutation.mutate({
-      id: productoActual.id,
-      recolectado: cantidad,
-      motivo: necesitaMotivo ? motivo : undefined
-    });
+    try {
+      console.log("handleGuardar: Enviando actualización:", {
+        id: productoActual.id,
+        recolectado: cantidad,
+        motivo: necesitaMotivo ? motivo : undefined
+      });
+      
+      actualizarProductoMutation.mutate({
+        id: productoActual.id,
+        recolectado: cantidad,
+        motivo: necesitaMotivo ? motivo : undefined
+      });
+      
+    } catch (error) {
+      console.error("handleGuardar: Error al actualizar producto", error);
+      toast({
+        title: "Error al guardar",
+        description: "Ocurrió un error al guardar el producto. Inténtelo de nuevo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePausar = () => {
@@ -429,9 +492,9 @@ export default function ArmadoPageNuevo() {
             
             {cantidad < productoActual.cantidad && (
               <div className="mb-6">
-                <label className="block mb-2">Motivo de faltante</label>
+                <label className="block mb-3 text-xl">Motivo de faltante</label>
                 <Select value={motivo} onValueChange={setMotivo}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600">
+                  <SelectTrigger className="bg-gray-700 border-gray-600 h-12 text-lg">
                     <SelectValue placeholder="Selecciona un motivo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -445,14 +508,14 @@ export default function ArmadoPageNuevo() {
               </div>
             )}
             
-            <div className="flex flex-col gap-2 mt-6">
+            <div className="flex flex-col gap-4 mt-8">
               <Button
                 onClick={handleGuardar}
-                className="w-full bg-[#3c6e71] hover:bg-[#284b4f] text-white"
+                className="w-full bg-[#3c6e71] hover:bg-[#284b4f] text-white text-xl py-6"
                 disabled={actualizarProductoMutation.isPending}
               >
                 {actualizarProductoMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-6 w-6 mr-2 animate-spin" />
                 ) : null}
                 Continuar
               </Button>
@@ -460,11 +523,11 @@ export default function ArmadoPageNuevo() {
               <Button
                 onClick={handlePausar}
                 variant="outline"
-                className="w-full border-gray-600 text-white hover:bg-gray-700"
+                className="w-full border-gray-600 text-white hover:bg-gray-700 text-xl py-4"
                 disabled={pausarPedidoMutation.isPending}
               >
                 {pausarPedidoMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-6 w-6 mr-2 animate-spin" />
                 ) : null}
                 Pausar
               </Button>
