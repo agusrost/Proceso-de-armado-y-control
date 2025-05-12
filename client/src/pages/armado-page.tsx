@@ -14,7 +14,7 @@ import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls
 
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
-  // Verificamos primero que el producto exista y tenga la propiedad recolectado
+  // Verificar que el producto existe y tiene el campo recolectado
   if (!producto || producto.recolectado === undefined) return false;
   
   // Si recolectado es null, no está completado
@@ -1077,13 +1077,13 @@ export default function ArmadoPage() {
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>
-                              {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar armado'}
+                              {pedidoArmador && pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar armado'}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              {pedidoArmador.pausaActiva ? (
+                              {pedidoArmador && pedidoArmador.pausaActiva ? (
                                 <>
                                   ¿Estás seguro de que deseas continuar el armado del pedido?
-                                  {pedidoArmador.pausaActiva.motivo && (
+                                  {pedidoArmador.pausaActiva && pedidoArmador.pausaActiva.motivo && (
                                     <div className="mt-2 text-sm bg-blue-50 p-2 rounded">
                                       <span className="font-semibold">Motivo de la pausa: </span> 
                                       {pedidoArmador.pausaActiva.motivo}
@@ -1101,9 +1101,9 @@ export default function ArmadoPage() {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction 
-                              onClick={() => iniciarPedidoMutation.mutate(pedidoArmador.id)}
+                              onClick={() => pedidoArmador && iniciarPedidoMutation.mutate(pedidoArmador.id)}
                             >
-                              {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar'}
+                              {pedidoArmador && pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar'}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -1333,43 +1333,38 @@ export default function ArmadoPage() {
                 motivo: cantidadRecolectada < producto.cantidad ? motivo : ""
               }, {
                 onSuccess: async () => {
-                  // Verificar después de CADA producto si todos están procesados para finalizar automáticamente
-                  console.log("Producto procesado - Verificando si todos los productos están completos...");
+                  // Verificar después de CADA producto si todos están procesados
+                  console.log("Verificando si todos los productos están completos para finalizar automáticamente...");
                   try {
                     const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
+                    if (!res.ok) {
+                      console.error("Error al obtener productos del pedido:", res.statusText);
+                      return;
+                    }
+                    
                     const productosActualizados = await res.json();
                     
-                    // Asegurarse de que hay productos para verificar
-                    if (productosActualizados && Array.isArray(productosActualizados) && productosActualizados.length > 0) {
-                      // Un producto está procesado si tiene recolectado diferente de null 
-                      // y si tiene un motivo de faltante (cuando corresponde)
-                      const todosProductosProcesados = productosActualizados.every((p: any) => {
-                        // Verificación segura de cada producto
-                        if (!p || typeof p !== 'object') return false;
-                        
-                        return p.recolectado !== null && 
-                          (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo));
+                    // Verificar que tenemos una respuesta válida
+                    if (!Array.isArray(productosActualizados)) {
+                      console.error("La respuesta no es un array válido:", productosActualizados);
+                      return;
+                    }
+                    
+                    // Un producto está procesado si tiene recolectado diferente de null
+                    const todosProductosProcesados = productosActualizados.every((p: any) => 
+                      p && p.recolectado !== null && 
+                      (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
+                    );
+                    
+                    if (todosProductosProcesados) {
+                      console.log("Todos los productos están procesados. Finalizando automáticamente.");
+                      finalizarPedidoMutation.mutate(currentPedido.id);
+                    } else if (esUltimoProducto) {
+                      console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
+                      toast({
+                        title: "Algunos productos sin procesar",
+                        description: "El pedido no puede finalizarse porque aún hay productos sin procesar"
                       });
-                      
-                      console.log("¿Todos los productos procesados?", todosProductosProcesados ? "SÍ" : "NO");
-                      
-                      if (todosProductosProcesados) {
-                        console.log("Todos los productos están procesados. Finalizando automáticamente.");
-                        toast({
-                          title: "Pedido completo",
-                          description: "Todos los productos han sido procesados. Finalizando automáticamente..."
-                        });
-                        finalizarPedidoMutation.mutate(currentPedido.id);
-                      } else if (esUltimoProducto) {
-                        // Solo mostrar mensaje si es el último producto y aún faltan productos por procesar
-                        console.log("Último producto procesado pero aún hay otros sin procesar.");
-                        toast({
-                          title: "Productos pendientes",
-                          description: "Hay productos que aún no han sido procesados. Revise la lista.",
-                        });
-                      }
-                    } else {
-                      console.log("No se encontraron productos para verificar o respuesta inválida.");
                     }
                   } catch (error) {
                     console.error("Error al verificar productos procesados:", error);
