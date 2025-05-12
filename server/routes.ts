@@ -2932,7 +2932,132 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
-  // Actualizar estado de un pedido
+  // Endpoint específico para finalizar pedidos forzadamente
+  app.post("/api/pedidos/:id/finalizar", requireAuth, async (req, res, next) => {
+    try {
+      const pedidoId = parseInt(req.params.id);
+      const forzar = req.query.forzar === 'true';
+      
+      // Validar datos
+      if (isNaN(pedidoId)) {
+        return res.status(400).json({ message: "ID de pedido inválido" });
+      }
+      
+      console.log(`Solicitud para finalizar pedido ${pedidoId}${forzar ? ' FORZANDO finalización' : ''}`);
+      
+      // Obtener el pedido
+      const pedido = await storage.getPedidoById(pedidoId);
+      if (!pedido) {
+        return res.status(404).json({ message: "Pedido no encontrado" });
+      }
+      
+      // Verificar si hay pausas activas
+      const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId);
+      const tienePausasActivas = pausasActivas && pausasActivas.length > 0;
+      
+      if (tienePausasActivas && !forzar) {
+        console.log(`⛔ FINALIZACIÓN CANCELADA: El pedido ${pedidoId} tiene ${pausasActivas.length} pausas activas`);
+        return res.status(400).json({ 
+          message: 'No se puede finalizar el pedido porque tiene pausas activas',
+          pausasActivas: pausasActivas
+        });
+      }
+      
+      if (tienePausasActivas && forzar) {
+        console.log(`⚠️ FORZANDO FINALIZACIÓN: El pedido ${pedidoId} tiene ${pausasActivas.length} pausas activas que serán finalizadas automáticamente`);
+        
+        // Finalizar todas las pausas activas
+        for (const pausa of pausasActivas) {
+          try {
+            const ahora = new Date();
+            const inicioPausa = new Date(pausa.inicio);
+            const duracionMs = ahora.getTime() - inicioPausa.getTime();
+            const duracionFormateada = formatearTiempo(duracionMs);
+            
+            await storage.updatePausa(pausa.id, {
+              fin: ahora,
+              duracion: duracionFormateada
+            });
+            
+            console.log(`Pausa ${pausa.id} finalizada automáticamente. Duración: ${duracionFormateada}`);
+          } catch (err) {
+            console.error(`Error al finalizar pausa ${pausa.id}:`, err);
+          }
+        }
+      }
+      
+      // Verificar si todos los productos están completados o tienen motivo de faltante
+      const productos = await storage.getProductosByPedidoId(pedidoId);
+      
+      // Verificar si todos los productos están completados
+      const todosCompletados = productos.every(esProductoCompletado);
+      
+      if (!todosCompletados && !forzar) {
+        console.log(`⛔ FINALIZACIÓN CANCELADA: El pedido ${pedidoId} tiene productos sin completar`);
+        return res.status(400).json({ 
+          message: 'No se puede finalizar el pedido porque hay productos sin completar',
+          productosIncompletos: productos.filter(p => !esProductoCompletado(p))
+        });
+      }
+      
+      if (!todosCompletados && forzar) {
+        console.log(`⚠️ FORZANDO FINALIZACIÓN: El pedido ${pedidoId} tiene productos sin completar que serán ignorados`);
+      }
+      
+      // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
+      const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
+      const hasFaltantes = productosFaltantes.length > 0;
+      
+      // Determinar el estado final
+      const estadoFinal = hasFaltantes ? 'armado-pendiente-stock' : 'armado';
+      
+      // Actualizar el pedido
+      const pedidoActualizado = await storage.updatePedido(pedidoId, { 
+        estado: estadoFinal,
+        finalizado: new Date(), // Registrar la fecha/hora de finalización
+        tiempoBruto: await calcularTiempoBruto(pedidoId),
+        tiempoNeto: await calcularTiempoNeto(pedidoId)
+      });
+      
+      console.log(`🏁 FINALIZACIÓN ${forzar ? 'FORZADA' : 'NORMAL'}: Pedido ${pedidoId} marcado como "${estadoFinal}"`);
+      
+      // Si hay faltantes, crear solicitudes de transferencia
+      if (hasFaltantes) {
+        for (const producto of productosFaltantes) {
+          try {
+            // Crear solicitud de stock
+            const solicitudData = {
+              fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+              horario: new Date(),
+              codigo: producto.codigo,
+              cantidad: producto.cantidad - (producto.recolectado || 0),
+              motivo: `Faltante en pedido ${pedido.pedidoId} - ${producto.motivo || 'Sin stock'}`,
+              estado: 'pendiente',
+              solicitadoPor: req.user?.id,
+              solicitante: req.user?.username
+            };
+            
+            console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
+            await storage.createStockSolicitud(solicitudData);
+          } catch (error) {
+            console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Pedido finalizado como ${estadoFinal}`,
+        pedido: pedidoActualizado,
+        forzado: forzar
+      });
+    } catch (error) {
+      console.error('Error al finalizar pedido:', error);
+      next(error);
+    }
+  });
+
+  // Ruta para actualizar el estado de un pedido
   app.put("/api/pedidos/:id/estado", requireAuth, async (req, res, next) => {
     try {
       // Verificar que se proporcionó un estado

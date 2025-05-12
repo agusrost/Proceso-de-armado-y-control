@@ -579,15 +579,25 @@ export default function ArmadoPage() {
   const finalizarPedidoMutation = useMutation({
     mutationFn: async ({ pedidoId, forzar = false }: { pedidoId: number, forzar?: boolean }) => {
       try {
-        const endpoint = forzar 
-          ? `/api/pedidos/${pedidoId}/finalizar?forzar=true` 
-          : `/api/pedidos/${pedidoId}/estado`;
-          
-        console.log(`Finalizando pedido usando ${forzar ? 'finalización forzada' : 'método estándar'}`);
+        let endpoint = '';
+        let method = '';
+        let body = {};
         
-        const res = await apiRequest("POST", endpoint, {
-          estado: "armado"
-        });
+        if (forzar) {
+          // Usar el nuevo endpoint de finalización forzada
+          endpoint = `/api/pedidos/${pedidoId}/finalizar?forzar=true`;
+          method = "POST";
+          body = {}; // No necesitamos enviar el estado, lo determina el servidor
+        } else {
+          // Usar el endpoint estándar de cambio de estado
+          endpoint = `/api/pedidos/${pedidoId}/estado`;
+          method = "PUT";
+          body = { estado: "armado" };
+        }
+          
+        console.log(`Finalizando pedido ${pedidoId} usando ${forzar ? 'finalización forzada' : 'método estándar'}`);
+        
+        const res = await apiRequest(method, endpoint, body);
         
         // Verificar que la respuesta es JSON antes de procesarla
         const contentType = res.headers.get("content-type");
@@ -596,7 +606,25 @@ export default function ArmadoPage() {
           throw new Error(`Error al finalizar pedido: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
         }
         
-        return await res.json();
+        const data = await res.json();
+        
+        // Si la respuesta incluye un mensaje de error
+        if (data.error || data.message && !data.success) {
+          // Si hay pausas activas, sugerir usar forzar finalización
+          if (data.pausasActivas && data.pausasActivas.length > 0) {
+            throw new Error(`No se puede finalizar el pedido porque tiene ${data.pausasActivas.length} pausas activas. Use la opción 'Forzar finalización'.`);
+          }
+          
+          // Si hay productos incompletos, mostrar detalle
+          if (data.productosIncompletos && data.productosIncompletos.length > 0) {
+            throw new Error(`No se puede finalizar el pedido porque tiene ${data.productosIncompletos.length} productos sin completar.`);
+          }
+          
+          // Error genérico
+          throw new Error(data.message || "Error al finalizar el pedido");
+        }
+        
+        return data;
       } catch (err: any) {
         console.error("Error al finalizar pedido:", err);
         throw new Error(err.message || "No se pudo finalizar el pedido");
@@ -2649,6 +2677,8 @@ export default function ArmadoPage() {
             
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              
+              {/* Botón de finalización estándar */}
               <AlertDialogAction
                 onClick={() => {
                   // LÓGICA MEJORADA: Verificar productos usando la misma función esProductoCompletado
@@ -2669,6 +2699,36 @@ export default function ArmadoPage() {
               >
                 Finalizar
               </AlertDialogAction>
+              
+              {/* Botón de finalización forzada (solo visible cuando hay pausa activa) */}
+              {pausaActiva && (
+                <AlertDialogAction
+                  onClick={() => {
+                    // LÓGICA MEJORADA: Verificar productos usando la misma función esProductoCompletado
+                    const todosProductosCompletados = !productos.some(p => !esProductoCompletado(p));
+                    
+                    if (!todosProductosCompletados) {
+                      toast({
+                        title: "No se puede finalizar",
+                        description: "Debes procesar todos los productos y asignar motivos a los faltantes",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    // Mostrar confirmación adicional
+                    if (confirm("⚠️ ADVERTENCIA: Estás a punto de finalizar un pedido con pausas activas. Esta acción finalizará automáticamente todas las pausas activas. ¿Estás seguro?")) {
+                      finalizarPedidoMutation.mutate({ 
+                        pedidoId: currentPedido.id,
+                        forzar: true
+                      });
+                    }
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Forzar finalización
+                </AlertDialogAction>
+              )}
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
