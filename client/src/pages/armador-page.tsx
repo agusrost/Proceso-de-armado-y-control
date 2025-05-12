@@ -65,8 +65,17 @@ export default function ArmadorPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      // Redirigir a la página de armado usando setLocation
-      setLocation('/armado');
+      // Redirigir a la nueva página de armado usando setLocation
+      if (pedido && pedido.id) {
+        setLocation(`/armado-nuevo/${pedido.id}`);
+      } else {
+        console.error("Error: No se pudo obtener el ID del pedido");
+        toast({
+          title: "Error",
+          description: "No se pudo iniciar el pedido correctamente. Inténtelo de nuevo.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       console.error("Error en mutación:", error);
@@ -76,7 +85,13 @@ export default function ArmadorPage() {
   });
   
   const handleStartArmado = () => {
-    startPedidoMutation.mutate();
+    if (pedido?.pausaActiva) {
+      // Si es una pausa, redirigir directamente a la nueva interfaz
+      setLocation(`/armado-nuevo/${pedido.id}`);
+    } else {
+      // Si es un pedido nuevo, iniciar mutación
+      startPedidoMutation.mutate();
+    }
   };
   
   const handleLogout = () => {
