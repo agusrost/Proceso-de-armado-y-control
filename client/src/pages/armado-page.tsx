@@ -407,7 +407,8 @@ export default function ArmadoPage() {
           // Establecer valor inicial a la cantidad solicitada o al valor ya recolectado si existe
           const siguienteProducto = productos[currentProductoIndex + 1];
           if (siguienteProducto) {
-            setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : siguienteProducto.cantidad);
+            // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
+          setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : 0);
           } else {
             // Inicializa con cantidad requerida si no hay producto
             setRecolectados(null);
@@ -1011,7 +1012,8 @@ export default function ArmadoPage() {
             // 4. Si todo lo anterior falla, usar el primer producto
             console.log("ULTIMO RECURSO: Usando el primer producto de la lista");
             setCurrentProductoIndex(0);
-            setRecolectados(productos[0].recolectado !== null ? productos[0].recolectado : productos[0].cantidad);
+            // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
+            setRecolectados(productos[0].recolectado !== null ? productos[0].recolectado : 0);
           }
         } catch (error) {
           console.error("Error al cargar productos para cantidad predeterminada:", error);
@@ -1187,16 +1189,16 @@ export default function ArmadoPage() {
   // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - VERSIÓN MEJORADA
   const asegurarCantidadInicial = (producto) => {
     // Forzar siempre el valor correcto
-    console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.cantidad}`);
+    console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.recolectado || 0}`);
     
-    // Usar el valor del estado si existe, si no, forzar la cantidad del producto
-    const valorActual = recolectados !== null ? recolectados : producto.cantidad;
+    // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
+    const valorActual = producto.recolectado !== null ? producto.recolectado : 0;
     
     // Siempre actualizar el estado para garantizar la consistencia
-    if (recolectados === null || recolectados !== producto.cantidad) {
-      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${producto.cantidad}`);
+    if (recolectados === null || recolectados !== valorActual) {
+      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${valorActual}`);
       // Actualización inmediata y programada para garantizar que se aplique
-      setRecolectados(producto.cantidad);
+      setRecolectados(valorActual);
       setTimeout(() => {
         setRecolectados(producto.cantidad);
       }, 50);
