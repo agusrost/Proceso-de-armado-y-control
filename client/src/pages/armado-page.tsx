@@ -577,9 +577,15 @@ export default function ArmadoPage() {
   
   // Finalizar pedido mutation
   const finalizarPedidoMutation = useMutation({
-    mutationFn: async (pedidoId: number) => {
+    mutationFn: async ({ pedidoId, forzar = false }: { pedidoId: number, forzar?: boolean }) => {
       try {
-        const res = await apiRequest("PUT", `/api/pedidos/${pedidoId}/estado`, {
+        const endpoint = forzar 
+          ? `/api/pedidos/${pedidoId}/finalizar?forzar=true` 
+          : `/api/pedidos/${pedidoId}/estado`;
+          
+        console.log(`Finalizando pedido usando ${forzar ? 'finalización forzada' : 'método estándar'}`);
+        
+        const res = await apiRequest("POST", endpoint, {
           estado: "armado"
         });
         

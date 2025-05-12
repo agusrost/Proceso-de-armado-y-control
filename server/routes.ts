@@ -3783,30 +3783,52 @@ export async function registerRoutes(app: Application): Promise<Server> {
       try {
         const pedido = await storage.getPedidoById(pedidoId);
         
-        if (pedido && pedido.estado === 'en-proceso' && productos.length > 0) {
+        if (pedido && (pedido.estado === 'en-proceso' || pedido.estado === 'armado-pendiente-stock') && productos.length > 0) {
           // VERIFICACIÓN DE FINALIZACIÓN AUTOMÁTICA
-          console.log(`Verificando si todos los productos del pedido ${pedidoId} están completados...`);
+          console.log(`Verificando si todos los productos del pedido ${pedidoId} (estado: ${pedido.estado}) están completados...`);
           
           // Definir lógica de producto completado (igual que en actualizar producto)
           const esProductoCompletado = (p: any): boolean => {
+            // Verificación detallada por producto
+            console.log(`Verificando producto ${p.codigo}: recolectado=${p.recolectado}/${p.cantidad}, motivo="${p.motivo || 'ninguno'}"`);
+            
             // Si recolectado es null, no está completado
-            if (p.recolectado === null) return false;
+            if (p.recolectado === null) {
+              console.log(`  ❌ Producto ${p.codigo} NO completado: recolectado es null`);
+              return false;
+            }
             
             // Si recolectado es igual a cantidad, está completado
-            if (p.recolectado === p.cantidad) return true;
+            if (p.recolectado === p.cantidad) {
+              console.log(`  ✅ Producto ${p.codigo} COMPLETADO: recolectado=${p.recolectado}/${p.cantidad}`);
+              return true;
+            }
             
             // Si es una recolección parcial pero tiene motivo, se considera completado
-            if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') return true;
+            if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') {
+              console.log(`  ✅ Producto ${p.codigo} COMPLETADO como faltante parcial: recolectado=${p.recolectado}/${p.cantidad}, motivo="${p.motivo}"`);
+              return true;
+            }
             
             // En cualquier otro caso, no está completado
+            console.log(`  ❌ Producto ${p.codigo} NO completado: recolectado=${p.recolectado}/${p.cantidad} sin motivo de faltante`);
             return false;
           };
           
           // Verificar si todos los productos están completados
           const todosCompletados = productos.every(esProductoCompletado);
           
-          if (todosCompletados) {
-            console.log(`🏁 VERIFICACIÓN AUTOMÁTICA: Todos los productos del pedido ${pedidoId} han sido correctamente procesados`);
+          // Verificar si hay pausas activas que impidan finalizar el pedido
+          const pausasActivas = await storage.getPausasActivasByPedidoId(pedidoId);
+          const tienePausasActivas = pausasActivas && pausasActivas.length > 0;
+          
+          if (tienePausasActivas) {
+            console.log(`⚠️ IMPORTANTE: El pedido ${pedidoId} tiene ${pausasActivas.length} pausas activas. NO se puede finalizar automáticamente.`);
+            pausasActivas.forEach((pausa, idx) => {
+              console.log(`  Pausa ${idx+1}: ID=${pausa.id}, Tipo=${pausa.tipo || 'no especificado'}, Motivo=${pausa.motivo}`);
+            });
+          } else if (todosCompletados) {
+            console.log(`🏁 VERIFICACIÓN AUTOMÁTICA: Todos los productos del pedido ${pedidoId} han sido correctamente procesados y no hay pausas activas. FINALIZANDO...`);
             
             // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
             const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
@@ -3860,6 +3882,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
             
             // Actualizar la lista de productos después de finalizar el pedido
             productos = await storage.getProductosByPedidoId(pedidoId);
+          } else {
+            console.log(`⚠️ INFORMACIÓN: El pedido ${pedidoId} tiene productos pendientes de completar. No se finalizará automáticamente.`);
           }
         }
       } catch (error) {
@@ -4043,10 +4067,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const tienePausasActivas = pausas && pausas.length > 0;
       
       if (tienePausasActivas) {
-        console.log(`El pedido ${pedidoId} tiene pausas activas, no se finalizará automáticamente`);
+        console.log(`⚠️ IMPORTANTE: El pedido ${pedidoId} tiene ${pausas.length} pausas activas. NO se puede finalizar automáticamente.`);
+        pausas.forEach((pausa, idx) => {
+          console.log(`  Pausa ${idx+1}: ID=${pausa.id}, Tipo=${pausa.tipo || 'no especificado'}, Motivo=${pausa.motivo}`);
+        });
+        
         // Obtener la pausa activa
         const pausaActiva = pausas[0];
-        console.log(`Pausa activa: ${pausaActiva.id}, motivo: ${pausaActiva.motivo}`);
+        console.log(`Pausa activa principal: ${pausaActiva.id}, motivo: ${pausaActiva.motivo}`);
         
         // Si la actualización automática viene de nuestra lógica de reanudar con un producto parcialmente completado,
         // vamos a actualizar el último producto procesado en la pausa, pero NO modificaremos productos con motivo de faltante
@@ -4103,21 +4131,34 @@ export async function registerRoutes(app: Application): Promise<Server> {
           }
         }
       } else {
-        // SEGUNDA CORRECCIÓN: Mejorar la verificación de completitud de productos
-        // Utilizamos la misma lógica que en el cliente: un producto está completado si
-        // 1. recolectado no es null, Y
-        // 2. recolectado === cantidad O (recolectado < cantidad Y tiene motivo)
+        // VERIFICACIÓN MEJORADA: Detallar el estado de cada producto
+        console.log(`VERIFICACIÓN DETALLADA del pedido ${pedidoId} para finalización automática:`);
+        
+        // Utilizamos la misma lógica que en la función de carga de productos
         const esProductoCompletado = (p: any): boolean => {
+          // Verificación detallada por producto
+          console.log(`Verificando producto ${p.codigo}: recolectado=${p.recolectado}/${p.cantidad}, motivo="${p.motivo || 'ninguno'}"`);
+          
           // Si recolectado es null, no está completado
-          if (p.recolectado === null) return false;
+          if (p.recolectado === null) {
+            console.log(`  ❌ Producto ${p.codigo} NO completado: recolectado es null`);
+            return false;
+          }
           
           // Si recolectado es igual a cantidad, está completado
-          if (p.recolectado === p.cantidad) return true;
+          if (p.recolectado === p.cantidad) {
+            console.log(`  ✅ Producto ${p.codigo} COMPLETADO: recolectado=${p.recolectado}/${p.cantidad}`);
+            return true;
+          }
           
           // Si es una recolección parcial pero tiene motivo, se considera completado
-          if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') return true;
+          if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') {
+            console.log(`  ✅ Producto ${p.codigo} COMPLETADO como faltante parcial: recolectado=${p.recolectado}/${p.cantidad}, motivo="${p.motivo}"`);
+            return true;
+          }
           
           // En cualquier otro caso, no está completado
+          console.log(`  ❌ Producto ${p.codigo} NO completado: recolectado=${p.recolectado}/${p.cantidad} sin motivo de faltante`);
           return false;
         };
         
@@ -4125,7 +4166,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         const todosCompletados = productos.every(esProductoCompletado);
         
         if (todosCompletados) {
-          console.log(`✅ MEJORA: Todos los productos del pedido ${pedidoId} han sido correctamente procesados según la lógica mejorada y no hay pausas activas`);
+          console.log(`🏁 VERIFICACIÓN AUTOMÁTICA: Todos los productos del pedido ${pedidoId} han sido correctamente procesados y no hay pausas activas. FINALIZANDO...`);
           
           // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
           const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
@@ -4176,6 +4217,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
               tiempoNeto: await calcularTiempoNeto(pedidoId)
             });
           }
+        } else {
+          console.log(`⚠️ INFORMACIÓN: El pedido ${pedidoId} tiene productos pendientes de completar. No se finalizará automáticamente.`);
         }
       }
       
