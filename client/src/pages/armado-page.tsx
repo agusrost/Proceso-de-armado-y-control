@@ -1296,17 +1296,15 @@ export default function ArmadoPage() {
                         setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
                         setMotivo("");
                       } else {
-                        // Si es el último, mostrar mensaje
+                        // Si es el último, finalizar automáticamente sin mostrar confirmación
                         toast({
                           title: "Pedido completado",
-                          description: "Todos los productos han sido procesados"
+                          description: "Finalizando automáticamente..."
                         });
-                          // Verificar si todos los productos están procesados y finalizar automáticamente
-                          const todosProductosProcesados = productos.every(p => p.recolectado !== null);
-                          if (todosProductosProcesados) {
-                            console.log("Todos los productos procesados, finalizando automáticamente");
-                            setMostrarAlertaFinal(true);
-                          }
+                        
+                        // Finalizar el pedido directamente
+                        console.log("Último producto procesado, finalizando pedido automáticamente");
+                        finalizarPedidoMutation.mutate(currentPedido.id);
                       }
                     }
                   });
@@ -1870,14 +1868,6 @@ export default function ArmadoPage() {
     
     // Efecto para finalizar automáticamente cuando todos los productos están procesados
     useEffect(() => {
-      if (todosProductosProcesados && productos.length > 0 && currentPedido && !usingSimpleInterface) {
-        console.log("Todos los productos están procesados, finalizando el pedido automáticamente");
-        // Finalizar directamente sin mostrar diálogo
-        finalizarPedidoMutation.mutate(currentPedido.id);
-      }
-    }, [todosProductosProcesados, productos.length, currentPedido, usingSimpleInterface]);
-    return (
-      <div className="min-h-screen flex flex-col bg-blue-950 text-white">
         <div className="p-6 text-center">
           <h1 className="text-4xl font-bold mb-6">KONECTA</h1>
           <h2 className="text-xl font-medium mb-4">Resumen de Productos</h2>
@@ -2553,17 +2543,15 @@ export default function ArmadoPage() {
                     id: producto.id,
                     recolectado: recolectados,
                     motivo: recolectados < producto.cantidad ? motivo : ""
-                  }, {
-                    onSuccess: () => {
-                      // Avanzar al siguiente producto si hay más
-                      if (currentProductoIndex < productos.length - 1) {
-                        setCurrentProductoIndex(prev => prev + 1);
-                        setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
-                        setMotivo("");
-                      } else {
-                        // Si es el último, mostrar mensaje
+                        // Si es el último, finalizar automáticamente sin mostrar confirmación
                         toast({
                           title: "Pedido completado",
+                          description: "Finalizando automáticamente..."
+                        });
+                        
+                        // Finalizar el pedido directamente
+                        console.log("Último producto procesado, finalizando pedido automáticamente");
+                        finalizarPedidoMutation.mutate(currentPedido.id);
                           description: "Todos los productos han sido procesados"
                         });
                           // Verificar si todos los productos están procesados y finalizar automáticamente
