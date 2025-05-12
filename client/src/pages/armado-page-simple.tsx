@@ -194,10 +194,26 @@ export default function ArmadoPageSimple() {
       if (currentProductoIndex < productos.length - 1) {
         const nextIndex = currentProductoIndex + 1;
         setCurrentProductoIndex(nextIndex);
-        setRecolectados(productos[nextIndex].recolectado !== null 
-          ? productos[nextIndex].recolectado 
-          : productos[nextIndex].cantidad);
-        setMotivo("");
+        
+        // Verificar que el siguiente producto exista
+        const siguienteProducto = productos[nextIndex];
+        if (siguienteProducto) {
+          // Establecer cantidad inicial de recolección
+          const cantidadInicial = siguienteProducto.recolectado !== null 
+            ? siguienteProducto.recolectado 
+            : siguienteProducto.cantidad;
+            
+          setRecolectados(cantidadInicial);
+          setMotivo("");
+        } else {
+          // Protección por si el siguiente producto no está disponible
+          console.error("Error: No se pudo cargar el siguiente producto");
+          toast({
+            title: "Error al avanzar",
+            description: "No se pudo cargar el siguiente producto. Intente de nuevo.",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Producto guardado",
@@ -531,11 +547,11 @@ export default function ArmadoPageSimple() {
                 </div>
               )}
               
-              <div className="flex flex-col items-center space-y-2 mt-4">
+              <div className="flex flex-col items-center space-y-2 mt-8">
                 <Button 
                   onClick={handleGuardarYContinuar}
                   disabled={actualizarProductoMutation.isPending}
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-white py-5"
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white py-5 h-14"
                 >
                   {actualizarProductoMutation.isPending ? (
                     <>
@@ -546,9 +562,9 @@ export default function ArmadoPageSimple() {
                 </Button>
                 
                 <Button 
-                  variant="outline" 
+                  variant="secondary" 
                   onClick={() => setMostrarModalPausa(true)}
-                  className="w-full border-slate-600 text-white hover:bg-slate-700 py-5"
+                  className="w-full border border-slate-600 bg-transparent text-white hover:bg-slate-700 py-5 h-14"
                 >
                   Pausar
                 </Button>
