@@ -103,7 +103,40 @@ export default function ArmadoPageNuevo() {
     if (data && data.length > 0) {
       console.log("Productos cargados:", data.length);
       setProductos(data);
-      const productoActual = data[0];
+      
+      // Encontrar el primer producto no procesado o parcialmente procesado
+      // 1. Primero buscamos productos que no se han procesado aún (recolectado === null)
+      const primerProductoNoProcesado = data.findIndex(p => p.recolectado === null);
+      
+      // 2. Si no hay productos sin procesar, buscar productos parcialmente recolectados
+      const primerProductoParcial = data.findIndex(p => 
+        p.recolectado !== null && 
+        p.recolectado < p.cantidad);
+      
+      // Determinar el índice del producto con el que empezar
+      let indiceInicial = 0;
+      
+      if (primerProductoNoProcesado !== -1) {
+        // Si hay productos sin procesar, comenzar con el primero de ellos
+        indiceInicial = primerProductoNoProcesado;
+        console.log(`Comenzando con el primer producto no procesado: ${data[indiceInicial].codigo}`);
+      } else if (primerProductoParcial !== -1) {
+        // Si hay productos parcialmente procesados, pasar al siguiente
+        // Ya que el parcial ya tuvo su motivo registrado
+        const siguienteIndice = primerProductoParcial + 1;
+        if (siguienteIndice < data.length) {
+          indiceInicial = siguienteIndice;
+          console.log(`Comenzando con el siguiente después del parcial: ${data[indiceInicial].codigo}`);
+        } else {
+          console.log("Todos los productos han sido procesados o el parcial es el último");
+        }
+      } else {
+        // Si todos están completos o no hay productos parciales, comenzar con el primero
+        console.log("Comenzando desde el primer producto");
+      }
+      
+      setCurrentIndex(indiceInicial);
+      const productoActual = data[indiceInicial];
       setCantidad(productoActual.cantidad);
     } else {
       console.log("No se encontraron productos para el pedido");
@@ -220,36 +253,66 @@ export default function ArmadoPageNuevo() {
           return;
         }
         
-        // Avanzar al siguiente producto
-        if (currentIndex < nuevosProductos.length - 1) {
-          console.log("Avanzando al siguiente producto...");
-          const nextIndex = currentIndex + 1;
-          
-          // Validar que el siguiente producto exista
-          if (!nuevosProductos[nextIndex]) {
-            throw new Error(`No existe el producto en el índice ${nextIndex}`);
-          }
-          
-          // Actualizar el índice actual
-          setCurrentIndex(nextIndex);
-          
-          const nextProducto = nuevosProductos[nextIndex];
-          console.log("Configurando cantidad para el siguiente producto:", nextProducto);
-          
-          // Establecer los valores para el siguiente producto
-          setCantidad(nextProducto.cantidad);
-          setMotivo("");
-          
-          toast({
-            title: "Producto guardado",
-            description: "Se ha guardado el producto correctamente.",
-          });
+        // Buscar el siguiente producto adecuado
+        // Prioridad: 1. Productos no procesados, 2. Productos parcialmente procesados
+        console.log("Buscando el siguiente producto adecuado...");
+        
+        // Buscar primero productos no procesados (recolectado === null)
+        const indexNoRecolectado = nuevosProductos.findIndex((p, index) => 
+          index > currentIndex && p.recolectado === null
+        );
+        
+        // Si no hay productos no procesados después del actual, buscar parcialmente procesados
+        const indexParcial = nuevosProductos.findIndex((p, index) => 
+          index > currentIndex && 
+          p.recolectado !== null && 
+          p.recolectado < p.cantidad
+        );
+        
+        // Determinar el próximo índice
+        let nextIndex;
+        
+        if (indexNoRecolectado !== -1) {
+          // Hay un producto no procesado, ir a él
+          nextIndex = indexNoRecolectado;
+          console.log(`Avanzando al siguiente producto no procesado en índice ${nextIndex}: ${nuevosProductos[nextIndex].codigo}`);
+        } else if (indexParcial !== -1) {
+          // Hay un producto parcialmente procesado, ir a él
+          nextIndex = indexParcial;
+          console.log(`Avanzando al siguiente producto parcial en índice ${nextIndex}: ${nuevosProductos[nextIndex].codigo}`);
+        } else if (currentIndex < nuevosProductos.length - 1) {
+          // Solo avanzar secuencialmente si no encontramos nada mejor y hay más productos
+          nextIndex = currentIndex + 1;
+          console.log(`Avanzando secuencialmente al índice ${nextIndex}: ${nuevosProductos[nextIndex].codigo}`);
         } else {
+          // No hay más productos, mantener el actual
+          console.log("No hay más productos disponibles para procesar");
           toast({
             title: "Último producto completado",
             description: "Todos los productos han sido recolectados.",
           });
+          return;
         }
+        
+        // Validar que el siguiente producto exista
+        if (!nuevosProductos[nextIndex]) {
+          throw new Error(`No existe el producto en el índice ${nextIndex}`);
+        }
+        
+        // Actualizar el índice actual
+        setCurrentIndex(nextIndex);
+        
+        const nextProducto = nuevosProductos[nextIndex];
+        console.log("Configurando cantidad para el siguiente producto:", nextProducto);
+        
+        // Establecer los valores para el siguiente producto
+        setCantidad(nextProducto.cantidad);
+        setMotivo("");
+          
+        toast({
+          title: "Producto guardado",
+          description: "Se ha guardado el producto correctamente.",
+        });
       } catch (error) {
         console.error("Error en onSuccess:", error);
         toast({
@@ -360,10 +423,9 @@ export default function ArmadoPageNuevo() {
   // Mutación para finalizar pedido
   const finalizarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
-      console.log("finalizarPedidoMutation: Iniciando finalización del pedido", pedidoId);
-      
       try {
-        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar`);
+        console.log(`Finalizando pedido ${pedidoId}...`);
+        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar-armado`);
         
         if (!res.ok) {
           const errorText = await res.text();
@@ -371,9 +433,12 @@ export default function ArmadoPageNuevo() {
           throw new Error(`Error del servidor: ${res.status} ${res.statusText}`);
         }
         
-        const data = await res.json();
-        console.log("finalizarPedidoMutation: Pedido finalizado correctamente", data);
-        return data;
+        try {
+          return await res.json();
+        } catch (jsonError) {
+          console.log("La respuesta no es JSON válido, pero la operación fue exitosa");
+          return { success: true };
+        }
       } catch (error) {
         console.error("finalizarPedidoMutation: Error al finalizar pedido", error);
         throw error;
@@ -415,192 +480,53 @@ export default function ArmadoPageNuevo() {
   };
 
   const handleDecrement = () => {
-    if (cantidad > 0) {
+    if (productoActual && cantidad > 0) {
       setCantidad(cantidad - 1);
     }
   };
-
-  const handleGuardar = async () => {
-    console.log("handleGuardar: Iniciando...");
-    
-    // Validación del producto actual
-    if (!productoActual) {
-      console.error("handleGuardar: Error - No hay producto actual");
-      toast({
-        title: "Error",
-        description: "No se puede continuar porque no hay un producto seleccionado.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Validación del ID del producto
-    if (!productoActual.id) {
-      console.error("handleGuardar: Error - Producto sin ID válido", productoActual);
-      toast({
-        title: "Error de datos",
-        description: "El producto no tiene un identificador válido. Contacte al administrador.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Validación de cantidad como número
-    if (typeof cantidad !== 'number' || isNaN(cantidad)) {
-      console.error("handleGuardar: Error - Cantidad no es un número válido:", cantidad);
-      toast({
-        title: "Error de datos",
-        description: "La cantidad debe ser un número válido.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Validación de cantidad negativa
-    if (cantidad < 0) {
-      console.error("handleGuardar: Error - Cantidad negativa:", cantidad);
-      toast({
-        title: "Error de datos",
-        description: "La cantidad no puede ser negativa.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const necesitaMotivo = cantidad < productoActual.cantidad;
-    
-    // Validación de motivo cuando hay faltante
-    if (necesitaMotivo && !motivo) {
-      console.log("handleGuardar: Se requiere motivo pero no se seleccionó");
-      toast({
-        title: "Motivo requerido",
-        description: "Debes seleccionar un motivo para la cantidad faltante.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      console.log("handleGuardar: Enviando actualización:", {
-        id: productoActual.id,
-        recolectado: cantidad,
-        motivo: necesitaMotivo ? motivo : undefined
-      });
-      
-      // Creamos un objeto de datos validado
-      const datosValidados = {
-        id: productoActual.id,
-        recolectado: cantidad,
-        motivo: necesitaMotivo ? motivo : undefined
-      };
-      
-      actualizarProductoMutation.mutate(datosValidados);
-      
-    } catch (error) {
-      console.error("handleGuardar: Error al actualizar producto", error);
-      toast({
-        title: "Error al guardar",
-        description: "Ocurrió un error al guardar el producto. Inténtelo de nuevo.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePausar = (motivoPausa: string = "Pausa manual") => {
-    // Validaciones reforzadas
-    if (!pedidoId) {
-      console.error("handlePausar: Error - No hay pedidoId");
-      toast({
-        title: "Error",
-        description: "No se puede pausar porque falta identificador del pedido.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!productoActual) {
-      console.error("handlePausar: Error - No hay producto actual");
-      toast({
-        title: "Error",
-        description: "No se puede pausar porque no hay un producto seleccionado.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    try {
-      console.log("handlePausar: Enviando pausa", {
-        pedidoId,
-        motivo: motivoPausa,
-        productoId: productoActual.id
-      });
-      
-      pausarPedidoMutation.mutate({
-        pedidoId,
-        motivo: motivoPausa,
-        productoId: productoActual.id
-      });
-    } catch (error) {
-      console.error("handlePausar: Error al pausar", error);
-      toast({
-        title: "Error al pausar",
-        description: "Ocurrió un error al pausar el pedido. Inténtelo de nuevo.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleVolverArmador = () => {
-    try {
-      console.log("Volviendo a la página de armador...");
-      navigate("/armador");
-    } catch (error) {
-      console.error("Error al navegar:", error);
-      // En caso de error, intentamos redireccionar usando window.location
-      window.location.href = "/armador";
-    }
-  };
   
-  // Función para pausar el pedido
-  const handlePausarPedido = async () => {
+  // Manejar el guardado de un producto
+  const handleGuardarProducto = async () => {
+    if (!productoActual) return;
+    
     try {
-      if (!pedido) {
-        console.error("handlePausarPedido: Error - No hay pedido activo");
+      console.log("Guardando producto...", {
+        id: productoActual.id,
+        recolectado: cantidad,
+        motivo: cantidad < productoActual.cantidad ? motivo : undefined
+      });
+      
+      // Validaciones
+      if (cantidad < productoActual.cantidad && !motivo) {
         toast({
-          title: "Error",
-          description: "No se puede pausar porque no hay un pedido activo.",
+          title: "Falta información",
+          description: "Por favor ingrese el motivo de la cantidad faltante.",
           variant: "destructive",
         });
         return;
       }
       
-      console.log(`Pausando pedido ${pedido.id}...`);
-      
-      // Validamos que existan los datos necesarios
-      const ultimoProductoId = productos && currentIndex >= 0 ? productos[currentIndex]?.id : null;
-      
-      if (ultimoProductoId === undefined) {
-        console.log("Advertencia: ultimoProductoId es undefined, usando null");
-      }
-      
-      const res = await apiRequest("POST", `/api/pedidos/${pedido.id}/pausar`, {
-        motivo: "Pausa solicitada por el armador",
-        tipo: "armado",
-        ultimoProductoId: ultimoProductoId || null
+      // Ejecutar la mutación para actualizar el producto
+      await actualizarProductoMutation.mutate({
+        id: productoActual.id,
+        recolectado: cantidad,
+        motivo: cantidad < productoActual.cantidad ? motivo : undefined
       });
-      
-      if (res.ok) {
-        console.log("Pedido pausado correctamente");
-        toast({
-          title: "Pedido pausado",
-          description: "El pedido ha sido pausado correctamente.",
-        });
-        navigate("/armador");
-      } else {
-        const errorText = await res.text();
-        console.error(`Error en respuesta del servidor: ${res.status}`, errorText);
-        throw new Error(`Error al pausar el pedido: ${res.status}`);
-      }
+    } catch (error) {
+      console.error("Error al guardar producto:", error);
+    }
+  };
+  
+  // Pausar pedido
+  const handlePausarPedido = (motivo: string) => {
+    if (!pedidoId || !productoActual) return;
+    
+    try {
+      pausarPedidoMutation.mutate({
+        pedidoId,
+        motivo,
+        productoId: productoActual.id
+      });
     } catch (error) {
       console.error("Error al pausar pedido:", error);
       toast({
@@ -628,43 +554,36 @@ export default function ArmadoPageNuevo() {
         });
       });
   };
-
+  
+  // Función para volver a la página de armador
+  const handleVolver = () => {
+    navigate("/armador");
+  };
+  
+  // Función para mostrar todo el pedido
+  const handleVerTodoPedido = () => {
+    setMostrarTodoPedido(true);
+  };
+  
+  // Loading states
   if (pedidoLoading || productosLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
-        <Loader2 className="h-8 w-8 animate-spin text-green-500" />
-        <p className="mt-4">Cargando información...</p>
-      </div>
-    );
-  }
-
-  if (!pedido) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
-        <p className="text-lg mb-4">No se encontró el pedido asignado.</p>
-        <p className="text-sm mb-4 text-gray-500">Detalles: Pedido no está disponible en la API.</p>
-        <Button 
-          onClick={handleVolverArmador}
-          className="bg-green-800 hover:bg-green-900 text-white"
-        >
-          Volver
-        </Button>
+      <div className="flex items-center justify-center min-h-screen bg-black text-white">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-yellow-300" />
+          <p>Cargando pedido...</p>
+        </div>
       </div>
     );
   }
   
-  if (productos.length === 0) {
-    // Si ya cargó el pedido pero no hay productos, mostramos un mensaje específico
+  // Si no hay pedido o productos
+  if (!pedido || !productoActual) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
-        <p className="text-lg mb-4">El pedido #{pedido.pedidoId} no tiene productos asignados.</p>
-        <p className="text-sm mb-4 text-gray-500">
-          ID del pedido: {pedido.id} | Estado: {pedido.estado}
-        </p>
-        <Button 
-          onClick={handleVolverArmador}
-          className="bg-green-800 hover:bg-green-900 text-white"
-        >
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-black text-white">
+        <h1 className="text-xl font-bold">No hay pedido disponible</h1>
+        <p>No hay un pedido asignado para armar.</p>
+        <Button variant="outline" onClick={handleVolver}>
           Volver
         </Button>
       </div>
@@ -672,249 +591,278 @@ export default function ArmadoPageNuevo() {
   }
 
   return (
-    <div className="container mx-auto max-w-6xl min-h-screen bg-black text-white">
-      <header className="bg-black text-white p-4 border-b border-gray-800">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Armado de Pedido</h1>
-            <div className="text-lg font-medium mt-1">
-              {pedido.pedidoId} - {pedido.clienteId}
-            </div>
-          </div>
-          <div className="flex space-x-3">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleCerrarSesion}
-              className="text-white bg-red-800 border-2 border-red-600 hover:bg-red-700 text-base px-4 py-2 font-bold"
-            >
-              <LogOut className="h-5 w-5 mr-2" />
-              Cerrar Sesión
-            </Button>
-          </div>
+    <div className="min-h-screen bg-black text-white pb-24">
+      {/* Cabecera */}
+      <header className="bg-zinc-900 py-3 px-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            className="p-0 h-8 w-8 rounded-full" 
+            onClick={handleVolver}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">{pedido.pedidoId}</h1>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Botón de Ver Todo el Pedido */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-zinc-700 flex items-center gap-1"
+            onClick={handleVerTodoPedido}
+          >
+            <Eye className="h-4 w-4" />
+            <span className="text-xs">Ver pedido</span>
+          </Button>
+          
+          {/* Botón de Pausar */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-zinc-700 flex items-center gap-1"
+              >
+                <PauseCircle className="h-4 w-4" />
+                <span className="text-xs">Pausar</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
+              <DropdownMenuLabel>Seleccione motivo</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-zinc-800" />
+              <DropdownMenuItem onClick={() => handlePausarPedido("Descanso")}>
+                Descanso
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePausarPedido("Cambio de turno")}>
+                Cambio de turno
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePausarPedido("Verificación")}>
+                Verificación
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePausarPedido("Falta de stock")}>
+                Falta de stock
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePausarPedido("Otros")}>
+                Otros
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Botón Cerrar Sesión */}
+          <Button
+            variant="destructive"
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 flex items-center gap-1"
+            onClick={handleCerrarSesion}
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="text-xs">Salir</span>
+          </Button>
         </div>
       </header>
-
-      <div className="my-6 bg-black border border-gray-800 rounded-lg shadow-lg p-6 text-white">
-        <h2 className="text-2xl font-bold mb-6">Producto Actual</h2>
-        
-        {productoActual && (
+      
+      {/* Información del Pedido */}
+      <div className="bg-zinc-900 p-3 mb-4 shadow-md">
+        <div className="flex justify-between items-center">
           <div>
-            <div className="mb-6">
-              <div className="text-3xl font-bold mb-2 text-yellow-300">{productoActual.codigo}</div>
-              <div className="text-2xl mb-3 text-white">{productoActual.descripcion}</div>
-              <div className="text-lg bg-blue-900 inline-block px-4 py-2 rounded">
-                Ubicación: <span className="font-medium text-yellow-200">{productoActual.ubicacion || "N/A"}</span>
-              </div>
+            <p className="text-sm text-zinc-400">Cliente:</p>
+            <p className="font-semibold">{pedido.clienteId}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-zinc-400">Total productos:</p>
+            <p className="font-semibold">{pedido.totalProductos}</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Producto Actual */}
+      <div className="px-4">
+        <div className="bg-zinc-900 rounded-lg p-4 shadow-md mb-6">
+          {/* Información del producto */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-yellow-600 text-black font-bold px-2 py-1 rounded text-sm">
+                {productoActual.codigo}
+              </span>
+              <span className="text-xs px-2 py-1 bg-blue-700 rounded-full">
+                {productoActual.ubicacion}
+              </span>
             </div>
-            
-            <div className="mb-6">
-              <label className="block mb-3 text-xl font-medium">Cantidad recolectada</label>
-              <div className="flex items-center">
-                <Button 
-                  variant="outline" 
-                  size="lg"
-                  onClick={handleDecrement}
-                  className="bg-slate-700 hover:bg-slate-600 border-white/20 h-16 w-16 rounded-l-md rounded-r-none"
-                >
-                  <Minus className="h-7 w-7" />
-                </Button>
-                <Input
-                  type="number"
-                  value={cantidad}
-                  onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
-                  min={0}
-                  max={productoActual.cantidad}
-                  className="w-28 h-16 text-center bg-white border-0 text-black text-3xl font-bold rounded-none"
-                />
-                <Button 
-                  variant="outline" 
-                  size="lg"
-                  onClick={handleIncrement}
-                  className="bg-slate-700 hover:bg-slate-600 border-white/20 h-16 w-16 rounded-r-md rounded-l-none"
-                >
-                  <Plus className="h-7 w-7" />
-                </Button>
-                <div className="ml-4 flex items-center">
-                  <span className="text-lg font-medium bg-blue-900 px-3 py-1 rounded-md">de <span className="text-yellow-300 font-bold">{productoActual.cantidad}</span></span>
-                </div>
-              </div>
-            </div>
-            
-            {cantidad < productoActual.cantidad && (
-              <div className="mb-6">
-                <label className="block mb-3 text-xl font-medium text-red-400">Motivo de faltante</label>
-                <Select value={motivo} onValueChange={setMotivo}>
-                  <SelectTrigger className="bg-slate-800 border-red-800 h-14 text-xl">
-                    <SelectValue placeholder="Selecciona un motivo" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-red-800 text-white">
-                    <SelectItem value="No encontrado" className="text-lg">No encontrado</SelectItem>
-                    <SelectItem value="Stock insuficiente" className="text-lg">Stock insuficiente</SelectItem>
-                    <SelectItem value="Ubicación errónea" className="text-lg">Ubicación errónea</SelectItem>
-                    <SelectItem value="Producto dañado" className="text-lg">Producto dañado</SelectItem>
-                    <SelectItem value="Otro" className="text-lg">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
-            <div className="flex flex-col gap-4 mt-8">
+            <p className="text-zinc-100 text-sm leading-tight">{productoActual.descripcion}</p>
+          </div>
+          
+          {/* Contador */}
+          <div className="mb-4">
+            <p className="text-sm text-zinc-400 mb-1">Cantidad a recolectar: {productoActual.cantidad}</p>
+            <div className="flex items-center gap-2">
               <Button
-                onClick={handleGuardar}
-                className="w-full bg-green-700 hover:bg-green-600 text-white text-2xl py-8 border-2 border-green-500"
-                disabled={actualizarProductoMutation.isPending}
-              >
-                {actualizarProductoMutation.isPending ? (
-                  <Loader2 className="h-7 w-7 mr-2 animate-spin" />
-                ) : (
-                  <MoveRight className="h-7 w-7 mr-2" />
-                )}
-                Continuar
-              </Button>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full bg-slate-800 border-2 border-slate-600 text-white hover:bg-slate-700 text-xl py-6 mt-2"
-                    disabled={pausarPedidoMutation.isPending}
-                  >
-                    {pausarPedidoMutation.isPending ? (
-                      <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-                    ) : (
-                      <PauseCircle className="h-6 w-6 mr-2" />
-                    )}
-                    Pausar
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-slate-800 border-slate-600 text-white w-56">
-                  <DropdownMenuLabel className="text-lg">Selecciona un motivo</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-slate-600" />
-                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Motivos sanitarios")}>
-                    Motivos sanitarios
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Almuerzo")}>
-                    Almuerzo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Fin de turno")}>
-                    Fin de turno
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Problema técnico")}>
-                    Problema técnico
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Otro")}>
-                    Otro
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <Button
-                onClick={() => setMostrarTodoPedido(true)}
                 variant="outline"
-                className="w-full bg-blue-900 border-2 border-blue-700 text-white hover:bg-blue-800 text-xl py-4 mt-4"
+                size="icon"
+                className="h-8 w-8 border-zinc-700 text-white"
+                onClick={handleDecrement}
               >
-                <Eye className="h-6 w-6 mr-2" />
-                Ver todo el pedido
+                <Minus className="h-4 w-4" />
+              </Button>
+              <Input
+                type="number"
+                value={cantidad}
+                onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
+                className="h-10 bg-zinc-800 border-zinc-700 text-center text-white"
+                min={0}
+                max={productoActual.cantidad}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 border-zinc-700 text-white"
+                onClick={handleIncrement}
+              >
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
           </div>
-        )}
+          
+          {/* Motivo de faltante (si cantidad < cantidad solicitada) */}
+          {cantidad < productoActual.cantidad && (
+            <div className="mb-4">
+              <p className="text-sm text-zinc-400 mb-1">Motivo de faltante:</p>
+              <Select value={motivo} onValueChange={setMotivo}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectItem value="Sin stock">Sin stock</SelectItem>
+                  <SelectItem value="Producto dañado">Producto dañado</SelectItem>
+                  <SelectItem value="No se encuentra">No se encuentra</SelectItem>
+                  <SelectItem value="Ubicación incorrecta">Ubicación incorrecta</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {/* Botón de Continuar */}
+          <Button
+            className="w-full bg-green-700 hover:bg-green-800 text-white border-2 border-green-600"
+            onClick={handleGuardarProducto}
+            disabled={
+              (cantidad < productoActual.cantidad && !motivo) || 
+              actualizarProductoMutation.isPending
+            }
+          >
+            {actualizarProductoMutation.isPending ? (
+              <span className="flex items-center gap-1">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Guardando...
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <MoveRight className="h-4 w-4" />
+                Continuar
+              </span>
+            )}
+          </Button>
+        </div>
+        
+        {/* Progreso */}
+        <div className="bg-zinc-900 rounded-lg p-3 shadow-md">
+          <p className="text-sm text-zinc-400 mb-2">Progreso:</p>
+          <div className="flex items-center gap-1">
+            <div className="h-2 flex-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-green-600 rounded-full"
+                style={{ 
+                  width: `${Math.floor((productos.filter(p => p.recolectado !== null).length / productos.length) * 100)}%` 
+                }}
+              />
+            </div>
+            <span className="text-xs">
+              {productos.filter(p => p.recolectado !== null).length}/{productos.length}
+            </span>
+          </div>
+        </div>
       </div>
       
-      <div className="mt-4 mb-8 text-center">
-        <Button 
-          variant="link" 
-          asChild
-          className="text-gray-500 hover:text-gray-300"
-        >
-          <Link href="/armador">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Volver a la lista
-          </Link>
-        </Button>
-      </div>
-      
-      {/* Modal de Éxito */}
+      {/* Modal de éxito */}
       <Dialog open={mostrarExito} onOpenChange={setMostrarExito}>
-        <DialogContent className="sm:max-w-md bg-black border border-gray-800 text-white">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">¡Pedido Completado!</DialogTitle>
-            <DialogDescription className="text-gray-400 text-lg">
-              Has terminado de armar todos los productos del pedido #{pedido?.pedidoId}.
-              <div className="mt-4 p-3 bg-gray-900 border border-gray-700 rounded-md">
-                <p className="mb-1"><strong>Cliente:</strong> {pedido?.clienteId}</p>
-                <p className="mb-1"><strong>Total de productos:</strong> {productos.length}</p>
-                <p><strong>Fecha:</strong> {new Date().toLocaleString()}</p>
-              </div>
+            <DialogTitle>¡Pedido completado!</DialogTitle>
+            <DialogDescription className="text-zinc-300">
+              El pedido ha sido armado correctamente.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="sm:justify-center mt-4">
-            <Button 
-              onClick={handleVolverArmador}
-              className="bg-green-800 hover:bg-green-900 text-white px-8 py-2 text-lg"
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setMostrarExito(false);
+                navigate("/armador");
+              }}
             >
-              Volver al inicio
+              Volver a la lista
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Modal de Ver Todo el Pedido */}
+      {/* Modal para mostrar todo el pedido */}
       <Dialog open={mostrarTodoPedido} onOpenChange={setMostrarTodoPedido}>
-        <DialogContent className="max-w-4xl bg-black border border-gray-800 text-white">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-md w-full max-h-[80vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
-              Detalle de Pedido #{pedido?.pedidoId}
-            </DialogTitle>
-            <DialogDescription className="text-gray-400 text-lg">
-              <div className="mt-2 p-3 bg-gray-900 border border-gray-700 rounded-md">
-                <p className="mb-1"><strong>Cliente:</strong> {pedido?.clienteId}</p>
-                <p className="mb-1"><strong>Total de productos:</strong> {productos.length}</p>
-                <p><strong>Fecha:</strong> {pedido?.fecha ? new Date(pedido.fecha).toLocaleString() : ''}</p>
-              </div>
+            <DialogTitle>Detalle del pedido {pedido.pedidoId}</DialogTitle>
+            <DialogDescription className="text-zinc-300">
+              Cliente: {pedido.clienteId}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="mt-4 max-h-[60vh] overflow-y-auto">
-            <table className="w-full border-collapse">
-              <thead className="bg-gray-900 sticky top-0">
-                <tr>
-                  <th className="py-3 px-4 text-left border-b border-gray-700 text-lg font-semibold">Código</th>
-                  <th className="py-3 px-4 text-left border-b border-gray-700 text-lg font-semibold">Descripción</th>
-                  <th className="py-3 px-4 text-left border-b border-gray-700 text-lg font-semibold">Ubicación</th>
-                  <th className="py-3 px-4 text-center border-b border-gray-700 text-lg font-semibold">Cantidad</th>
-                  <th className="py-3 px-4 text-center border-b border-gray-700 text-lg font-semibold">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {productos.map((producto, index) => (
-                  <tr key={producto.id} className={index === currentIndex ? "bg-blue-900/30" : (index % 2 === 0 ? "bg-gray-900/50" : "")}>
-                    <td className="py-3 px-4 border-b border-gray-800 text-yellow-300 font-semibold">{producto.codigo}</td>
-                    <td className="py-3 px-4 border-b border-gray-800">{producto.descripcion}</td>
-                    <td className="py-3 px-4 border-b border-gray-800">
-                      <span className="bg-blue-900 text-yellow-200 px-2 py-1 rounded">{producto.ubicacion}</span>
-                    </td>
-                    <td className="py-3 px-4 border-b border-gray-800 text-center font-semibold">{producto.cantidad}</td>
-                    <td className="py-3 px-4 border-b border-gray-800 text-center">
-                      {producto.recolectado === null ? (
-                        <span className="bg-gray-700 text-white px-2 py-1 rounded">Pendiente</span>
-                      ) : producto.recolectado === producto.cantidad ? (
-                        <span className="bg-green-700 text-white px-2 py-1 rounded">Completo</span>
-                      ) : (
-                        <span className="bg-amber-700 text-white px-2 py-1 rounded">Parcial: {producto.recolectado}/{producto.cantidad}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3 my-3">
+            {productos.map((producto, index) => (
+              <div 
+                key={producto.id} 
+                className={`p-2 rounded-md border ${
+                  producto.recolectado !== null 
+                    ? "border-green-800 bg-green-900/20" 
+                    : "border-zinc-800 bg-zinc-900"
+                } ${index === currentIndex ? "border-yellow-600" : ""}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1">
+                    <span className="bg-yellow-600 text-black font-bold px-1.5 py-0.5 rounded text-xs">
+                      {producto.codigo}
+                    </span>
+                    <span className="text-xs px-1.5 py-0.5 bg-blue-800 rounded-full">
+                      {producto.ubicacion}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    {producto.recolectado !== null ? (
+                      <span className="text-xs bg-green-800/50 px-1.5 py-0.5 rounded-full">
+                        {producto.recolectado}/{producto.cantidad}
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-zinc-800 px-1.5 py-0.5 rounded-full">
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-zinc-300 line-clamp-2">{producto.descripcion}</p>
+                {producto.motivo && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    Motivo faltante: {producto.motivo}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
           
-          <DialogFooter className="mt-6">
-            <Button 
+          <DialogFooter>
+            <Button
               onClick={() => setMostrarTodoPedido(false)}
-              className="bg-blue-800 hover:bg-blue-700 text-white px-8 py-2 text-lg"
+              variant="outline"
+              className="border-zinc-700"
             >
               Cerrar
             </Button>
