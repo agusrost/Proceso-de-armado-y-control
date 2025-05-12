@@ -681,71 +681,11 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateProducto(id: number, productoData: Partial<Producto>): Promise<Producto | undefined> {
-    // PROTECCIÓN DEFINITIVA MEJORADA: Verificar si el producto tiene faltantes parciales registrados
-    // antes de permitir cualquier actualización que pueda autocompletarlo o modificar sus cantidades
-    if (productoData.recolectado !== undefined) {
-      try {
-        // Primero obtenemos el producto actual para verificar su estado
-        const [productoExistente] = await db
-          .select()
-          .from(productos)
-          .where(eq(productos.id, id));
-        
-        if (productoExistente) {
-          const tieneMotivoDeFaltante = productoExistente.motivo && productoExistente.motivo.trim() !== '';
-          const intentandoCompletar = productoData.recolectado >= productoExistente.cantidad;
-          const aumentandoCantidad = productoData.recolectado > productoExistente.recolectado;
-          
-          // NIVEL 1: Si tiene motivo de faltante y se está intentando completar, BLOQUEAR LA OPERACIÓN
-          if (tieneMotivoDeFaltante && intentandoCompletar) {
-            console.log(`⛔ PROTECCIÓN NIVEL 1: Bloqueando autocompletado producto ${id} (${productoExistente.codigo})`);
-            console.log(`   Estado actual: ${productoExistente.recolectado}/${productoExistente.cantidad}`);
-            console.log(`   Intento bloqueado: ${productoData.recolectado}/${productoExistente.cantidad}`);
-            
-            // Preservar siempre los valores originales
-            productoData.recolectado = productoExistente.recolectado;
-            if (!productoData.motivo || productoData.motivo.trim() === '') {
-              productoData.motivo = productoExistente.motivo;
-            }
-            
-            console.log(`   Valores preservados: ${productoData.recolectado}/${productoExistente.cantidad}, motivo: "${productoData.motivo}"`);
-          }
-          
-          // NIVEL 2: Si tiene motivo de faltante y se está intentando aumentar la cantidad (incluso sin completar), BLOQUEAR
-          else if (tieneMotivoDeFaltante && aumentandoCantidad) {
-            console.log(`⛔ PROTECCIÓN NIVEL 2: Bloqueando aumento de cantidad en producto con faltante ${id} (${productoExistente.codigo})`);
-            console.log(`   Estado actual: ${productoExistente.recolectado}/${productoExistente.cantidad}`);
-            console.log(`   Intento bloqueado: ${productoData.recolectado}/${productoExistente.cantidad}`);
-            
-            // Preservar siempre los valores originales
-            productoData.recolectado = productoExistente.recolectado;
-            if (!productoData.motivo || productoData.motivo.trim() === '') {
-              productoData.motivo = productoExistente.motivo;
-            }
-            
-            console.log(`   Valores preservados: ${productoData.recolectado}/${productoExistente.cantidad}, motivo: "${productoData.motivo}"`);
-          }
-          
-          // NIVEL 3: Si se está intentando eliminar un motivo existente sin cambiar cantidad, PRESERVAR MOTIVO
-          else if (tieneMotivoDeFaltante && (!productoData.motivo || productoData.motivo.trim() === '')) {
-            console.log(`⚠️ PROTECCIÓN NIVEL 3: Preservando motivo de faltante para producto ${id} (${productoExistente.codigo})`);
-            productoData.motivo = productoExistente.motivo;
-            console.log(`   Motivo preservado: "${productoData.motivo}"`);
-          }
-        }
-      } catch (error) {
-        console.error(`Error al verificar protección de faltantes para producto ${id}:`, error);
-        // Continuamos con la actualización normal en caso de error
-      }
-    }
-    
-    // Ahora realizamos la actualización con valores posiblemente modificados
     const [producto] = await db
       .update(productos)
       .set(productoData)
       .where(eq(productos.id, id))
       .returning();
-    
     return producto;
   }
   
@@ -839,42 +779,6 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions));
       
     console.log(`Encontradas ${result.length} pausas activas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
-    
-    return result;
-  }
-  
-  /**
-   * Obtener todas las pausas finalizadas (con fin != null) para un pedido específico
-   * @param pedidoId ID del pedido
-   * @param esControl Si es true, busca pausas de control; si es false, busca pausas de armado/otros
-   * @returns Array de pausas finalizadas
-   */
-  async getPausasFinalizadasByPedidoId(pedidoId: number, esControl: boolean = false): Promise<Pausa[]> {
-    const conditions = [
-      eq(pausas.pedidoId, pedidoId),
-      not(isNull(pausas.fin)) // Condición para pausas finalizadas
-    ];
-    
-    // Aplicar el mismo filtro de tipo que en getPausasActivasByPedidoId
-    if (esControl) {
-      conditions.push(or(
-        eq(pausas.tipo, 'control'),
-        isNull(pausas.tipo) // Para pausas antiguas que no tengan tipo
-      ));
-    } else {
-      // NOT operator para excluir pausas de control
-      conditions.push(not(eq(pausas.tipo, 'control')));
-    }
-    
-    console.log(`Buscando pausas finalizadas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
-    
-    // Ejecutar la consulta con las condiciones actualizadas
-    const result = await db
-      .select()
-      .from(pausas)
-      .where(and(...conditions));
-      
-    console.log(`Encontradas ${result.length} pausas finalizadas ${esControl ? 'de control' : 'de armado/otros'} para pedido ${pedidoId}`);
     
     return result;
   }
