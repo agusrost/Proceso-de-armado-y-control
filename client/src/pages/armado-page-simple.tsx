@@ -520,6 +520,14 @@ export default function ArmadoPageSimple() {
             >
               Ver Pedido
             </Button>
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={() => logoutMutation.mutate()}
+              className="bg-white/10 text-white hover:bg-white/20"
+            >
+              Cerrar Sesión
+            </Button>
           </div>
         </div>
       </header>
@@ -634,38 +642,13 @@ export default function ArmadoPageSimple() {
                   ) : "Continuar"}
                 </Button>
                 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline"
-                      className="w-full text-white bg-transparent border-slate-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center"
-                    >
-                      <span>Pausar</span>
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuLabel>Seleccione motivo</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {motivosPausa.map((motivo) => (
-                      <DropdownMenuItem 
-                        key={motivo}
-                        onClick={() => {
-                          if (motivo === "Otro: especificar") {
-                            setMotivoPausa(motivo);
-                            setMostrarModalPausa(true);
-                          } else {
-                            setMotivoPausa(motivo);
-                            handlePausarArmado();
-                          }
-                        }}
-                        className="cursor-pointer"
-                      >
-                        {motivo}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button 
+                  variant="outline"
+                  className="w-full text-white bg-transparent border-slate-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center"
+                  onClick={() => setMostrarModalPausa(true)}
+                >
+                  Pausar
+                </Button>
               </div>
             </div>
           )}
