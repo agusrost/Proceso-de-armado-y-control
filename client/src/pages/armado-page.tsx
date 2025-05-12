@@ -264,14 +264,14 @@ export default function ArmadoPage() {
               if (siguienteIndex !== -1) {
                 console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo}`);
                 setCurrentProductoIndex(siguienteIndex);
-                setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+                setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
                 return true;
               }
               
               // Si todos están procesados, usar el primero
               console.log("No hay productos sin procesar, usando el primero");
               setCurrentProductoIndex(0);
-              setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+              setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
               return false;
             };
             
@@ -296,7 +296,7 @@ export default function ArmadoPage() {
                   console.log(`Continuando con el último producto no procesado: ${ultimoProducto.codigo}`);
                   const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
                   setCurrentProductoIndex(index);
-                  setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+                  setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
                 }
               } else {
                 // Si no se encuentra el último producto, buscar el siguiente no procesado
@@ -851,7 +851,7 @@ export default function ArmadoPage() {
           console.log(`Iniciando cantidad recolectada con: 0 unidades (forzando selección manual)`);
           
           setCurrentProductoIndex(primerProductoPendienteIndex);
-          setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+          setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
           return;
         }
         
@@ -861,7 +861,7 @@ export default function ArmadoPage() {
         // También establecer recolectados para el primer producto
         if (data.length > 0) {
           console.log(`Iniciando cantidad recolectada del primer producto con 0 unidades para forzar la selección manual`);
-          setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+          setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
         }
       };
       
@@ -936,7 +936,7 @@ export default function ArmadoPage() {
               
               setCurrentProductoIndex(primerSinProcesarIndex);
               // Inicializar con la cantidad solicitada, siempre
-              setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+              setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
               console.log(`Inicializando cantidad: 0 unidades para ${primerSinProcesar.codigo} (forzando selección manual)`);
               return;
             }
@@ -1293,7 +1293,7 @@ export default function ArmadoPage() {
                       // Avanzar al siguiente producto si hay más
                       if (currentProductoIndex < productos.length - 1) {
                         setCurrentProductoIndex(prev => prev + 1);
-                        setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+                        setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
                         setMotivo("");
                       } else {
                         // Si es el último, mostrar mensaje
@@ -1384,7 +1384,7 @@ export default function ArmadoPage() {
               // No importa si recolectados es null
               if (recolectados === null) {
                 console.log("Recolectados es null, estableciendo a 0 para forzar la selección manual:");
-                setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+                setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
                 // No retornamos - seguimos con el proceso
               }
               
@@ -2543,7 +2543,7 @@ export default function ArmadoPage() {
                       // Avanzar al siguiente producto si hay más
                       if (currentProductoIndex < productos.length - 1) {
                         setCurrentProductoIndex(prev => prev + 1);
-                        setRecolectados(0); // Iniciar con 0 para forzar la selección de cantidad
+                        setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
                         setMotivo("");
                       } else {
                         // Si es el último, mostrar mensaje
