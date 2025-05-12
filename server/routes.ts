@@ -3811,6 +3811,74 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Función auxiliar para calcular el tiempo bruto (entre inicio y fin)
+  async function calcularTiempoBruto(pedidoId: number): Promise<string> {
+    try {
+      // Obtener el pedido
+      const pedido = await storage.getPedido(pedidoId);
+      if (!pedido || !pedido.inicio) return "00:00:00";
+      
+      // Usar la fecha de finalización si existe, o la fecha actual
+      const fin = pedido.finalizado ? new Date(pedido.finalizado) : new Date();
+      const inicio = new Date(pedido.inicio);
+      
+      // Calcular diferencia en milisegundos
+      const diff = fin.getTime() - inicio.getTime();
+      
+      // Convertir a formato HH:MM:SS
+      return formatearTiempo(diff);
+    } catch (error) {
+      console.error(`Error al calcular tiempo bruto para pedido ${pedidoId}:`, error);
+      return "00:00:00";
+    }
+  }
+  
+  // Función auxiliar para calcular tiempo neto (restando pausas)
+  async function calcularTiempoNeto(pedidoId: number): Promise<string> {
+    try {
+      // Obtener el pedido
+      const pedido = await storage.getPedido(pedidoId);
+      if (!pedido || !pedido.inicio) return "00:00:00";
+      
+      // Calcular tiempo bruto primero
+      const fin = pedido.finalizado ? new Date(pedido.finalizado) : new Date();
+      const inicio = new Date(pedido.inicio);
+      let tiempoTotal = fin.getTime() - inicio.getTime();
+      
+      // Obtener todas las pausas del pedido
+      const pausas = await storage.getPausasByPedidoId(pedidoId);
+      
+      // Descontar tiempo de pausas finalizadas
+      let tiempoPausas = 0;
+      for (const pausa of pausas) {
+        if (pausa.fin && pausa.inicio) {
+          const pausaInicio = new Date(pausa.inicio);
+          const pausaFin = new Date(pausa.fin);
+          tiempoPausas += pausaFin.getTime() - pausaInicio.getTime();
+        }
+      }
+      
+      // Restar tiempo de pausas
+      const tiempoNeto = tiempoTotal - tiempoPausas;
+      
+      // Convertir a formato HH:MM:SS
+      return formatearTiempo(tiempoNeto);
+    } catch (error) {
+      console.error(`Error al calcular tiempo neto para pedido ${pedidoId}:`, error);
+      return "00:00:00";
+    }
+  }
+  
+  // Función para formatear milisegundos a HH:MM:SS
+  function formatearTiempo(milisegundos: number): string {
+    const segundosTotales = Math.floor(milisegundos / 1000);
+    const horas = Math.floor(segundosTotales / 3600);
+    const minutos = Math.floor((segundosTotales % 3600) / 60);
+    const segundos = segundosTotales % 60;
+    
+    return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+  }
+
   // Actualizar un producto específico (para marcar como recolectado o faltante)
   app.patch("/api/productos/:id", requireAuth, async (req, res, next) => {
     try {
@@ -3946,7 +4014,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
             console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
             
             // Actualizar estado a "armado-pendiente-stock"
-            await storage.updatePedido(pedidoId, { estado: 'armado-pendiente-stock' });
+            await storage.updatePedido(pedidoId, { 
+              estado: 'armado-pendiente-stock',
+              finalizado: new Date().toISOString(), // Registrar la fecha/hora de finalización
+              tiempoBruto: await calcularTiempoBruto(pedidoId),
+              tiempoNeto: await calcularTiempoNeto(pedidoId)
+            });
+            
+            // Notificar finalización (armado pendiente de stock)
+            console.log(`🏁 FINALIZACIÓN AUTOMÁTICA: Pedido ${pedidoId} marcado como "armado-pendiente-stock" porque tiene ${productosFaltantes.length} productos con faltantes registrados`);
             
             // Crear solicitudes de transferencia para cada producto faltante
             for (const producto of productosFaltantes) {
@@ -3970,8 +4046,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
               }
             }
           } else {
-            // Si no hay faltantes, marcar como armado normal
-            await storage.updatePedido(pedidoId, { estado: 'armado' });
+            console.log(`🏁 FINALIZACIÓN AUTOMÁTICA: Pedido ${pedidoId} completado correctamente sin faltantes`);
+            
+            // Si no hay faltantes, marcar como armado normal con la fecha y cálculo de tiempos
+            await storage.updatePedido(pedidoId, {
+              estado: 'armado',
+              finalizado: new Date().toISOString(), // Registrar la fecha/hora de finalización
+              tiempoBruto: await calcularTiempoBruto(pedidoId),
+              tiempoNeto: await calcularTiempoNeto(pedidoId)
+            });
           }
         }
       }
