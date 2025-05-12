@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Minus, ChevronLeft, MoveRight, PauseCircle } from "lucide-react";
+import { Loader2, Plus, Minus, ChevronLeft, MoveRight, PauseCircle, Eye } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -649,23 +649,6 @@ export default function ArmadoPageNuevo() {
           </div>
           <div className="flex space-x-3">
             <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={handlePausarPedido}
-              className="bg-red-600 hover:bg-red-700 text-base px-4 py-2"
-            >
-              Pausar
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleVolverArmador}
-              className="text-white border-gray-600 hover:bg-gray-800 text-base px-4 py-2"
-            >
-              <ChevronLeft className="h-5 w-5 mr-1" />
-              Volver
-            </Button>
-            <Button 
               variant="outline" 
               size="sm" 
               onClick={handleCerrarSesion}
@@ -790,6 +773,15 @@ export default function ArmadoPageNuevo() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              
+              <Button
+                onClick={() => setMostrarTodoPedido(true)}
+                variant="outline"
+                className="w-full bg-blue-900 border-2 border-blue-700 text-white hover:bg-blue-800 text-xl py-4 mt-4"
+              >
+                <Eye className="h-6 w-6 mr-2" />
+                Ver todo el pedido
+              </Button>
             </div>
           </div>
         )}
