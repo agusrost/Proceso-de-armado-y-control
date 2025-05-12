@@ -505,14 +505,6 @@ export default function ArmadoPageSimple() {
           
           <div className="flex items-center space-x-2">
             <Button 
-              variant="destructive"
-              size="sm"
-              onClick={() => setMostrarModalPausa(true)}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              Pausar
-            </Button>
-            <Button 
               variant="secondary"
               size="sm"
               onClick={() => setMostrarModalVerPedido(true)}
@@ -634,13 +626,36 @@ export default function ArmadoPageSimple() {
                   ) : "Continuar"}
                 </Button>
                 
-                <Button 
-                  variant="secondary" 
-                  onClick={() => setMostrarModalPausa(true)}
-                  className="w-full border border-slate-600 bg-transparent text-white hover:bg-slate-700 py-5 h-14"
-                >
-                  Pausar
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="destructive" 
+                      className="w-full bg-red-600 text-white hover:bg-red-700 py-5 h-14"
+                    >
+                      Pausar
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuLabel>Seleccione motivo</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {motivosPausa.map((motivo) => (
+                      <DropdownMenuItem 
+                        key={motivo}
+                        onClick={() => {
+                          if (motivo === "Otro: especificar") {
+                            setMotivoPausa(motivo);
+                            setMostrarModalPausa(true);
+                          } else {
+                            setMotivoPausa(motivo);
+                            handlePausarArmado();
+                          }
+                        }}
+                      >
+                        {motivo}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           )}
