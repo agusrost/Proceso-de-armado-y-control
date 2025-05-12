@@ -755,7 +755,19 @@ export default function ArmadoPage() {
             console.log(`✅ SELECCIONANDO PRODUCTO PENDIENTE: ${primerProductoPendiente.codigo} (ID: ${primerProductoPendiente.id})`);
             
             setCurrentProductoIndex(primerProductoPendienteIndex);
-            setRecolectados(primerProductoPendiente.recolectado !== null ? primerProductoPendiente.recolectado : primerProductoPendiente.cantidad);
+            
+            // CORRECCIÓN: Nunca establecer automáticamente a la cantidad total
+            // Siempre usar 0 o el valor real recolectado
+            const valorInicial = primerProductoPendiente.recolectado !== null ? primerProductoPendiente.recolectado : 0;
+            console.log(`🔧 Estableciendo cantidad inicial a ${valorInicial} (NO a cantidad total)`);
+            setRecolectados(valorInicial);
+            
+            // Preservar motivo si existe
+            if (primerProductoPendiente.motivo) {
+              console.log(`🔧 Preservando motivo: "${primerProductoPendiente.motivo}"`);
+              setMotivo(primerProductoPendiente.motivo);
+            }
+            
             return;
           }
           
@@ -781,6 +793,16 @@ export default function ArmadoPage() {
             
             setCurrentProductoIndex(parcialmenteProcesadoIndex);
             setRecolectados(parcialProducto.recolectado);
+            
+            // También preservar el motivo si existe
+            if (parcialProducto.motivo) {
+              console.log(`Preservando motivo existente: "${parcialProducto.motivo}"`);
+              setMotivo(parcialProducto.motivo);
+            } else {
+              // Limpiar motivo si no tiene
+              setMotivo("");
+            }
+            
             return;
           }
           
@@ -992,6 +1014,15 @@ export default function ArmadoPage() {
               console.log(`Recolectado: ${productoParcial.recolectado}/${productoParcial.cantidad}`);
               setCurrentProductoIndex(productoParcialIndex);
               setRecolectados(productoParcial.recolectado);
+              
+              // Preservar también el motivo si existe
+              if (productoParcial.motivo) {
+                console.log(`Preservando motivo existente: "${productoParcial.motivo}"`);
+                setMotivo(productoParcial.motivo);
+              } else {
+                setMotivo("");
+              }
+              
               return;
             }
             
