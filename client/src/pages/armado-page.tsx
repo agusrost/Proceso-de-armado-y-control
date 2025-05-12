@@ -1197,13 +1197,17 @@ export default function ArmadoPage() {
     // Siempre actualizar el estado para garantizar la consistencia
     if (recolectados === null || recolectados !== valorActual) {
       console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${valorActual}`);
-      // Actualización inmediata y programada para garantizar que se aplique
-      // NO usar setTimeout que sobrescribe el valor - solo mantener el valor correcto
       setRecolectados(valorActual);
     }
     
-    // SIEMPRE retornar la cantidad del producto, no el estado
-    return producto.cantidad;
+    // Si hay un motivo de faltante, preservarlo siempre
+    if (producto.motivo && producto.motivo.trim() !== '') {
+      console.log(`Preservando motivo de faltante: "${producto.motivo}"`);
+      setMotivo(producto.motivo);
+    }
+    
+    // IMPORTANTE: Retornar la cantidad correcta recolectada, NO la cantidad solicitada
+    return valorActual; 
   };
 
   // Renderizar la interfaz simplificada
@@ -1505,34 +1509,12 @@ export default function ArmadoPage() {
                                     setRecolectados(ultimoProducto.recolectado);
                                     setMotivo(ultimoProducto.motivo);
                                     
-                                    // IMPORTANTE: Para evitar autocompletado incorrecto, forzamos inmediatamente
-                                    // una actualización para asegurar que el estado del servidor sea correcto
-                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO: Preservando estado del producto ${ultimoProducto.id}`);
+                                    // IMPORTANTE: No usar timeouts ni actualizaciones automáticas 
+                                    // que puedan sobrescribir los valores correctos
+                                    console.log(`🛡️ Preservando estado del producto ${ultimoProducto.id} sin actualizaciones automáticas`);
                                     
-                                    // Forzar actualización inmediata para proteger el faltante registrado
-                                    setTimeout(() => {
-                                      // Primera protección - garantiza que se mantenga el faltante
-                                      actualizarProductoMutation.mutate({
-                                        id: ultimoProducto.id,
-                                        recolectado: ultimoProducto.recolectado,
-                                        motivo: ultimoProducto.motivo,
-                                        actualizacionAutomatica: false,
-                                        preservarFaltante: true // Nuevo flag que indica que es una actualización de protección
-                                      });
-                                      
-                                      // Segunda protección - registramos una operación adicional después
-                                      setTimeout(() => {
-                                        console.log(`🔒 DOBLE PROTECCIÓN: Verificando nuevamente el producto ${ultimoProducto.id}`);
-                                        actualizarProductoMutation.mutate({
-                                          id: ultimoProducto.id,
-                                          recolectado: ultimoProducto.recolectado,
-                                          motivo: ultimoProducto.motivo,
-                                          actualizacionAutomatica: false,
-                                          preservarFaltante: true,
-                                          proteccionDoble: true // Flag adicional para la segunda capa de protección
-                                        });
-                                      }, 500);
-                                    }, 300);
+                                    // NO HACER NINGUNA ACTUALIZACIÓN AUTOMÁTICA AQUÍ
+                                    // Los datos ya están correctos en el servidor
                                   } 
                                   else {
                                     // Caso normal: producto sin motivo de faltante
@@ -1841,7 +1823,7 @@ export default function ArmadoPage() {
                   <div>
                     <p className="font-mono text-base font-semibold">{producto.codigo}</p>
                     <p className="text-sm text-gray-200">{producto.descripcion || 'Sin descripción'}</p>
-                    <p className="text-xs text-gray-300 mt-1">Cantidad: {producto.cantidad}</p>
+                    <p className="text-xs text-gray-300 mt-1">Solicitado: {producto.cantidad}</p>
                   </div>
                   
                   <div className="text-right">
@@ -1850,11 +1832,16 @@ export default function ArmadoPage() {
                       <p className={`text-sm font-medium ${
                         producto.recolectado === producto.cantidad 
                           ? 'text-green-400' 
-                          : producto.recolectado === 0 
-                            ? 'text-red-400' 
-                            : 'text-yellow-400'
+                          : producto.motivo
+                            ? 'text-green-400' // Con motivo = completado aunque sea parcial
+                            : producto.recolectado === 0 
+                              ? 'text-red-400' 
+                              : 'text-yellow-400'
                       }`}>
                         Recolectado: {producto.recolectado}/{producto.cantidad}
+                        {producto.motivo && producto.recolectado < producto.cantidad && (
+                          <span className="ml-1 bg-green-800 text-green-200 text-xs px-1 py-0.5 rounded-sm">✓</span>
+                        )}
                       </p>
                     ) : (
                       <p className="text-xs text-gray-400">Pendiente</p>
