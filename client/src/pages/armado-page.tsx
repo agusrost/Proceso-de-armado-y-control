@@ -14,6 +14,9 @@ import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls
 
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
+  // Verificamos primero que el producto exista y tenga la propiedad recolectado
+  if (!producto || producto.recolectado === undefined) return false;
+  
   // Si recolectado es null, no está completado
   if (producto.recolectado === null) return false;
   
@@ -1331,14 +1334,12 @@ export default function ArmadoPage() {
               }, {
                 onSuccess: async () => {
                   // Verificar después de CADA producto si todos están procesados para finalizar automáticamente
-                  console.log("Verificando si todos los productos están completos para finalizar automáticamente...");
+                  console.log("Producto procesado - Verificando si todos los productos están completos...");
                   try {
                     const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
                     const productosActualizados = await res.json();
                     
-                    console.log("Productos actualizados:", productosActualizados);
-                    
-                    // Un producto está completamente procesado si tiene recolectado diferente de null 
+                    // Un producto está procesado si tiene recolectado diferente de null 
                     // y si tiene un motivo de faltante (cuando corresponde)
                     const todosProductosProcesados = productosActualizados.every((p: any) => 
                       p.recolectado !== null && 
