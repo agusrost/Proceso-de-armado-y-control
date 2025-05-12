@@ -6,7 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Minus, ChevronLeft } from "lucide-react";
+import { Loader2, Plus, Minus, ChevronLeft, MoveRight, PauseCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Dialog,
   DialogContent,
@@ -464,7 +472,7 @@ export default function ArmadoPageNuevo() {
     }
   };
 
-  const handlePausar = () => {
+  const handlePausar = (motivoPausa: string = "Pausa manual") => {
     // Validaciones reforzadas
     if (!pedidoId) {
       console.error("handlePausar: Error - No hay pedidoId");
@@ -489,13 +497,13 @@ export default function ArmadoPageNuevo() {
     try {
       console.log("handlePausar: Enviando pausa", {
         pedidoId,
-        motivo: "Pausa manual",
+        motivo: motivoPausa,
         productoId: productoActual.id
       });
       
       pausarPedidoMutation.mutate({
         pedidoId,
-        motivo: "Pausa manual",
+        motivo: motivoPausa,
         productoId: productoActual.id
       });
     } catch (error) {
@@ -736,26 +744,52 @@ export default function ArmadoPageNuevo() {
             <div className="flex flex-col gap-4 mt-8">
               <Button
                 onClick={handleGuardar}
-                className="w-full bg-green-800 hover:bg-green-900 text-white text-xl py-6"
+                className="w-full bg-green-700 hover:bg-green-600 text-white text-2xl py-8 border-2 border-green-500"
                 disabled={actualizarProductoMutation.isPending}
               >
                 {actualizarProductoMutation.isPending ? (
-                  <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-                ) : null}
+                  <Loader2 className="h-7 w-7 mr-2 animate-spin" />
+                ) : (
+                  <MoveRight className="h-7 w-7 mr-2" />
+                )}
                 Continuar
               </Button>
               
-              <Button
-                onClick={handlePausar}
-                variant="outline"
-                className="w-full bg-gray-900 border-gray-700 text-white hover:bg-gray-800 text-xl py-4"
-                disabled={pausarPedidoMutation.isPending}
-              >
-                {pausarPedidoMutation.isPending ? (
-                  <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-                ) : null}
-                Pausar
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full bg-slate-800 border-2 border-slate-600 text-white hover:bg-slate-700 text-xl py-6 mt-2"
+                    disabled={pausarPedidoMutation.isPending}
+                  >
+                    {pausarPedidoMutation.isPending ? (
+                      <Loader2 className="h-6 w-6 mr-2 animate-spin" />
+                    ) : (
+                      <PauseCircle className="h-6 w-6 mr-2" />
+                    )}
+                    Pausar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-slate-800 border-slate-600 text-white w-56">
+                  <DropdownMenuLabel className="text-lg">Selecciona un motivo</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-slate-600" />
+                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Motivos sanitarios")}>
+                    Motivos sanitarios
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Almuerzo")}>
+                    Almuerzo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Fin de turno")}>
+                    Fin de turno
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Problema técnico")}>
+                    Problema técnico
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-base hover:bg-slate-700" onClick={() => handlePausar("Otro")}>
+                    Otro
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}
