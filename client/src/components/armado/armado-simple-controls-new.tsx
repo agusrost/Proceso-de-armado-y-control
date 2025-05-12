@@ -182,22 +182,12 @@ export function ArmadoSimpleControlsNew({
       
       {/* Botones de acción */}
       <div className="flex gap-2 mt-2">
-        <Button 
-          onClick={onGuardar}
-          disabled={pausaActiva || mutationIsPending || (hayFaltanteParcial && !motivo) || (esFaltanteTotal && !motivo)}
-          className="flex-1"
-          variant="default"
-        >
-          <Save className="h-4 w-4 mr-1" />
-          {mutationIsPending ? "Guardando..." : "Guardar"}
-        </Button>
-        
         {esUltimoProducto && (
           <Button 
             onClick={onFinalizarPedido}
-            disabled={pausaActiva || mutationIsPending}
+            disabled={pausaActiva || mutationIsPending || (hayFaltanteParcial && !motivo) || (esFaltanteTotal && !motivo)}
             className="flex-1"
-            variant="secondary"
+            variant="primary"
           >
             <FastForward className="h-4 w-4 mr-1" />
             Finalizar

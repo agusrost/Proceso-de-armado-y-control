@@ -1241,7 +1241,7 @@ export default function ArmadoPage() {
                   ? 'text-green-700' 
                   : 'text-red-700'
               }`}>
-                (Recolectado: {producto.recolectado}/{producto.cantidad})
+
               </span>
             )}
           </p>
