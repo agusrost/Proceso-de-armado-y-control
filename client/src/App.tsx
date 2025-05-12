@@ -14,6 +14,7 @@ import ConfigPage from "@/pages/config-page";
 import ArmadoPage from "@/pages/armado-page";
 import ArmadorPage from "@/pages/armador-page";
 import ArmadoSimplePage from "@/pages/armado-simple-page";
+import ArmadoBasicPage from "@/pages/armado-basic";
 import ControlPage from "@/pages/control-page";
 import ControlIndexPage from "@/pages/control/index-page";
 import ControlConfigPage from "@/pages/control/config-page";
@@ -35,7 +36,8 @@ function Router() {
       <ProtectedRoute path="/pedidos/estado" component={PedidosEstadoPage} />
       <ProtectedRoute path="/stock" component={StockPage} />
       <ProtectedRoute path="/config" component={ConfigPage} />
-      <ProtectedRoute path="/armado" component={ArmadoPage} />
+      <ProtectedRoute path="/armado" component={ArmadoBasicPage} />
+      <ProtectedRoute path="/armado-original" component={ArmadoPage} />
       <ProtectedRoute path="/armado-simple" component={ArmadoSimplePage} />
       <ProtectedRoute path="/armador" component={ArmadorPage} />
       
