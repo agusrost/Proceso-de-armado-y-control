@@ -102,24 +102,28 @@ export default function ArmadoBasicPage() {
     isLoading: isLoadingProductos 
   } = useQuery({
     queryKey: [`/api/productos/pedido/${pedidoArmador?.id}`],
-    enabled: !!pedidoArmador?.id,
-    onSuccess: (data) => {
-      setProductos(data);
+    enabled: !!pedidoArmador?.id
+  });
+  
+  // Actualizar los productos cuando cambien los datos
+  useEffect(() => {
+    if (productosData) {
+      setProductos(productosData);
       // Si estamos en un pedido en curso, inicializar el primer producto no procesado
-      if (pedidoArmador?.estado === 'en-proceso' && data) {
-        const firstUnprocessedIndex = data.findIndex(p => p.recolectado === null);
+      if (pedidoArmador?.estado === 'en-proceso' && productosData) {
+        const firstUnprocessedIndex = productosData.findIndex(p => p.recolectado === null);
         setCurrentProductoIndex(firstUnprocessedIndex >= 0 ? firstUnprocessedIndex : 0);
         
         // Si hay un producto pausado, ir a ese índice
         if (pedidoArmador.pausaActiva && pedidoArmador.pausaActiva.ultimoProductoId) {
-          const pausedIndex = data.findIndex(p => p.id === pedidoArmador.pausaActiva.ultimoProductoId);
+          const pausedIndex = productosData.findIndex(p => p.id === pedidoArmador.pausaActiva.ultimoProductoId);
           if (pausedIndex >= 0) {
             setCurrentProductoIndex(pausedIndex);
           }
         }
       }
     }
-  });
+  }, [productosData, pedidoArmador]);
   
   // Mutación para iniciar pedido
   const iniciarPedidoMutation = useMutation({
@@ -439,41 +443,42 @@ export default function ArmadoBasicPage() {
                 
                 {/* Producto actual */}
                 <div className="lg:col-span-2 order-1 lg:order-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        Producto {currentProductoIndex + 1} de {productos.length}
-                      </CardTitle>
-                      <CardDescription>
-                        Código: {productos[currentProductoIndex]?.codigo}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="mb-6">
-                        <h3 className="text-lg font-semibold mb-2">Información del Producto</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Descripción</p>
-                            <p>{productos[currentProductoIndex]?.descripcion || "Sin descripción"}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Ubicación</p>
-                            <p>{productos[currentProductoIndex]?.ubicacion || "N/A"}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Cantidad Solicitada</p>
-                            <p className="font-semibold">{productos[currentProductoIndex]?.cantidad}</p>
-                          </div>
-                          {productos[currentProductoIndex]?.recolectado !== null && (
+                  {productos && productos.length > 0 && currentProductoIndex < productos.length ? (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>
+                          Producto {currentProductoIndex + 1} de {productos.length}
+                        </CardTitle>
+                        <CardDescription>
+                          Código: {productos[currentProductoIndex]?.codigo}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold mb-2">Información del Producto</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
-                              <p className="text-sm text-gray-500">Ya Recolectado</p>
-                              <p className="font-semibold">{productos[currentProductoIndex]?.recolectado}</p>
+                              <p className="text-sm text-gray-500">Descripción</p>
+                              <p>{productos[currentProductoIndex]?.descripcion || "Sin descripción"}</p>
                             </div>
-                          )}
+                            <div>
+                              <p className="text-sm text-gray-500">Ubicación</p>
+                              <p>{productos[currentProductoIndex]?.ubicacion || "N/A"}</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500">Cantidad Solicitada</p>
+                              <p className="font-semibold">{productos[currentProductoIndex]?.cantidad}</p>
+                            </div>
+                            {productos[currentProductoIndex]?.recolectado !== null && (
+                              <div>
+                                <p className="text-sm text-gray-500">Ya Recolectado</p>
+                                <p className="font-semibold">{productos[currentProductoIndex]?.recolectado}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
                       
                       <Separator className="mb-6" />
                       
