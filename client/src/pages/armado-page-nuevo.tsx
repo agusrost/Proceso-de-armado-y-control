@@ -397,37 +397,98 @@ export default function ArmadoPageNuevo() {
   };
 
   const handlePausar = () => {
-    if (!pedidoId || !productoActual) return;
+    // Validaciones reforzadas
+    if (!pedidoId) {
+      console.error("handlePausar: Error - No hay pedidoId");
+      toast({
+        title: "Error",
+        description: "No se puede pausar porque falta identificador del pedido.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    pausarPedidoMutation.mutate({
-      pedidoId,
-      motivo: "Pausa manual",
-      productoId: productoActual.id
-    });
+    if (!productoActual) {
+      console.error("handlePausar: Error - No hay producto actual");
+      toast({
+        title: "Error",
+        description: "No se puede pausar porque no hay un producto seleccionado.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      console.log("handlePausar: Enviando pausa", {
+        pedidoId,
+        motivo: "Pausa manual",
+        productoId: productoActual.id
+      });
+      
+      pausarPedidoMutation.mutate({
+        pedidoId,
+        motivo: "Pausa manual",
+        productoId: productoActual.id
+      });
+    } catch (error) {
+      console.error("handlePausar: Error al pausar", error);
+      toast({
+        title: "Error al pausar",
+        description: "Ocurrió un error al pausar el pedido. Inténtelo de nuevo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleVolverArmador = () => {
-    navigate("/armador");
+    try {
+      console.log("Volviendo a la página de armador...");
+      navigate("/armador");
+    } catch (error) {
+      console.error("Error al navegar:", error);
+      // En caso de error, intentamos redireccionar usando window.location
+      window.location.href = "/armador";
+    }
   };
   
   // Función para pausar el pedido
   const handlePausarPedido = async () => {
     try {
-      if (!pedido) return;
+      if (!pedido) {
+        console.error("handlePausarPedido: Error - No hay pedido activo");
+        toast({
+          title: "Error",
+          description: "No se puede pausar porque no hay un pedido activo.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log(`Pausando pedido ${pedido.id}...`);
+      
+      // Validamos que existan los datos necesarios
+      const ultimoProductoId = productos && currentIndex >= 0 ? productos[currentIndex]?.id : null;
+      
+      if (ultimoProductoId === undefined) {
+        console.log("Advertencia: ultimoProductoId es undefined, usando null");
+      }
       
       const res = await apiRequest("POST", `/api/pedidos/${pedido.id}/pausar`, {
         motivo: "Pausa solicitada por el armador",
         tipo: "armado",
-        ultimoProductoId: productos[currentIndex]?.id || null
+        ultimoProductoId: ultimoProductoId || null
       });
       
       if (res.ok) {
+        console.log("Pedido pausado correctamente");
         toast({
           title: "Pedido pausado",
           description: "El pedido ha sido pausado correctamente.",
         });
         navigate("/armador");
       } else {
+        const errorText = await res.text();
+        console.error(`Error en respuesta del servidor: ${res.status}`, errorText);
         throw new Error(`Error al pausar el pedido: ${res.status}`);
       }
     } catch (error) {
