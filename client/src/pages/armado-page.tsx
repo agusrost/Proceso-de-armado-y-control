@@ -366,7 +366,7 @@ export default function ArmadoPage() {
             
             // Finalizar el pedido con un pequeño retraso para mostrar la notificación
             setTimeout(() => {
-              finalizarPedidoMutation.mutate(currentPedido!.id);
+              finalizarPedidoMutation.mutate({ pedidoId: currentPedido!.id });
             }, 800);
           }
         } catch (error) {
@@ -416,7 +416,7 @@ export default function ArmadoPage() {
               
               // Finalizar el pedido con un pequeño retraso para mostrar la notificación
               setTimeout(() => {
-                finalizarPedidoMutation.mutate(currentPedido!.id);
+                finalizarPedidoMutation.mutate({ pedidoId: currentPedido!.id });
               }, 800);
             }
           } catch (error) {
@@ -1346,7 +1346,7 @@ export default function ArmadoPage() {
                       
                       if (todosProductosProcesados) {
                         console.log("Todos los productos están procesados. Finalizando automáticamente.");
-                        finalizarPedidoMutation.mutate(currentPedido.id);
+                        finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id });
                       } else {
                         console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
                         toast({
@@ -1984,7 +1984,7 @@ export default function ArmadoPage() {
               {/* Mostrar botón de finalizar solo si todos los productos están procesados */}
               {todosProductosProcesados && (
                 <Button 
-                  onClick={() => finalizarPedidoMutation.mutate(currentPedido.id)}
+                  onClick={() => finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id })}
                   className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-md text-lg font-medium"
                 >
                   Finalizar armado
@@ -2022,11 +2022,18 @@ export default function ArmadoPage() {
                 Cancelar
               </AlertDialogCancel>
               <AlertDialogAction 
-                onClick={() => finalizarPedidoMutation.mutate(currentPedido.id)}
+                onClick={() => finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id })}
                 disabled={finalizarPedidoMutation.isPending}
                 className="bg-blue-950 text-white hover:bg-blue-900"
               >
                 {finalizarPedidoMutation.isPending ? "Procesando..." : "Finalizar"}
+              </AlertDialogAction>
+              <AlertDialogAction 
+                onClick={() => finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id, forzar: true })}
+                disabled={finalizarPedidoMutation.isPending}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                {finalizarPedidoMutation.isPending ? "Procesando..." : "Finalizar forzado"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -2225,7 +2232,7 @@ export default function ArmadoPage() {
                   const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
                   
                   if (todosProductosProcesados) {
-                    finalizarPedidoMutation.mutate(currentPedido.id);
+                    finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id });
                   } else {
                     toast({
                       title: "Productos sin procesar",
@@ -2656,7 +2663,7 @@ export default function ArmadoPage() {
                     return;
                   }
                   
-                  finalizarPedidoMutation.mutate(currentPedido.id);
+                  finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id });
                 }}
                 className="bg-green-600 hover:bg-green-700"
               >
