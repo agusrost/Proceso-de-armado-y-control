@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Minus, ChevronLeft, MoveRight, PauseCircle, Eye } from "lucide-react";
+import { Loader2, Plus, Minus, ChevronLeft, MoveRight, PauseCircle, Eye, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -686,8 +686,9 @@ export default function ArmadoPageNuevo() {
               variant="outline" 
               size="sm" 
               onClick={handleCerrarSesion}
-              className="text-white border-gray-600 hover:bg-gray-800 text-base px-4 py-2"
+              className="text-white bg-red-800 border-2 border-red-600 hover:bg-red-700 text-base px-4 py-2 font-bold"
             >
+              <LogOut className="h-5 w-5 mr-2" />
               Cerrar Sesión
             </Button>
           </div>
