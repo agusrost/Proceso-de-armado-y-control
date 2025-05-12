@@ -260,6 +260,10 @@ export default function ArmadoPageSimple() {
     });
   };
   
+  const handleGuardarYContinuar = () => {
+    handleGuardarProducto();
+  };
+  
   // Finalizar todo el pedido
   const handleFinalizarPedido = () => {
     if (pedido) {
@@ -345,43 +349,33 @@ export default function ArmadoPageSimple() {
   
   // Pantalla principal de armado
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900 text-white">
+    <div className="min-h-screen flex flex-col bg-[#0f172a] text-white">
       {/* Header */}
-      <header className="p-4 border-b border-white/10">
+      <header className="p-4 bg-blue-900">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="text-white border-white/20"
-              onClick={() => setLocation('/armador')}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <div>
               <h1 className="text-xl font-bold">Armado de Pedido</h1>
               <p className="text-sm text-white/70">{pedido.pedidoId} - {pedido.clienteId}</p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <Button 
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setMostrarModalPausa(true)}
-              className="gap-1"
+              className="bg-white/10 text-white hover:bg-white/20"
             >
-              <Pause className="h-4 w-4" />
               Pausar
             </Button>
             
             <Button 
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setMostrarModalVerPedido(true)}
-              className="gap-1"
+              className="bg-white/10 text-white hover:bg-white/20"
             >
-              <ClipboardList className="h-4 w-4" />
               Ver Pedido
             </Button>
           </div>
@@ -390,8 +384,8 @@ export default function ArmadoPageSimple() {
       
       {/* Contenido principal */}
       <div className="flex-grow p-5">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-5">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-3">
             <h2 className="text-lg font-semibold">Lista de Productos ({productos.length})</h2>
           </div>
           
@@ -402,12 +396,12 @@ export default function ArmadoPageSimple() {
                 key={producto.id}
                 className={`p-3 border rounded-md cursor-pointer ${
                   index === currentProductoIndex 
-                    ? "bg-blue-900 border-blue-500"
+                    ? "bg-blue-900 border-blue-600"
                     : producto.recolectado !== null
                       ? producto.recolectado === producto.cantidad
-                        ? "bg-green-900/20 border-green-500"
-                        : "bg-amber-900/20 border-amber-500"
-                      : "bg-slate-800 border-slate-600"
+                        ? "bg-green-900/20 border-green-600"
+                        : "bg-amber-900/20 border-amber-600"
+                      : "bg-[#1a2234] border-slate-600"
                 }`}
                 onClick={() => {
                   setCurrentProductoIndex(index);
@@ -441,7 +435,7 @@ export default function ArmadoPageSimple() {
           
           {/* Producto actual */}
           {productos[currentProductoIndex] && (
-            <div className="bg-slate-800 rounded-md border border-slate-700 p-5">
+            <div className="bg-[#1a2234] rounded-md border border-slate-700 p-5">
               <h3 className="text-xl font-medium mb-4">
                 Producto Actual ({currentProductoIndex + 1} de {productos.length})
               </h3>
@@ -455,7 +449,7 @@ export default function ArmadoPageSimple() {
               
               <div className="mb-6">
                 <div className="text-sm font-medium mb-2">Cantidad recolectada</div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center">
                   <Button 
                     variant="outline" 
                     size="icon"
@@ -464,7 +458,7 @@ export default function ArmadoPageSimple() {
                       setRecolectados(recolectados - 1);
                     }}
                     disabled={recolectados === null || recolectados <= 0}
-                    className="h-10 w-10"
+                    className="h-10 w-10 rounded-l-md rounded-r-none border-white/20 text-white bg-slate-700"
                   >
                     <Minus className="h-5 w-5" />
                   </Button>
@@ -482,7 +476,7 @@ export default function ArmadoPageSimple() {
                         setRecolectados(value);
                       }
                     }}
-                    className="w-20 text-center h-10 text-lg"
+                    className="w-20 text-center h-10 text-lg rounded-none bg-white text-black"
                   />
                   
                   <Button 
@@ -498,13 +492,13 @@ export default function ArmadoPageSimple() {
                       }
                     }}
                     disabled={recolectados !== null && recolectados >= productos[currentProductoIndex].cantidad}
-                    className="h-10 w-10"
+                    className="h-10 w-10 rounded-r-md rounded-l-none border-white/20 text-white bg-slate-700"
                   >
                     <Plus className="h-5 w-5" />
                   </Button>
                   
-                  <div className="text-white/70">
-                    de <span className="font-medium">{productos[currentProductoIndex].cantidad}</span>
+                  <div className="ml-3 text-white/70 flex items-center">
+                    <span className="text-sm">de {productos[currentProductoIndex].cantidad}</span>
                   </div>
                 </div>
               </div>
@@ -519,7 +513,7 @@ export default function ArmadoPageSimple() {
                     value={motivo} 
                     onValueChange={setMotivo}
                   >
-                    <SelectTrigger id="motivo">
+                    <SelectTrigger id="motivo" className="bg-slate-700 border-slate-600">
                       <SelectValue placeholder="Seleccionar motivo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -533,9 +527,9 @@ export default function ArmadoPageSimple() {
               
               <div className="flex justify-end">
                 <Button 
-                  onClick={handleGuardarProducto}
+                  onClick={handleGuardarYContinuar}
                   disabled={actualizarProductoMutation.isPending}
-                  className="px-8"
+                  className="px-6 bg-slate-700 hover:bg-slate-600 text-white"
                 >
                   {actualizarProductoMutation.isPending ? (
                     <>
