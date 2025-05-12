@@ -1330,28 +1330,40 @@ export default function ArmadoPage() {
                 motivo: cantidadRecolectada < producto.cantidad ? motivo : ""
               }, {
                 onSuccess: async () => {
-                  // Si es el último producto, verificar si todos están procesados y finalizar automáticamente
-                  if (esUltimoProducto) {
-                    console.log("ÚLTIMO PRODUCTO PROCESADO - Verificando finalización automática...");
-                    try {
-                      const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
-                      const productosActualizados = await res.json();
-                      const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
-                      
-                      if (todosProductosProcesados) {
-                        console.log("Todos los productos están procesados. Finalizando automáticamente.");
-                        finalizarPedidoMutation.mutate(currentPedido.id);
-                      } else {
-                        console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
-                        toast({
-                          title: "Algunos productos sin procesar",
-                          description: "El pedido no puede finalizarse porque aún hay productos sin procesar",
-                          variant: "destructive",
-                        });
-                      }
-                    } catch (error) {
-                      console.error("Error al verificar productos procesados:", error);
+                  // Verificar después de CADA producto si todos están procesados para finalizar automáticamente
+                  console.log("Verificando si todos los productos están completos para finalizar automáticamente...");
+                  try {
+                    const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
+                    const productosActualizados = await res.json();
+                    
+                    console.log("Productos actualizados:", productosActualizados);
+                    
+                    // Un producto está completamente procesado si tiene recolectado diferente de null 
+                    // y si tiene un motivo de faltante (cuando corresponde)
+                    const todosProductosProcesados = productosActualizados.every((p: any) => 
+                      p.recolectado !== null && 
+                      (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
+                    );
+                    
+                    console.log("¿Todos los productos procesados?", todosProductosProcesados ? "SÍ" : "NO");
+                    
+                    if (todosProductosProcesados) {
+                      console.log("Todos los productos están procesados. Finalizando automáticamente.");
+                      toast({
+                        title: "Pedido completo",
+                        description: "Todos los productos han sido procesados. Finalizando automáticamente..."
+                      });
+                      finalizarPedidoMutation.mutate(currentPedido.id);
+                    } else if (esUltimoProducto) {
+                      // Solo mostrar mensaje si es el último producto y aún faltan productos por procesar
+                      console.log("Último producto procesado pero aún hay otros sin procesar.");
+                      toast({
+                        title: "Productos pendientes",
+                        description: "Hay productos que aún no han sido procesados. Revise la lista.",
+                      });
                     }
+                  } catch (error) {
+                    console.error("Error al verificar productos procesados:", error);
                   }
                 }
               });
