@@ -153,14 +153,32 @@ export default function ArmadoPageNuevo() {
       console.log("actualizarProductoMutation onSuccess: Actualizando productos con datos:", data);
       
       try {
-        // Actualizar lista de productos
-        const nuevosProductos = [...productos];
+        // Verificar que los datos sean válidos
+        if (!data) {
+          throw new Error("No se recibieron datos del servidor");
+        }
+        
+        if (!productos || !Array.isArray(productos)) {
+          throw new Error("La lista de productos no es válida");
+        }
+        
+        if (typeof currentIndex !== 'number' || currentIndex < 0 || currentIndex >= productos.length) {
+          throw new Error(`Índice actual fuera de rango: ${currentIndex}`);
+        }
+        
+        // Crear una copia profunda para evitar problemas de mutación
+        const nuevosProductos = JSON.parse(JSON.stringify(productos));
+        
+        // Actualizar el producto actual con los datos recibidos
         nuevosProductos[currentIndex] = {
           ...nuevosProductos[currentIndex],
           recolectado: data.recolectado,
           motivo: data.motivo
         };
+        
         console.log("Productos actualizados:", nuevosProductos);
+        
+        // Actualizar el estado con los nuevos productos
         setProductos(nuevosProductos);
         
         // Verificar si todos están recolectados
@@ -170,7 +188,11 @@ export default function ArmadoPageNuevo() {
         
         if (todosCompletados) {
           console.log("Todos los productos completados, finalizando pedido...");
-          finalizarPedidoMutation.mutate(pedidoId as number);
+          if (pedidoId) {
+            finalizarPedidoMutation.mutate(pedidoId as number);
+          } else {
+            throw new Error("No se puede finalizar el pedido: falta el ID");
+          }
           return;
         }
         
@@ -178,9 +200,19 @@ export default function ArmadoPageNuevo() {
         if (currentIndex < nuevosProductos.length - 1) {
           console.log("Avanzando al siguiente producto...");
           const nextIndex = currentIndex + 1;
+          
+          // Validar que el siguiente producto exista
+          if (!nuevosProductos[nextIndex]) {
+            throw new Error(`No existe el producto en el índice ${nextIndex}`);
+          }
+          
+          // Actualizar el índice actual
           setCurrentIndex(nextIndex);
           
           const nextProducto = nuevosProductos[nextIndex];
+          console.log("Configurando cantidad para el siguiente producto:", nextProducto);
+          
+          // Establecer los valores para el siguiente producto
           setCantidad(nextProducto.cantidad);
           setMotivo("");
           
@@ -198,7 +230,7 @@ export default function ArmadoPageNuevo() {
         console.error("Error en onSuccess:", error);
         toast({
           title: "Error al procesar datos",
-          description: "Ocurrió un error al procesar los datos del producto.",
+          description: "Ocurrió un error al procesar los datos del producto. Intente nuevamente.",
           variant: "destructive",
         });
       }
