@@ -301,12 +301,30 @@ export default function ArmadoPageNuevo() {
       motivo: string; 
       productoId: number 
     }) => {
-      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/pausar`, {
-        motivo,
-        ultimoProductoId: productoId,
-        tipo: "armado"
-      });
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/pausar`, {
+          motivo,
+          ultimoProductoId: productoId,
+          tipo: "armado"
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Error en respuesta del servidor al pausar:", errorText);
+          throw new Error(`Error del servidor: ${res.status} ${res.statusText}`);
+        }
+        
+        // Intentar analizar la respuesta como JSON, pero manejar el caso en que no sea JSON válido
+        try {
+          return await res.json();
+        } catch (jsonError) {
+          console.log("La respuesta no es JSON válido, pero la operación fue exitosa");
+          return { success: true };
+        }
+      } catch (error) {
+        console.error("Error al pausar pedido:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -316,9 +334,24 @@ export default function ArmadoPageNuevo() {
       navigate("/armador");
     },
     onError: (error: Error) => {
+      console.error("Error en pausarPedidoMutation:", error);
+      
+      // Manejar diferentes tipos de errores para mensajes más claros
+      let errorMessage = "Ocurrió un error al pausar el pedido.";
+      
+      if (error.message.includes("JSON") || error.message.includes("<!DOCTYPE")) {
+        errorMessage = "Error de comunicación con el servidor. Por favor, intente de nuevo.";
+      } else if (error.message.includes("network") || error.message.includes("Network")) {
+        errorMessage = "Problema de conexión. Verifique su conexión a internet e intente nuevamente.";
+      } else if (error.message.includes("timeout") || error.message.includes("Timeout")) {
+        errorMessage = "La operación ha tardado demasiado tiempo. Por favor, intente nuevamente.";
+      } else {
+        errorMessage = error.message || "Ocurrió un error inesperado al pausar el pedido.";
+      }
+      
       toast({
         title: "Error al pausar pedido",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
