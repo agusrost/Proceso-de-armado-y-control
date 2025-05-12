@@ -3871,6 +3871,65 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
   
+  // Endpoint para recolectar un producto (usado en el armado de pedidos)
+  app.post("/api/productos/:id/recolectar", requireAuth, async (req, res, next) => {
+    try {
+      const productoId = parseInt(req.params.id);
+      if (isNaN(productoId)) {
+        return res.status(400).json({ message: "ID de producto inválido" });
+      }
+      
+      // Validar datos de recolección
+      const { recolectado, motivo } = req.body;
+      
+      if (recolectado === undefined || recolectado === null) {
+        return res.status(400).json({ message: "Cantidad recolectada es requerida" });
+      }
+      
+      if (typeof recolectado !== 'number') {
+        return res.status(400).json({ message: "Cantidad recolectada debe ser un número" });
+      }
+      
+      console.log(`Recolectando producto ID ${productoId}: ${recolectado} unidades, motivo: ${motivo || 'ninguno'}`);
+      
+      // Obtener el producto actual
+      const producto = await storage.getProductoById(productoId);
+      
+      if (!producto) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
+      
+      // Verificar que la cantidad no exceda lo solicitado
+      if (recolectado > producto.cantidad) {
+        return res.status(400).json({ 
+          message: `No se puede recolectar más de lo solicitado (${producto.cantidad})` 
+        });
+      }
+      
+      // Si hay cantidad faltante y no se proporcionó motivo, exigirlo
+      if (recolectado < producto.cantidad && !motivo) {
+        return res.status(400).json({ 
+          message: "Se requiere un motivo para cantidades faltantes",
+          requiereMotivo: true
+        });
+      }
+      
+      // Actualizar el producto
+      const productoActualizado = await storage.updateProducto(productoId, {
+        recolectado: recolectado,
+        motivo: recolectado < producto.cantidad ? motivo : null  // Solo guardar motivo si hay faltante
+      });
+      
+      console.log(`Producto ${productoId} actualizado con éxito: ${productoActualizado.recolectado}/${productoActualizado.cantidad}`);
+      
+      // Devolver el producto actualizado
+      res.json(productoActualizado);
+    } catch (error) {
+      console.error(`Error al recolectar producto con ID ${req.params.id}:`, error);
+      next(error);
+    }
+  });
+  
   // Actualizar un producto específico (para marcar como recolectado o faltante)
   app.patch("/api/productos/:id", requireAuth, async (req, res, next) => {
     try {
