@@ -6,50 +6,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { AlertTriangle, CheckCircle2, Play, Pause, Flag, Edit, RefreshCw, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshCw, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArmadoSimpleControlsNew } from "@/components/armado/armado-simple-controls-new";
-
-// Tipo de Producto (para evitar errores tipo any)
-type Producto = {
-  id: number;
-  codigo: string;
-  descripcion: string;
-  cantidad: number;
-  recolectado: number | null;
-  motivo: string | null;
-  ubicacion: string | null;
-  pedidoId: number;
-};
-
-// Tipo de Pedido
-type Pedido = {
-  id: number;
-  pedidoId: string;
-  clienteId: string;
-  fecha: string;
-  items: number;
-  totalProductos: number;
-  vendedor: string | null;
-  estado: string;
-  puntaje: number;
-  armadorId: number | null;
-  tiempoBruto: string | null;
-  armadorNombre: string | null;
-  tiempoNeto: string | null;
-  porcAvance: number;
-  iniciado: string | null;
-  finalizado: string | null;
-  controladoId: number | null;
-  controlInicio: string | null;
-  controlTiempo: string | null;
-  numeroPausas?: number | null;
-  pausaActiva?: boolean;
-  pausas?: any[];
-  ultimoProductoId?: number;
-};
+import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls";
 
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
@@ -264,14 +225,14 @@ export default function ArmadoPage() {
               if (siguienteIndex !== -1) {
                 console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo}`);
                 setCurrentProductoIndex(siguienteIndex);
-                setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
+                setRecolectados(productos[siguienteIndex].cantidad);
                 return true;
               }
               
               // Si todos están procesados, usar el primero
               console.log("No hay productos sin procesar, usando el primero");
               setCurrentProductoIndex(0);
-              setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
+              setRecolectados(productos[0].cantidad);
               return false;
             };
             
@@ -296,7 +257,7 @@ export default function ArmadoPage() {
                   console.log(`Continuando con el último producto no procesado: ${ultimoProducto.codigo}`);
                   const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
                   setCurrentProductoIndex(index);
-                  setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
+                  setRecolectados(ultimoProducto.cantidad);
                 }
               } else {
                 // Si no se encuentra el último producto, buscar el siguiente no procesado
@@ -848,10 +809,10 @@ export default function ArmadoPage() {
           const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
           
           console.log(`SELECCIÓN DEFAULT: Producto pendiente encontrado: ${primerProductoPendiente.codigo}`);
-          console.log(`Iniciando cantidad recolectada con: 0 unidades (forzando selección manual)`);
+          console.log(`Iniciando cantidad recolectada con: ${primerProductoPendiente.cantidad} unidades (cantidad solicitada)`);
           
           setCurrentProductoIndex(primerProductoPendienteIndex);
-          setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
+          setRecolectados(primerProductoPendiente.cantidad); // Inicializar con la cantidad solicitada
           return;
         }
         
@@ -860,8 +821,8 @@ export default function ArmadoPage() {
         setCurrentProductoIndex(0);
         // También establecer recolectados para el primer producto
         if (data.length > 0) {
-          console.log(`Iniciando cantidad recolectada del primer producto con 0 unidades para forzar la selección manual`);
-          setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
+          console.log(`Iniciando cantidad recolectada del primer producto con: ${data[0].cantidad} unidades`);
+          setRecolectados(data[0].cantidad);
         }
       };
       
@@ -936,8 +897,8 @@ export default function ArmadoPage() {
               
               setCurrentProductoIndex(primerSinProcesarIndex);
               // Inicializar con la cantidad solicitada, siempre
-              setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
-              console.log(`Inicializando cantidad: 0 unidades para ${primerSinProcesar.codigo} (forzando selección manual)`);
+              setRecolectados(primerSinProcesar.cantidad);
+              console.log(`Inicializando cantidad: ${primerSinProcesar.cantidad} para ${primerSinProcesar.codigo}`);
               return;
             }
             
@@ -989,8 +950,7 @@ export default function ArmadoPage() {
             // 4. Si todo lo anterior falla, usar el primer producto
             console.log("ULTIMO RECURSO: Usando el primer producto de la lista");
             setCurrentProductoIndex(0);
-            // Establecer recolectados en 0 para forzar al usuario a elegir una cantidad
-            setRecolectados(0);
+            setRecolectados(productos[0].recolectado !== null ? productos[0].recolectado : productos[0].cantidad);
           }
         } catch (error) {
           console.error("Error al cargar productos para cantidad predeterminada:", error);
@@ -1163,23 +1123,26 @@ export default function ArmadoPage() {
     );
   }
 
-  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - NUEVA VERSIÓN
+  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - VERSIÓN MEJORADA
   const asegurarCantidadInicial = (producto) => {
-    // Ya no forzamos automáticamente el valor a producto.cantidad
-    // En su lugar, queremos que si no hay un valor establecido, comience en 0
-    // para obligar al usuario a elegir una cantidad
-    console.log(`INICIALIZACIÓN: Producto SKU ${producto.codigo}, valor estado actual: ${recolectados}`);
+    // Forzar siempre el valor correcto
+    console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.cantidad}`);
     
-    // Si no hay valor previo, establecer a 0 (debe elegir cantidad y posible motivo)
-    if (recolectados === null) {
-      console.log(`No hay valor previo, estableciendo a 0`);
-      setRecolectados(0);
-      return 0;
+    // Usar el valor del estado si existe, si no, forzar la cantidad del producto
+    const valorActual = recolectados !== null ? recolectados : producto.cantidad;
+    
+    // Siempre actualizar el estado para garantizar la consistencia
+    if (recolectados === null || recolectados !== producto.cantidad) {
+      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${producto.cantidad}`);
+      // Actualización inmediata y programada para garantizar que se aplique
+      setRecolectados(producto.cantidad);
+      setTimeout(() => {
+        setRecolectados(producto.cantidad);
+      }, 50);
     }
     
-    // Si hay un valor previo, mantenerlo
-    console.log(`Manteniendo valor previo: ${recolectados}`);
-    return recolectados;
+    // SIEMPRE retornar la cantidad del producto, no el estado
+    return producto.cantidad;
   };
 
   // Renderizar la interfaz simplificada
@@ -1241,7 +1204,7 @@ export default function ArmadoPage() {
                   ? 'text-green-700' 
                   : 'text-red-700'
               }`}>
-
+                (Recolectado: {producto.recolectado}/{producto.cantidad})
               </span>
             )}
           </p>
@@ -1251,69 +1214,19 @@ export default function ArmadoPage() {
           
           {/* NUEVO COMPONENTE DE CONTROLES SIMPLIFICADOS CON MOTIVO */}
           <div className="mb-4">
-            <ArmadoSimpleControlsNew 
-              productos={productos}
-              currentProductoIndex={currentProductoIndex}
-              recolectados={recolectados}
-              setRecolectados={setRecolectados}
-              motivo={motivo}
-              setMotivo={setMotivo}
-              onGuardar={() => {
-                // Solo guardar si tenemos todos los datos necesarios
-                if (currentPedido && productos[currentProductoIndex]) {
-                  const producto = productos[currentProductoIndex];
-                  
-                  // Validar que tengamos recolectados definido
-                  if (recolectados === null) {
-                    toast({
-                      title: "Error",
-                      description: "Debe indicar la cantidad recolectada",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  
-                  // Validar que tengamos motivo si es necesario
-                  if (recolectados < producto.cantidad && !motivo) {
-                    toast({
-                      title: "Error",
-                      description: "Debe indicar un motivo para el faltante",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  
-                  // Actualizar el producto
-                  actualizarProductoMutation.mutate({
-                    id: producto.id,
-                    recolectado: recolectados,
-                    motivo: recolectados < producto.cantidad ? motivo : ""
-                  }, {
-                    onSuccess: () => {
-                      // Avanzar al siguiente producto si hay más
-                      if (currentProductoIndex < productos.length - 1) {
-                        setCurrentProductoIndex(prev => prev + 1);
-                        setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
-                        setMotivo("");
-                      } else {
-                        // Si es el último, finalizar automáticamente sin mostrar confirmación
-                        toast({
-                          title: "Pedido completado",
-                          description: "Finalizando automáticamente..."
-                        });
-                        
-                        // Finalizar el pedido directamente
-                        console.log("Último producto procesado, finalizando pedido automáticamente");
-                        finalizarPedidoMutation.mutate(currentPedido.id);
-                      }
-                    }
-                  });
-                }
+            <ArmadoSimpleControls 
+              cantidadSolicitada={producto.cantidad}
+              cantidadInicial={cantidadMostrada}
+              onCantidadChange={(nuevaCantidad) => {
+                console.log(`COMPONENTE - Cantidad cambiada a: ${nuevaCantidad}`);
+                setRecolectados(nuevaCantidad);
               }}
-              pausaActiva={pausaActiva}
-              onFinalizarPedido={() => setMostrarAlertaFinal(true)}
-              mutationIsPending={actualizarProductoMutation.isPending}
-              esReanudacion={currentPedido?.numeroPausas ? currentPedido.numeroPausas > 0 : false}
+              necesitaMotivo={true}
+              motivo={motivo}
+              onMotivoChange={(nuevoMotivo) => {
+                console.log(`COMPONENTE - Motivo cambiado a: ${nuevoMotivo}`);
+                setMotivo(nuevoMotivo);
+              }}
             />
           </div>
           
@@ -1387,8 +1300,8 @@ export default function ArmadoPage() {
               // Usar siempre la cantidad del producto como cantidad inicial
               // No importa si recolectados es null
               if (recolectados === null) {
-                console.log("Recolectados es null, estableciendo a 0 para forzar la selección manual:");
-                setRecolectados(productos[currentProductoIndex + 1].cantidad); // Iniciar con la cantidad requerida
+                console.log("Recolectados es null, estableciendo a la cantidad requerida:", producto.cantidad);
+                setRecolectados(producto.cantidad);
                 // No retornamos - seguimos con el proceso
               }
               
@@ -1521,83 +1434,30 @@ export default function ArmadoPage() {
                                   console.log(`REANUDAR: Continuando desde producto ${ultimoProducto.codigo} (ID: ${ultimoProductoId})`);
                                   
                                   setCurrentProductoIndex(ultimoProductoIndex);
-                                  // ⚠️ SOLUCIÓN DEFINITIVA: Prevenir completamente el problema de faltantes que se autocompletan
+                                  // ⚠️ CORRECCIÓN CRÍTICA: Preservar siempre el valor original para productos con faltantes
                                   // Si el producto tiene un motivo registrado, significa que es un faltante parcial
-                                  // y debemos preservar siempre su cantidad original sin completarla
+                                  // y debemos preservar su cantidad original sin completarla
                                   if (ultimoProducto.motivo && ultimoProducto.motivo.trim() !== '') {
-                                    console.log(`🚨 PRODUCTO CON FALTANTE DETECTADO: ${ultimoProducto.codigo} - Recolectado: ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} - Motivo: "${ultimoProducto.motivo}"`);
+                                    console.log(`⚠️ PRODUCTO CON FALTANTE: ${ultimoProducto.codigo} - Recolectado: ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} - Motivo: "${ultimoProducto.motivo}"`);
                                     
-                                    // Preservar siempre los valores originales
+                                    // Preservar SIEMPRE los valores originales
                                     setRecolectados(ultimoProducto.recolectado);
                                     setMotivo(ultimoProducto.motivo);
                                     
-                                    // PROTECCIÓN DE FALTANTES MEJORADA:
-                                    // 1. Protección inmediata - forzar el valor correcto en el servidor
-                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO: Verificando y corrigiendo estado del producto ${ultimoProducto.id}`);
+                                    // IMPORTANTE: Para evitar autocompletado incorrecto, forzamos inmediatamente
+                                    // una actualización para asegurar que el estado del servidor sea correcto
+                                    console.log(`🛡️ PROTECCIÓN ANTI-AUTOCOMPLETADO: Preservando estado del producto ${ultimoProducto.id}`);
                                     
-                                    // Esta es una función auxiliar que ejecuta la corrección
-                                    const aplicarProteccion = () => {
-                                      // Primero verificamos el estado actual
-                                      apiRequest("GET", `/api/productos/${ultimoProducto.id}`)
-                                        .then(res => res.json())
-                                        .then(productoActual => {
-                                          console.log(`Estado actual del producto ${ultimoProducto.id}:`, productoActual);
-                                          
-                                          // Detectar cualquier inconsistencia
-                                          const tieneInconsistencia = 
-                                            (productoActual.motivo && productoActual.motivo.trim() !== '' && productoActual.recolectado >= productoActual.cantidad) ||
-                                            (productoActual.recolectado !== ultimoProducto.recolectado) ||
-                                            (productoActual.motivo !== ultimoProducto.motivo);
-                                          
-                                          if (tieneInconsistencia) {
-                                            console.log(`⚠️ INCONSISTENCIA DETECTADA: Producto ${ultimoProducto.id}`);
-                                            console.log(`  - Estado esperado: recolectado=${ultimoProducto.recolectado}/${ultimoProducto.cantidad}, motivo="${ultimoProducto.motivo}"`);
-                                            console.log(`  - Estado actual: recolectado=${productoActual.recolectado}/${productoActual.cantidad}, motivo="${productoActual.motivo || 'ninguno'}"`);
-                                            
-                                            // Aplicar corrección inmediata
-                                            console.log(`⚡ APLICANDO CORRECCIÓN FORZADA para producto ${ultimoProducto.id}`);
-                                            
-                                            // Para evitar cualquier cambio de valor por parte del sistema, solicitamos explícitamente:
-                                            // 1. Forzar el valor de recolectado exactamente como estaba guardado
-                                            // 2. Forzar el motivo exactamente como estaba guardado
-                                            // 3. Marcar como corrección de emergencia para máxima prioridad
-                                            actualizarProductoMutation.mutate({
-                                              id: ultimoProducto.id,
-                                              recolectado: ultimoProducto.recolectado,
-                                              motivo: ultimoProducto.motivo,
-                                              actualizacionAutomatica: false,
-                                              preservarFaltante: true,
-                                              correccionEmergencia: true,
-                                              tiempoAplicacion: new Date().toISOString() // Añadir timestamp para evitar caché
-                                            });
-                                            
-                                            // También actualizar el estado local
-                                            setRecolectados(ultimoProducto.recolectado);
-                                            setMotivo(ultimoProducto.motivo);
-                                            
-                                            // Mostrar notificación al usuario sobre la corrección aplicada
-                                            toast({
-                                              title: "Protección anti-faltantes activada",
-                                              description: `Se ha preservado un faltante parcial registrado para el producto ${ultimoProducto.codigo}`,
-                                              variant: "default"
-                                            });
-                                          } else {
-                                            console.log(`✅ Producto ${ultimoProducto.id} está en estado correcto, no se requiere intervención`);
-                                          }
-                                        })
-                                        .catch(err => {
-                                          console.error(`Error al verificar producto ${ultimoProducto.id}:`, err);
-                                        });
-                                    };
-                                    
-                                    // Ejecutar la protección inmediatamente
-                                    aplicarProteccion();
-                                    
-                                    // Y también después de un breve retraso para asegurar que no hay cambios posteriores
-                                    setTimeout(aplicarProteccion, 500);
-                                    
-                                    // Y una tercera vez para máxima seguridad después de 1.5 segundos
-                                    setTimeout(aplicarProteccion, 1500);
+                                    // Forzar actualización inmediata para proteger el faltante registrado
+                                    setTimeout(() => {
+                                      actualizarProductoMutation.mutate({
+                                        id: ultimoProducto.id,
+                                        recolectado: ultimoProducto.recolectado,
+                                        motivo: ultimoProducto.motivo,
+                                        actualizacionAutomatica: false,
+                                        preservarFaltante: true // Nuevo flag que indica que es una actualización de protección
+                                      });
+                                    }, 300);
                                   } 
                                   else {
                                     // Caso normal: producto sin motivo de faltante
@@ -1865,9 +1725,8 @@ export default function ArmadoPage() {
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
     // Verificar si todos los productos tienen un estado de recolección definido
     const todosProductosProcesados = productos.every(p => p.recolectado !== null);
-    
-    // Efecto para finalizar automáticamente cuando todos los productos están procesados
-    useEffect(() => {
+    return (
+      <div className="min-h-screen flex flex-col bg-blue-950 text-white">
         <div className="p-6 text-center">
           <h1 className="text-4xl font-bold mb-6">KONECTA</h1>
           <h2 className="text-xl font-medium mb-4">Resumen de Productos</h2>
@@ -2503,73 +2362,101 @@ export default function ArmadoPage() {
           )}
         </div>
         
-        {/* Producto actual - Usando el nuevo componente ArmadoSimpleControlsNew */}
+        {/* Producto actual */}
         {productos[currentProductoIndex] && !pausaActiva && (
-          <div className="bg-white border rounded-lg shadow-sm mb-6">
-            <ArmadoSimpleControlsNew
-              productos={productos}
-              currentProductoIndex={currentProductoIndex}
-              recolectados={recolectados}
-              setRecolectados={setRecolectados}
-              motivo={motivo}
-              setMotivo={setMotivo}
-              onGuardar={() => {
-                // Solo guardar si tenemos todos los datos necesarios
-                if (currentPedido && productos[currentProductoIndex]) {
-                  const producto = productos[currentProductoIndex];
+          <div className="bg-white border p-6 rounded-lg shadow-sm mb-6">
+            <h2 className="text-xl font-semibold mb-4">Producto Actual</h2>
+            <div className="mb-4">
+              <p className="text-xl font-mono">{productos[currentProductoIndex].codigo}</p>
+              <p className="text-lg">{productos[currentProductoIndex].descripcion || 'Sin descripción'}</p>
+              <div className="mt-2 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Ubicación</p>
+                  <p className="font-medium">{productos[currentProductoIndex].ubicacion || 'No especificada'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Cantidad Requerida</p>
+                  <p className="font-medium">{productos[currentProductoIndex].cantidad}</p>
+                </div>
+              </div>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="recolectados" className="block mb-1 font-medium">
+                  Cantidad Recolectada
+                </label>
+                <Input
+                  id="recolectados"
+                  type="number"
+                  value={recolectados}
+                  onChange={(e) => setRecolectados(parseInt(e.target.value) || 0)}
+                  min={0}
+                  max={productos[currentProductoIndex].cantidad}
+                  className="w-full"
+                />
+              </div>
+              
+              {recolectados === 0 && (
+                <div>
+                  <label htmlFor="motivo" className="block mb-1 font-medium">
+                    Motivo del Faltante
+                  </label>
+                  <select
+                    id="motivo"
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    required
+                  >
+                    <option value="">Seleccione un motivo</option>
+                    {motivosPreestablecidos.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
                   
-                  // Validar que tengamos recolectados definido
-                  if (recolectados === null) {
-                    toast({
-                      title: "Error",
-                      description: "Debe indicar la cantidad recolectada",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  
-                  // Validar que tengamos motivo si es necesario
-                  if (recolectados < producto.cantidad && !motivo) {
-                    toast({
-                      title: "Error",
-                      description: "Debe indicar un motivo para el faltante",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  
-                  // Actualizar el producto
-                  actualizarProductoMutation.mutate({
-                    id: producto.id,
-                    recolectado: recolectados,
-                    motivo: recolectados < producto.cantidad ? motivo : ""
-                        // Si es el último, finalizar automáticamente sin mostrar confirmación
-                        toast({
-                          title: "Pedido completado",
-                          description: "Finalizando automáticamente..."
-                        });
-                        
-                        // Finalizar el pedido directamente
-                        console.log("Último producto procesado, finalizando pedido automáticamente");
-                        finalizarPedidoMutation.mutate(currentPedido.id);
-                          description: "Todos los productos han sido procesados"
-                        });
-                          // Verificar si todos los productos están procesados y finalizar automáticamente
-                          const todosProductosProcesados = productos.every(p => p.recolectado !== null);
-                          if (todosProductosProcesados) {
-                            console.log("Todos los productos procesados, finalizando automáticamente");
-                            setMostrarAlertaFinal(true);
-                          }
+                  {motivo === "Otro motivo" && (
+                    <Input
+                      type="text"
+                      placeholder="Especifique el motivo"
+                      className="w-full mt-2"
+                      value={
+                        motivosPreestablecidos.includes(motivo) && motivo !== "Otro motivo" 
+                          ? "" 
+                          : motivo
                       }
-                    }
-                  });
-                }
-              }}
-              pausaActiva={pausaActiva}
-              onFinalizarPedido={() => setMostrarAlertaFinal(true)}
-              mutationIsPending={actualizarProductoMutation.isPending}
-              esReanudacion={currentPedido?.numeroPausas ? currentPedido.numeroPausas > 0 : false}
-            />
+                      onChange={(e) => setMotivo(e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
+              
+              {recolectados > 0 && recolectados < productos[currentProductoIndex].cantidad && (
+                <div>
+                  <label htmlFor="motivo-parcial" className="block mb-1 font-medium">
+                    Motivo del Faltante Parcial
+                  </label>
+                  <Input
+                    id="motivo-parcial"
+                    type="text"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    placeholder="Indicar motivo del faltante"
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={actualizarProductoMutation.isPending || pausaActiva}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {actualizarProductoMutation.isPending ? 'Guardando...' : 'Guardar y Continuar'}
+                </Button>
+              </div>
+            </form>
           </div>
         )}
         
@@ -2580,62 +2467,19 @@ export default function ArmadoPage() {
           </div>
         )}
         
-        {/* Lista de productos - Resumen mejorado */}
+        {/* Lista de productos */}
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Resumen de Productos</h2>
           <div className="bg-white border rounded-lg overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 flex justify-between text-sm font-medium text-gray-600">
-              <div>Producto</div>
-              <div>Estado de Recolección</div>
-            </div>
-            <div className="max-h-64 overflow-y-auto divide-y">
+            <div className="max-h-64 overflow-y-auto">
               {productos.map((producto, index) => (
-                <div key={producto.id} className={`p-4 flex justify-between items-center ${
-                  index === currentProductoIndex && !pausaActiva 
-                    ? 'bg-green-50' 
-                    : ''
-                }`}>
-                  <div className="flex-1">
-                    <div className="font-mono font-medium text-base">{producto.codigo}</div>
-                    <div className="text-sm text-gray-600 mt-1">{producto.descripcion}</div>
-                    <div className="text-xs text-gray-500 mt-1">Ubicación: {producto.ubicacion || 'No especificada'}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">
-                      Solicitado: {producto.cantidad}
-                    </div>
-                    {producto.recolectado === null ? (
-                      <div className="mt-1 text-red-600 text-sm">Pendiente</div>
-                    ) : producto.recolectado === producto.cantidad ? (
-                      <div className="mt-1 text-green-600 text-sm flex items-center justify-end">
-                        <span className="mr-1">Completo</span> 
-                        <span className="text-green-600">✓</span>
-                      </div>
-                    ) : producto.motivo ? (
-                      <div className="mt-1">
-                        <div className="text-green-600 text-sm flex items-center justify-end">
-                          <span className="mr-1">Parcial con motivo</span>
-                          <span className="text-green-600">✓</span>
-                        </div>
-                        <div className="text-xs text-right mt-0.5">
-                          Recolectado: <span className="font-medium">{producto.recolectado}</span>/{producto.cantidad}
-                        </div>
-                        <div className="text-xs italic text-right mt-0.5 text-gray-600 max-w-[200px] truncate">
-                          Motivo: {producto.motivo}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-1">
-                        <div className="text-orange-600 text-sm">
-                          Parcial sin motivo
-                        </div>
-                        <div className="text-xs text-right mt-0.5">
-                          Recolectado: <span className="font-medium">{producto.recolectado}</span>/{producto.cantidad}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ProductoArmadoItem
+                  key={producto.id}
+                  producto={producto}
+                  isActive={index === currentProductoIndex && !pausaActiva}
+                  isCompleted={producto.recolectado !== null && producto.recolectado > 0}
+                  isPending={producto.recolectado === null}
+                />
               ))}
             </div>
           </div>
@@ -2748,7 +2592,7 @@ export default function ArmadoPage() {
               {productos.some(p => !esProductoCompletado(p)) && (
                 <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-red-600">⚠</span>
+                    <XCircle size={16} />
                     <span className="font-medium">Advertencia:</span>
                   </div>
                   <p className="ml-6">Hay productos pendientes por completar o con faltantes sin motivo registrado.</p>
@@ -2768,7 +2612,7 @@ export default function ArmadoPage() {
               {!productos.some(p => !esProductoCompletado(p)) && (
                 <div className="bg-green-50 border border-green-200 p-3 rounded text-green-800 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="text-green-600">✓</span>
+                    <CheckCircle2 size={16} />
                     <span className="font-medium">Correcto:</span>
                   </div>
                   <p className="ml-6">Todos los productos están procesados correctamente y puedes finalizar el armado.</p>
@@ -2822,7 +2666,7 @@ export default function ArmadoPage() {
             </DialogHeader>
             
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 text-green-600 flex items-center justify-center text-5xl">✓</div>
+              <CheckCircle2 className="h-16 w-16 text-green-600" />
             </div>
             
             <p className="text-center text-lg mb-2">
