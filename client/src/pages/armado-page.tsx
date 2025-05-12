@@ -14,11 +14,11 @@ import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls
 
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
-  // Verificar que el producto existe y tiene el campo recolectado
-  if (!producto || producto.recolectado === undefined) return false;
+  // Verificación de seguridad para evitar errores en caso de producto inválido
+  if (!producto || typeof producto !== 'object') return false;
   
-  // Si recolectado es null, no está completado
-  if (producto.recolectado === null) return false;
+  // Si recolectado es null o undefined, no está completado
+  if (producto.recolectado === null || producto.recolectado === undefined) return false;
   
   // Si recolectado es igual a cantidad, está completado
   if (producto.recolectado === producto.cantidad) return true;
@@ -1101,7 +1101,11 @@ export default function ArmadoPage() {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction 
-                              onClick={() => pedidoArmador && iniciarPedidoMutation.mutate(pedidoArmador.id)}
+                              onClick={() => {
+                                if (pedidoArmador) {
+                                  iniciarPedidoMutation.mutate(pedidoArmador.id);
+                                }
+                              }}
                             >
                               {pedidoArmador && pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar'}
                             </AlertDialogAction>
@@ -1333,28 +1337,20 @@ export default function ArmadoPage() {
                 motivo: cantidadRecolectada < producto.cantidad ? motivo : ""
               }, {
                 onSuccess: async () => {
-                  // Verificar después de CADA producto si todos están procesados
+                  // Verificar después de CADA producto si todos están procesados para finalizar automáticamente
                   console.log("Verificando si todos los productos están completos para finalizar automáticamente...");
                   try {
                     const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
-                    if (!res.ok) {
-                      console.error("Error al obtener productos del pedido:", res.statusText);
-                      return;
-                    }
-                    
                     const productosActualizados = await res.json();
                     
-                    // Verificar que tenemos una respuesta válida
-                    if (!Array.isArray(productosActualizados)) {
-                      console.error("La respuesta no es un array válido:", productosActualizados);
+                    // Verificar que la respuesta es un array y contiene datos
+                    if (!Array.isArray(productosActualizados) || productosActualizados.length === 0) {
+                      console.log("No se encontraron productos para verificar");
                       return;
                     }
                     
-                    // Un producto está procesado si tiene recolectado diferente de null
-                    const todosProductosProcesados = productosActualizados.every((p: any) => 
-                      p && p.recolectado !== null && 
-                      (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
-                    );
+                    // Verificar si todos los productos están completados usando nuestra función mejorada
+                    const todosProductosProcesados = productosActualizados.every(p => esProductoCompletado(p));
                     
                     if (todosProductosProcesados) {
                       console.log("Todos los productos están procesados. Finalizando automáticamente.");
@@ -1363,7 +1359,8 @@ export default function ArmadoPage() {
                       console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
                       toast({
                         title: "Algunos productos sin procesar",
-                        description: "El pedido no puede finalizarse porque aún hay productos sin procesar"
+                        description: "El pedido no puede finalizarse porque aún hay productos sin procesar",
+                        variant: "destructive",
                       });
                     }
                   } catch (error) {
