@@ -3814,8 +3814,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
   // Función auxiliar para calcular el tiempo bruto (entre inicio y fin)
   async function calcularTiempoBruto(pedidoId: number): Promise<string> {
     try {
-      // Obtener el pedido
-      const pedido = await storage.getPedido(pedidoId);
+      // Obtener el pedido (usando el método correcto)
+      const pedido = await storage.getPedidoById(pedidoId);
       if (!pedido || !pedido.inicio) return "00:00:00";
       
       // Usar la fecha de finalización si existe, o la fecha actual
@@ -3836,8 +3836,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
   // Función auxiliar para calcular tiempo neto (restando pausas)
   async function calcularTiempoNeto(pedidoId: number): Promise<string> {
     try {
-      // Obtener el pedido
-      const pedido = await storage.getPedido(pedidoId);
+      // Obtener el pedido (usando el método correcto)
+      const pedido = await storage.getPedidoById(pedidoId);
       if (!pedido || !pedido.inicio) return "00:00:00";
       
       // Calcular tiempo bruto primero
@@ -4016,7 +4016,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Actualizar estado a "armado-pendiente-stock"
             await storage.updatePedido(pedidoId, { 
               estado: 'armado-pendiente-stock',
-              finalizado: new Date().toISOString(), // Registrar la fecha/hora de finalización
+              finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
               tiempoBruto: await calcularTiempoBruto(pedidoId),
               tiempoNeto: await calcularTiempoNeto(pedidoId)
             });
@@ -4051,7 +4051,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Si no hay faltantes, marcar como armado normal con la fecha y cálculo de tiempos
             await storage.updatePedido(pedidoId, {
               estado: 'armado',
-              finalizado: new Date().toISOString(), // Registrar la fecha/hora de finalización
+              finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
               tiempoBruto: await calcularTiempoBruto(pedidoId),
               tiempoNeto: await calcularTiempoNeto(pedidoId)
             });
