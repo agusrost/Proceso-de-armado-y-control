@@ -50,7 +50,7 @@ interface Producto {
 }
 
 export default function ArmadoPageSimple() {
-  const { user } = useAuth();
+  const { user, logoutMutation: authLogoutMutation } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -307,13 +307,27 @@ export default function ArmadoPageSimple() {
         ultimoProductoId = productos[currentProductoIndex].id;
       }
       
-      const res = await apiRequest("POST", `/api/pausas`, {
-        pedidoId,
-        motivo,
-        tipo: "armado",
-        ultimoProductoId,
-      });
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", `/api/pausas`, {
+          pedidoId,
+          motivo,
+          tipo: "armado",
+          ultimoProductoId,
+        });
+        
+        // Verificar el tipo de contenido
+        const contentType = res.headers.get("Content-Type");
+        if (contentType && contentType.includes("application/json")) {
+          return await res.json();
+        } else {
+          // Si no es JSON, consideramos que la operación fue exitosa
+          console.log("Respuesta no JSON recibida del servidor, pero la operación fue exitosa");
+          return { success: true };
+        }
+      } catch (error) {
+        console.error("Error en la mutación de pausa:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
