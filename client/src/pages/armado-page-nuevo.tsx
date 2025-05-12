@@ -238,18 +238,50 @@ export default function ArmadoPageNuevo() {
   // Mutación para finalizar pedido
   const finalizarPedidoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
-      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar`);
-      return await res.json();
+      console.log("finalizarPedidoMutation: Iniciando finalización del pedido", pedidoId);
+      
+      try {
+        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar`);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Error en respuesta del servidor al finalizar:", errorText);
+          throw new Error(`Error del servidor: ${res.status} ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        console.log("finalizarPedidoMutation: Pedido finalizado correctamente", data);
+        return data;
+      } catch (error) {
+        console.error("finalizarPedidoMutation: Error al finalizar pedido", error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log("finalizarPedidoMutation onSuccess: Mostrando diálogo de éxito");
+      
+      // Invalida la consulta para asegurar datos actualizados
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      
+      // Mostrar mensaje de éxito en el modal
+      toast({
+        title: "¡Pedido completado!",
+        description: "El pedido ha sido armado correctamente.",
+      });
+      
       setMostrarExito(true);
     },
     onError: (error: Error) => {
+      console.error("finalizarPedidoMutation onError:", error);
+      
       toast({
         title: "Error al finalizar pedido",
-        description: error.message,
+        description: error.message || "No se pudo finalizar el pedido. Intente nuevamente.",
         variant: "destructive",
       });
+      
+      // Invalidar consulta para mantener consistencia de datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     }
   });
 
@@ -551,15 +583,23 @@ export default function ArmadoPageNuevo() {
       
       {/* Modal de Éxito */}
       <Dialog open={mostrarExito} onOpenChange={setMostrarExito}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#0a2463] border-[#3c6e71] text-white">
           <DialogHeader>
-            <DialogTitle>¡Pedido Completado!</DialogTitle>
-            <DialogDescription>
-              Has terminado de armar todos los productos del pedido.
+            <DialogTitle className="text-2xl font-bold text-white">¡Pedido Completado!</DialogTitle>
+            <DialogDescription className="text-gray-300 text-lg">
+              Has terminado de armar todos los productos del pedido #{pedido?.pedidoId}.
+              <div className="mt-4 p-3 bg-[#121f35] rounded-md">
+                <p className="mb-1"><strong>Cliente:</strong> {pedido?.clienteId}</p>
+                <p className="mb-1"><strong>Total de productos:</strong> {productos.length}</p>
+                <p><strong>Fecha:</strong> {new Date().toLocaleString()}</p>
+              </div>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="sm:justify-center">
-            <Button onClick={handleVolverArmador}>
+          <DialogFooter className="sm:justify-center mt-4">
+            <Button 
+              onClick={handleVolverArmador}
+              className="bg-[#3c6e71] hover:bg-[#284b4f] text-white px-8 py-2 text-lg"
+            >
               Volver al inicio
             </Button>
           </DialogFooter>
