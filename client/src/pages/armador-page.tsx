@@ -90,10 +90,16 @@ export default function ArmadorPage() {
     // Actualizar texto del botón
     if (pedido) {
       // @ts-ignore - Ignoramos el error de tipo
-      if (pedido.estado === 'en-proceso') {
+      const estadoContinuable = pedido.estado === 'en-proceso' || 
+                                pedido.estado === 'armado-pendiente-stock' ||
+                                pedido.pausaActiva === true;
+      
+      if (estadoContinuable) {
         setButtonText("CONTINUAR ARMADO");
+        console.log("Estado pedido continuable:", pedido.estado, "pausaActiva:", pedido.pausaActiva);
       } else {
         setButtonText("COMENZAR");
+        console.log("Estado pedido normal:", pedido.estado);
       }
     }
   }, [pedido]);
