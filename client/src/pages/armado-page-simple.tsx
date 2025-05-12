@@ -558,14 +558,15 @@ export default function ArmadoPageSimple() {
               </h3>
               
               <div className="mb-5">
-                <div className="text-lg font-medium mb-1">{productos[currentProductoIndex].codigo} - {productos[currentProductoIndex].descripcion}</div>
-                <div className="text-sm text-white/70">
-                  Ubicación: <span className="font-medium">{productos[currentProductoIndex].ubicacion || "N/A"}</span>
+                <div className="text-3xl font-bold mb-2 text-yellow-300">{productos[currentProductoIndex].codigo}</div>
+                <div className="text-xl font-medium mb-3">{productos[currentProductoIndex].descripcion}</div>
+                <div className="bg-blue-900 px-4 py-2 rounded-md inline-block">
+                  Ubicación: <span className="font-medium text-yellow-200">{productos[currentProductoIndex].ubicacion || "N/A"}</span>
                 </div>
               </div>
               
               <div className="mb-6">
-                <div className="text-sm font-medium mb-2">Cantidad recolectada</div>
+                <div className="text-lg font-medium mb-3">Cantidad recolectada</div>
                 <div className="flex items-center">
                   <Button 
                     variant="outline" 
@@ -575,7 +576,7 @@ export default function ArmadoPageSimple() {
                       setRecolectados(recolectados - 1);
                     }}
                     disabled={recolectados === null || recolectados <= 0}
-                    className="h-10 w-10 rounded-l-md rounded-r-none border-white/20 text-white bg-slate-700"
+                    className="h-12 w-12 rounded-l-md rounded-r-none border-white/20 text-white bg-slate-700 hover:bg-slate-600"
                   >
                     <Minus className="h-5 w-5" />
                   </Button>
@@ -593,7 +594,7 @@ export default function ArmadoPageSimple() {
                         setRecolectados(value);
                       }
                     }}
-                    className="w-20 text-center h-10 text-lg rounded-none bg-white text-black"
+                    className="w-24 text-center h-12 text-2xl font-bold rounded-none bg-white text-black"
                   />
                   
                   <Button 
@@ -609,13 +610,13 @@ export default function ArmadoPageSimple() {
                       }
                     }}
                     disabled={recolectados !== null && recolectados >= productos[currentProductoIndex].cantidad}
-                    className="h-10 w-10 rounded-r-md rounded-l-none border-white/20 text-white bg-slate-700"
+                    className="h-12 w-12 rounded-r-md rounded-l-none border-white/20 text-white bg-slate-700 hover:bg-slate-600"
                   >
                     <Plus className="h-5 w-5" />
                   </Button>
                   
-                  <div className="ml-3 text-white/70 flex items-center">
-                    <span className="text-sm">de {productos[currentProductoIndex].cantidad}</span>
+                  <div className="ml-4 flex items-center">
+                    <span className="text-lg font-medium bg-blue-900 px-3 py-1 rounded-md">de <span className="text-yellow-300 font-bold">{productos[currentProductoIndex].cantidad}</span></span>
                   </div>
                 </div>
               </div>
