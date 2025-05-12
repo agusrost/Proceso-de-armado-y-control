@@ -135,15 +135,30 @@ export default function ArmadoPageNuevo() {
           motivo
         });
         
+        // Verificar si la respuesta es correcta
         if (!res.ok) {
           const errorText = await res.text();
-          console.error("Error en respuesta del servidor:", errorText);
+          console.error("Error en respuesta del servidor:", res.status, errorText);
           throw new Error(`Error del servidor: ${res.status} ${res.statusText}`);
         }
         
-        const data = await res.json();
-        console.log("actualizarProductoMutation: Respuesta recibida:", data);
-        return data;
+        // Verificar el content-type para asegurarnos de que es JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("Respuesta no es JSON:", contentType);
+          const text = await res.text();
+          console.error("Contenido recibido:", text);
+          throw new Error(`Respuesta no es JSON válido: ${contentType}`);
+        }
+        
+        try {
+          const data = await res.json();
+          console.log("actualizarProductoMutation: Respuesta recibida:", data);
+          return data;
+        } catch (jsonError) {
+          console.error("Error al procesar JSON:", jsonError);
+          throw new Error("No se pudo procesar la respuesta como JSON");
+        }
       } catch (error) {
         console.error("actualizarProductoMutation: Error en la petición:", error);
         throw error;
@@ -237,9 +252,30 @@ export default function ArmadoPageNuevo() {
     },
     onError: (error: Error) => {
       console.error("actualizarProductoMutation onError:", error);
+      
+      // Manejo específico de errores para presentar mensajes más claros al usuario
+      let errorMessage = "Ocurrió un error al guardar el producto.";
+      let errorTitle = "Error al guardar producto";
+      
+      if (error.message.includes("JSON") || error.message.includes("<!DOCTYPE")) {
+        errorMessage = "Error de comunicación con el servidor. Por favor, intente de nuevo.";
+        errorTitle = "Error de comunicación";
+      } else if (error.message.includes("network") || error.message.includes("Network")) {
+        errorMessage = "Problema de conexión. Verifique su conexión a internet e intente nuevamente.";
+        errorTitle = "Error de conexión";
+      } else if (error.message.includes("timeout") || error.message.includes("Timeout")) {
+        errorMessage = "La operación ha tardado demasiado tiempo. Por favor, intente nuevamente.";
+        errorTitle = "Tiempo de espera agotado";
+      } else {
+        errorMessage = error.message || "Ocurrió un error inesperado al guardar el producto.";
+      }
+      
+      // Log adicional para debugging
+      console.log("Mensaje de error personalizado:", errorTitle, "-", errorMessage);
+      
       toast({
-        title: "Error al guardar producto",
-        description: error.message || "Ocurrió un error al guardar el producto.",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive",
       });
     }
