@@ -148,7 +148,7 @@ export default function ArmadoPageSimple() {
     }
   }, [pedido, toast]);
   
-  // Enviar producto recolectado
+  // Enviar producto recolectado 
   const actualizarProductoMutation = useMutation({
     mutationFn: async ({ 
       productoId, 
@@ -160,64 +160,96 @@ export default function ArmadoPageSimple() {
       motivo?: string;
     }) => {
       console.log(`Actualizando producto ${productoId}:`, { recolectado, motivo });
-      const res = await apiRequest("POST", `/api/productos/${productoId}/recolectar`, { 
-        recolectado, 
-        motivo
-      });
-      return await res.json();
+      try {
+        const res = await apiRequest("POST", `/api/productos/${productoId}/recolectar`, { 
+          recolectado, 
+          motivo
+        });
+        return await res.json();
+      } catch (error) {
+        console.error("Error en la mutación:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       console.log("Producto actualizado:", data);
       
-      // Actualizar el producto en la lista
-      const nuevosProductos = productos.map(p => {
-        if (p.id === data.id) {
-          return { ...p, recolectado: data.recolectado, motivo: data.motivo };
-        }
-        return p;
-      });
-      
-      setProductos(nuevosProductos);
-      
-      // Verificar si todos los productos están recolectados
-      const todosRecolectados = nuevosProductos.every(
-        p => p.recolectado !== null && p.recolectado > 0
-      );
-      
-      if (todosRecolectados) {
-        console.log("¡Todos los productos han sido recolectados!");
-        setMostrarModalExito(true);
-        return;
-      }
-      
-      // Avanzar al siguiente producto si hay
-      if (currentProductoIndex < productos.length - 1) {
-        const nextIndex = currentProductoIndex + 1;
-        setCurrentProductoIndex(nextIndex);
+      try {
+        // Actualizar el producto en la lista
+        const nuevosProductos = [...productos];
         
-        // Verificar que el siguiente producto exista
-        const siguienteProducto = productos[nextIndex];
-        if (siguienteProducto) {
-          // Establecer cantidad inicial de recolección
-          const cantidadInicial = siguienteProducto.recolectado !== null 
-            ? siguienteProducto.recolectado 
-            : siguienteProducto.cantidad;
+        // Buscar el producto actualizado y modificarlo
+        for (let i = 0; i < nuevosProductos.length; i++) {
+          if (nuevosProductos[i].id === data.id) {
+            nuevosProductos[i] = {
+              ...nuevosProductos[i],
+              recolectado: data.recolectado,
+              motivo: data.motivo
+            };
+            break;
+          }
+        }
+        
+        // Actualizar el estado
+        setProductos(nuevosProductos);
+        
+        // Verificar si todos los productos están recolectados
+        let todoCompletado = true;
+        for (const p of nuevosProductos) {
+          if (p.recolectado === null || p.recolectado <= 0) {
+            todoCompletado = false;
+            break;
+          }
+        }
+        
+        // Si todos están recolectados, mostrar mensaje de éxito
+        if (todoCompletado) {
+          console.log("¡Todos los productos han sido recolectados!");
+          setMostrarModalExito(true);
+          return;
+        }
+        
+        // Avanzar al siguiente producto si hay
+        if (currentProductoIndex < nuevosProductos.length - 1) {
+          try {
+            const nextIndex = currentProductoIndex + 1;
             
-          setRecolectados(cantidadInicial);
-          setMotivo("");
+            // Asegurarnos de que el siguiente índice es válido
+            if (nextIndex >= 0 && nextIndex < nuevosProductos.length) {
+              const siguienteProducto = nuevosProductos[nextIndex];
+              
+              if (siguienteProducto) {
+                // Actualizar el índice actual
+                setCurrentProductoIndex(nextIndex);
+                
+                // Establecer la cantidad inicial como la cantidad solicitada del producto
+                const cantidadInicial = siguienteProducto.cantidad;
+                setRecolectados(cantidadInicial);
+                setMotivo("");
+                
+                console.log(`Avanzando al producto ${nextIndex+1} de ${nuevosProductos.length}`);
+              }
+            }
+          } catch (err) {
+            console.error("Error al avanzar al siguiente producto:", err);
+            toast({
+              title: "Error al avanzar",
+              description: "Hubo un problema al avanzar al siguiente producto",
+              variant: "destructive",
+            });
+          }
         } else {
-          // Protección por si el siguiente producto no está disponible
-          console.error("Error: No se pudo cargar el siguiente producto");
           toast({
-            title: "Error al avanzar",
-            description: "No se pudo cargar el siguiente producto. Intente de nuevo.",
-            variant: "destructive",
+            title: "Producto guardado",
+            description: "Este era el último producto de la lista.",
           });
         }
-      } else {
+      } catch (err) {
+        console.error("Error en onSuccess:", err);
         toast({
-          title: "Producto guardado",
-          description: "Este era el último producto de la lista.",
+          title: "Error",
+          description: "Ocurrió un error inesperado. Por favor, intenta de nuevo.",
+          variant: "destructive",
         });
       }
     },
@@ -225,7 +257,7 @@ export default function ArmadoPageSimple() {
       console.error("Error al actualizar producto:", error);
       toast({
         title: "Error al actualizar producto",
-        description: error.message,
+        description: error.message || "No se pudo actualizar el producto",
         variant: "destructive",
       });
     }
@@ -294,13 +326,40 @@ export default function ArmadoPageSimple() {
     }
   });
   
-  // Función para guardar producto actual
-  const handleGuardarProducto = () => {
-    if (!productos[currentProductoIndex]) return;
+  // Función simplificada para guardar producto actual
+  const handleGuardarYContinuar = () => {
+    // Verificamos que exista un producto actual
+    if (currentProductoIndex < 0 || currentProductoIndex >= productos.length) {
+      toast({
+        title: "Error",
+        description: "No se pudo identificar el producto actual",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const producto = productos[currentProductoIndex];
-    const necesitaMotivo = recolectados !== null && recolectados < producto.cantidad;
+    if (!producto || !producto.id) {
+      toast({
+        title: "Error",
+        description: "Información de producto incompleta",
+        variant: "destructive",
+      });
+      return;
+    }
     
+    // Verificamos la cantidad recolectada
+    if (recolectados === null) {
+      toast({
+        title: "Error",
+        description: "Debe especificar una cantidad",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Verificamos si necesita motivo por faltante
+    const necesitaMotivo = recolectados < producto.cantidad;
     if (necesitaMotivo && !motivo) {
       toast({
         title: "Se requiere motivo",
@@ -310,15 +369,21 @@ export default function ArmadoPageSimple() {
       return;
     }
     
-    actualizarProductoMutation.mutate({
-      productoId: producto.id,
-      recolectado: recolectados || 0,
-      motivo: necesitaMotivo ? motivo : undefined
-    });
-  };
-  
-  const handleGuardarYContinuar = () => {
-    handleGuardarProducto();
+    // Todo verificado, guardamos el producto
+    try {
+      actualizarProductoMutation.mutate({
+        productoId: producto.id,
+        recolectado: recolectados,
+        motivo: necesitaMotivo ? motivo : undefined
+      });
+    } catch (err) {
+      console.error("Error al guardar producto:", err);
+      toast({
+        title: "Error al guardar",
+        description: "No se pudo guardar el producto. Intente de nuevo.",
+        variant: "destructive",
+      });
+    }
   };
   
   // Finalizar todo el pedido
