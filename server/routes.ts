@@ -3779,6 +3779,94 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Se encontraron ${productos.length} productos para el pedido ID ${pedidoId}`);
       
+      // Verificar si el pedido está en proceso y si todos los productos están completados
+      try {
+        const pedido = await storage.getPedidoById(pedidoId);
+        
+        if (pedido && pedido.estado === 'en-proceso' && productos.length > 0) {
+          // VERIFICACIÓN DE FINALIZACIÓN AUTOMÁTICA
+          console.log(`Verificando si todos los productos del pedido ${pedidoId} están completados...`);
+          
+          // Definir lógica de producto completado (igual que en actualizar producto)
+          const esProductoCompletado = (p: any): boolean => {
+            // Si recolectado es null, no está completado
+            if (p.recolectado === null) return false;
+            
+            // Si recolectado es igual a cantidad, está completado
+            if (p.recolectado === p.cantidad) return true;
+            
+            // Si es una recolección parcial pero tiene motivo, se considera completado
+            if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') return true;
+            
+            // En cualquier otro caso, no está completado
+            return false;
+          };
+          
+          // Verificar si todos los productos están completados
+          const todosCompletados = productos.every(esProductoCompletado);
+          
+          if (todosCompletados) {
+            console.log(`🏁 VERIFICACIÓN AUTOMÁTICA: Todos los productos del pedido ${pedidoId} han sido correctamente procesados`);
+            
+            // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
+            const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
+            
+            if (productosFaltantes.length > 0) {
+              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
+              
+              // Actualizar estado a "armado-pendiente-stock"
+              await storage.updatePedido(pedidoId, { 
+                estado: 'armado-pendiente-stock',
+                finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
+                tiempoBruto: await calcularTiempoBruto(pedidoId),
+                tiempoNeto: await calcularTiempoNeto(pedidoId)
+              });
+              
+              // Notificar finalización (armado pendiente de stock)
+              console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} marcado como "armado-pendiente-stock" porque tiene ${productosFaltantes.length} productos con faltantes registrados`);
+              
+              // Crear solicitudes de transferencia para cada producto faltante
+              for (const producto of productosFaltantes) {
+                try {
+                  // Crear solicitud de stock
+                  const solicitudData = {
+                    fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+                    horario: new Date(),
+                    codigo: producto.codigo,
+                    cantidad: producto.cantidad,
+                    motivo: `Faltante en pedido ${pedidoId} - ${producto.motivo || 'Sin stock'}`,
+                    estado: 'pendiente',
+                    solicitadoPor: req.user?.id,
+                    solicitante: req.user?.username
+                  };
+                  
+                  console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
+                  await storage.createStockSolicitud(solicitudData);
+                } catch (error) {
+                  console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+                }
+              }
+            } else {
+              console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} completado correctamente sin faltantes`);
+              
+              // Si no hay faltantes, marcar como armado normal con la fecha y cálculo de tiempos
+              await storage.updatePedido(pedidoId, {
+                estado: 'armado',
+                finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
+                tiempoBruto: await calcularTiempoBruto(pedidoId),
+                tiempoNeto: await calcularTiempoNeto(pedidoId)
+              });
+            }
+            
+            // Actualizar la lista de productos después de finalizar el pedido
+            productos = await storage.getProductosByPedidoId(pedidoId);
+          }
+        }
+      } catch (error) {
+        console.error(`Error al verificar finalización automática del pedido ${pedidoId}:`, error);
+        // Continuamos con la ejecución normal aunque falle esta verificación
+      }
+      
       // Verificar si hay un último producto ID en el query param (viene de iniciar/reanudar un pedido pausado)
       const ultimoProductoId = req.query.ultimoProductoId ? parseInt(req.query.ultimoProductoId as string) : null;
       
