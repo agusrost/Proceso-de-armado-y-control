@@ -438,53 +438,6 @@ export default function ArmadoPageSimple() {
       {/* Contenido principal */}
       <div className="flex-grow p-5">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-3">
-            <h2 className="text-lg font-semibold">Lista de Productos ({productos.length})</h2>
-          </div>
-          
-          {/* Productos como tarjetas */}
-          <div className="grid gap-2 mb-6">
-            {productos.map((producto, index) => (
-              <div 
-                key={producto.id}
-                className={`p-3 border rounded-md cursor-pointer ${
-                  index === currentProductoIndex 
-                    ? "bg-blue-900 border-blue-600"
-                    : producto.recolectado !== null
-                      ? producto.recolectado === producto.cantidad
-                        ? "bg-green-900/20 border-green-600"
-                        : "bg-amber-900/20 border-amber-600"
-                      : "bg-[#1a2234] border-slate-600"
-                }`}
-                onClick={() => {
-                  setCurrentProductoIndex(index);
-                  setRecolectados(producto.recolectado !== null ? producto.recolectado : producto.cantidad);
-                  setMotivo(producto.motivo || "");
-                }}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{producto.codigo} - {producto.descripcion}</div>
-                    <div className="text-xs text-white/60 mt-1">
-                      Ubicación: {producto.ubicacion || "N/A"} | Cantidad: {producto.cantidad}
-                    </div>
-                  </div>
-                  
-                  {producto.recolectado !== null && (
-                    <div className="text-right">
-                      <div className={`${
-                        producto.recolectado === producto.cantidad
-                          ? "text-green-400"
-                          : "text-amber-400"
-                      }`}>
-                        {producto.recolectado}/{producto.cantidad}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
           
           {/* Producto actual */}
           {productos[currentProductoIndex] && (
