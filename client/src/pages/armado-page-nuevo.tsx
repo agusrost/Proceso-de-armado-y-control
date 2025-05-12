@@ -264,6 +264,54 @@ export default function ArmadoPageNuevo() {
   const handleVolverArmador = () => {
     navigate("/armador");
   };
+  
+  // Función para pausar el pedido
+  const handlePausarPedido = async () => {
+    try {
+      if (!pedido) return;
+      
+      const res = await apiRequest("POST", `/api/pedidos/${pedido.id}/pausar`, {
+        motivo: "Pausa solicitada por el armador",
+        tipo: "armado",
+        ultimoProductoId: productos[currentIndex]?.id || null
+      });
+      
+      if (res.ok) {
+        toast({
+          title: "Pedido pausado",
+          description: "El pedido ha sido pausado correctamente.",
+        });
+        navigate("/armador");
+      } else {
+        throw new Error(`Error al pausar el pedido: ${res.status}`);
+      }
+    } catch (error) {
+      console.error("Error al pausar pedido:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo pausar el pedido. Inténtelo de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Función para cerrar sesión
+  const handleCerrarSesion = () => {
+    // Llamar a la API de cerrar sesión
+    apiRequest("POST", "/api/logout")
+      .then(() => {
+        // Redirigir a la página de login
+        window.location.href = "/auth";
+      })
+      .catch((error) => {
+        console.error("Error al cerrar sesión:", error);
+        toast({
+          title: "Error",
+          description: "No se pudo cerrar la sesión. Inténtelo de nuevo.",
+          variant: "destructive",
+        });
+      });
+  };
 
   if (pedidoLoading || productosLoading) {
     return (
@@ -301,33 +349,63 @@ export default function ArmadoPageNuevo() {
     <div className="container mx-auto max-w-6xl">
       <header className="bg-[#0a2463] text-white p-4 rounded-b-lg">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Armado de Pedido</h1>
-          <div className="text-sm">
-            {pedido.pedidoId} - {pedido.clienteId}
+          <div>
+            <h1 className="text-2xl font-bold">Armado de Pedido</h1>
+            <div className="text-lg font-medium mt-1">
+              {pedido.pedidoId} - {pedido.clienteId}
+            </div>
+          </div>
+          <div className="flex space-x-3">
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handlePausarPedido}
+              className="bg-red-600 hover:bg-red-700 text-base px-4 py-2"
+            >
+              Pausar
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleVolverArmador}
+              className="text-white border-white hover:bg-white/20 text-base px-4 py-2"
+            >
+              <ChevronLeft className="h-5 w-5 mr-1" />
+              Volver
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCerrarSesion}
+              className="text-white border-white hover:bg-white/20 text-base px-4 py-2"
+            >
+              Cerrar Sesión
+            </Button>
           </div>
         </div>
       </header>
 
       <div className="my-6 bg-[#121f35] rounded-lg shadow-lg p-6 text-white">
-        <h2 className="text-lg font-bold mb-4">Producto Actual</h2>
+        <h2 className="text-2xl font-bold mb-6">Producto Actual</h2>
         
         {productoActual && (
           <div>
-            <div className="mb-4">
-              <div className="font-bold">{productoActual.codigo} - {productoActual.descripcion}</div>
-              <div className="text-sm">Ubicación: {productoActual.ubicacion}</div>
+            <div className="mb-6">
+              <div className="text-2xl font-bold mb-2">{productoActual.codigo}</div>
+              <div className="text-xl mb-3">{productoActual.descripcion}</div>
+              <div className="text-lg bg-gray-700 inline-block px-3 py-1 rounded">Ubicación: {productoActual.ubicacion}</div>
             </div>
             
             <div className="mb-6">
-              <label className="block mb-2">Cantidad recolectada</label>
+              <label className="block mb-3 text-xl">Cantidad recolectada</label>
               <div className="flex items-center">
                 <Button 
                   variant="outline" 
-                  size="icon"
+                  size="lg"
                   onClick={handleDecrement}
-                  className="bg-gray-700 hover:bg-gray-600"
+                  className="bg-gray-700 hover:bg-gray-600 h-14 w-14"
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="h-6 w-6" />
                 </Button>
                 <Input
                   type="number"
@@ -335,17 +413,17 @@ export default function ArmadoPageNuevo() {
                   onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
                   min={0}
                   max={productoActual.cantidad}
-                  className="mx-2 text-center text-black"
+                  className="mx-3 w-24 h-14 text-center bg-gray-700 text-white text-2xl font-bold"
                 />
                 <Button 
                   variant="outline" 
-                  size="icon"
+                  size="lg"
                   onClick={handleIncrement}
-                  className="bg-gray-700 hover:bg-gray-600"
+                  className="bg-gray-700 hover:bg-gray-600 h-14 w-14"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-6 w-6" />
                 </Button>
-                <span className="ml-2">de {productoActual.cantidad}</span>
+                <span className="ml-4 text-xl font-medium">de {productoActual.cantidad}</span>
               </div>
             </div>
             
