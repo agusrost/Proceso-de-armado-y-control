@@ -219,11 +219,17 @@ export default function ArmadoPage() {
           if (productos.length > 0) {
             // Función para buscar el siguiente producto no procesado
             const encontrarSiguienteProductoNoProcesado = () => {
-              // Buscar el primer producto no procesado (recolectado === null)
-              const siguienteIndex = productos.findIndex(p => p.recolectado === null);
+              // CRITERIO MEJORADO: Un producto no está procesado si:
+              // 1. recolectado === null, O
+              // 2. recolectado === 0 (inicializado pero no se ha recolectado nada)
+              // 3. Y NO tiene un motivo registrado (si tiene motivo, ya se procesó como faltante)
+              const siguienteIndex = productos.findIndex(p => 
+                (p.recolectado === null || p.recolectado === 0) && 
+                (!p.motivo || p.motivo.trim() === '')
+              );
               
               if (siguienteIndex !== -1) {
-                console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo}`);
+                console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo} (recolectado=${productos[siguienteIndex].recolectado})`);
                 setCurrentProductoIndex(siguienteIndex);
                 setRecolectados(productos[siguienteIndex].cantidad);
                 return true;
@@ -245,12 +251,19 @@ export default function ArmadoPage() {
                   id: ultimoProducto.id,
                   codigo: ultimoProducto.codigo,
                   recolectado: ultimoProducto.recolectado,
-                  cantidad: ultimoProducto.cantidad
+                  cantidad: ultimoProducto.cantidad,
+                  motivo: ultimoProducto.motivo
                 });
                 
-                // Si el producto ya fue procesado, buscar el siguiente no procesado
-                if (ultimoProducto.recolectado !== null) {
-                  console.log(`Último producto (${ultimoProducto.codigo}) ya fue procesado. Buscando el siguiente no procesado.`);
+                // CRITERIO MEJORADO: Considerar como procesado si:
+                // 1. recolectado !== null (cualquier valor significa que se procesó)
+                // 2. O si recolectado > 0 (se ha recolectado algo)
+                const estaProcesado = 
+                  ultimoProducto.recolectado !== null || 
+                  (typeof ultimoProducto.recolectado === 'number' && ultimoProducto.recolectado > 0);
+                
+                if (estaProcesado) {
+                  console.log(`Último producto (${ultimoProducto.codigo}) ya fue procesado (recolectado=${ultimoProducto.recolectado}). Buscando el siguiente no procesado.`);
                   encontrarSiguienteProductoNoProcesado();
                 } else {
                   // Si no ha sido procesado, quedarse en él

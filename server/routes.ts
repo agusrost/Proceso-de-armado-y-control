@@ -3670,12 +3670,24 @@ export async function registerRoutes(app: Application): Promise<Server> {
           if (ultimoProducto) {
             console.log(`Encontrado último producto ${ultimoProducto.codigo} con estado recolectado: ${ultimoProducto.recolectado}`);
             
-            // Si el producto ya fue procesado, buscar el siguiente sin procesar
-            if (ultimoProducto.recolectado !== null) {
-              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado. Buscando siguiente sin procesar...`);
+            // CRITERIO MEJORADO: Considerar como procesado si:
+            // 1. recolectado !== null (cualquier valor significa que se procesó)
+            // 2. O si recolectado > 0 (se ha recolectado algo)
+            const estaProcesado = 
+              ultimoProducto.recolectado !== null || 
+              (typeof ultimoProducto.recolectado === 'number' && ultimoProducto.recolectado > 0);
+            
+            if (estaProcesado) {
+              console.log(`El producto ${ultimoProducto.codigo} ya fue procesado (recolectado=${ultimoProducto.recolectado}). Buscando siguiente sin procesar...`);
               
-              // Buscar el primer producto que NO ha sido procesado
-              const siguienteProductoSinProcesar = productos.find(p => p.recolectado === null);
+              // CRITERIO MEJORADO: Un producto no está procesado si:
+              // 1. recolectado === null, O
+              // 2. recolectado === 0 (inicializado pero no se ha recolectado nada)
+              // 3. Y NO tiene un motivo registrado (si tiene motivo, ya se procesó como faltante)
+              const siguienteProductoSinProcesar = productos.find(p => 
+                (p.recolectado === null || p.recolectado === 0) && 
+                (!p.motivo || p.motivo.trim() === '')
+              );
               
               if (siguienteProductoSinProcesar) {
                 console.log(`Encontrado siguiente producto sin procesar: ${siguienteProductoSinProcesar.codigo}`);
