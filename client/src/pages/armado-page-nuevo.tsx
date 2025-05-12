@@ -48,11 +48,14 @@ interface Producto {
 
 // Componente principal
 export default function ArmadoPageNuevo() {
-  const [, params] = useRoute<{ id?: string }>("/armado/:id");
+  const [, params] = useRoute<{ id?: string }>("/armado-nuevo/:id");
   const [, navigate] = useLocation();
   const { toast } = useToast();
   
   const pedidoId = params?.id ? parseInt(params.id) : null;
+  
+  // Debug para verificar que se está recibiendo el parámetro correcto
+  console.log("DEBUG ArmadoPageNuevo: URL params", params);
   
   // Estados
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -61,41 +64,42 @@ export default function ArmadoPageNuevo() {
   const [motivo, setMotivo] = useState<string>("");
   const [mostrarExito, setMostrarExito] = useState(false);
   
-  // Consulta del pedido
+  // Consulta del pedido directamente de la API de armador
   const { data: pedido, isLoading: pedidoLoading } = useQuery<Pedido>({
-    queryKey: ["/api/pedidos", pedidoId],
+    queryKey: ["/api/pedido-para-armador"],
     queryFn: async () => {
-      if (!pedidoId) return null;
-      const res = await apiRequest("GET", `/api/pedidos/${pedidoId}`);
+      const res = await apiRequest("GET", "/api/pedido-para-armador");
       return await res.json();
-    },
-    enabled: !!pedidoId,
+    }
   });
 
   // Cargar productos del pedido
   const { isLoading: productosLoading } = useQuery<Producto[]>({
-    queryKey: ["/api/productos/pedido", pedidoId],
+    queryKey: ["/api/productos/pedido", pedido?.id],
     queryFn: async () => {
-      if (!pedidoId) return [];
-      const res = await apiRequest("GET", `/api/productos/pedido/${pedidoId}`);
+      if (!pedido?.id) return [];
+      const res = await apiRequest("GET", `/api/productos/pedido/${pedido.id}`);
       const data = await res.json();
       return data;
     },
-    enabled: !!pedidoId
+    enabled: !!pedido?.id
   });
   
   // Efecto para manejar los productos cuando se cargan
   useEffect(() => {
-    if (productosLoading) return;
+    if (productosLoading || !pedido) return;
     
-    const data = queryClient.getQueryData<Producto[]>(["/api/productos/pedido", pedidoId]);
+    const data = queryClient.getQueryData<Producto[]>(["/api/productos/pedido", pedido.id]);
     
     if (data && data.length > 0) {
+      console.log("Productos cargados:", data.length);
       setProductos(data);
       const productoActual = data[0];
       setCantidad(productoActual.cantidad);
+    } else {
+      console.log("No se encontraron productos para el pedido");
     }
-  }, [productosLoading, pedidoId]);
+  }, [productosLoading, pedido]);
 
   // Obtener producto actual
   const productoActual = productos[currentIndex];
@@ -270,10 +274,24 @@ export default function ArmadoPageNuevo() {
     );
   }
 
-  if (!pedido || productos.length === 0) {
+  if (!pedido) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-lg mb-4">No se encontró el pedido o no tiene productos asignados.</p>
+        <p className="text-lg mb-4">No se encontró el pedido asignado.</p>
+        <p className="text-sm mb-4 text-gray-500">Detalles: Pedido no está disponible en la API.</p>
+        <Button onClick={handleVolverArmador}>Volver</Button>
+      </div>
+    );
+  }
+  
+  if (productos.length === 0) {
+    // Si ya cargó el pedido pero no hay productos, mostramos un mensaje específico
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-lg mb-4">El pedido #{pedido.pedidoId} no tiene productos asignados.</p>
+        <p className="text-sm mb-4 text-gray-500">
+          ID del pedido: {pedido.id} | Estado: {pedido.estado}
+        </p>
         <Button onClick={handleVolverArmador}>Volver</Button>
       </div>
     );
