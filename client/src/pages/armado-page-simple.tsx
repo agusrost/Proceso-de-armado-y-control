@@ -537,7 +537,7 @@ export default function ArmadoPageSimple() {
             <Button 
               variant="secondary"
               size="sm"
-              onClick={() => logoutMutation.mutate()}
+              onClick={() => authLogoutMutation.mutate()}
               className="bg-white/10 text-white hover:bg-white/20"
             >
               Cerrar Sesión
