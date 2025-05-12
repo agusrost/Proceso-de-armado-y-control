@@ -50,6 +50,33 @@ export default function ArmadoPageSimple() {
   const [recolectados, setRecolectados] = useState<number | null>(null);
   const [motivo, setMotivo] = useState("");
   
+  // Pedido vacío para evitar problemas de null
+  const pedidoVacio = {
+    id: 0,
+    pedidoId: "Cargando...",
+    clienteId: "Cargando...",
+    fecha: "",
+    items: 0,
+    totalProductos: 0,
+    vendedor: null,
+    estado: "en-proceso",
+    puntaje: 0,
+    armadorId: null,
+    tiempoBruto: null,
+    tiempoNeto: null,
+    numeroPausas: 0,
+    inicio: null,
+    finalizado: null,
+    rawText: null,
+    controladoId: null,
+    controlInicio: null,
+    controlFin: null,
+    controlComentario: null,
+    controlTiempo: null,
+    pausaActiva: false,
+    pausas: []
+  };
+  
   // Estados para modales
   const [mostrarModalPausa, setMostrarModalPausa] = useState(false);
   const [motivoPausa, setMotivoPausa] = useState("");
@@ -74,7 +101,7 @@ export default function ArmadoPageSimple() {
   ];
   
   // Obtener el pedido actual
-  const { data: pedido, isLoading } = useQuery({
+  const { data: pedido = pedidoVacio, isLoading } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
     enabled: !!user,
   });
@@ -324,13 +351,17 @@ export default function ArmadoPageSimple() {
     );
   }
   
-  // Si no hay pedido
-  if (!pedido) {
+  // Si no hay pedido asignado (sólo para casos excepcionales)
+  if (!pedido || pedido.id === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0f172a] text-white p-4">
         <h1 className="text-2xl font-bold mb-4">No hay pedido asignado</h1>
         <p className="mb-6">No tienes un pedido asignado para armar en este momento.</p>
-        <Button variant="outline" onClick={() => setLocation('/armador')}>
+        <Button 
+          variant="outline" 
+          onClick={() => setLocation('/armador')}
+          className="border-white/20 text-white hover:bg-white/10"
+        >
           Volver a la pantalla de armador
         </Button>
       </div>
