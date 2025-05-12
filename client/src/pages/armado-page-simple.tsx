@@ -505,6 +505,14 @@ export default function ArmadoPageSimple() {
           
           <div className="flex items-center space-x-2">
             <Button 
+              variant="destructive"
+              size="sm"
+              onClick={() => setMostrarModalPausa(true)}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Pausar
+            </Button>
+            <Button 
               variant="secondary"
               size="sm"
               onClick={() => setMostrarModalVerPedido(true)}
