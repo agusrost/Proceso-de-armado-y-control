@@ -1198,10 +1198,8 @@ export default function ArmadoPage() {
     if (recolectados === null || recolectados !== valorActual) {
       console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${valorActual}`);
       // Actualización inmediata y programada para garantizar que se aplique
+      // NO usar setTimeout que sobrescribe el valor - solo mantener el valor correcto
       setRecolectados(valorActual);
-      setTimeout(() => {
-        setRecolectados(producto.cantidad);
-      }, 50);
     }
     
     // SIEMPRE retornar la cantidad del producto, no el estado
