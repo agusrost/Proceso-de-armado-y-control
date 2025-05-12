@@ -242,14 +242,17 @@ export default function ArmadoPage() {
               if (siguienteIndex !== -1) {
                 console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo} (recolectado=${productos[siguienteIndex].recolectado})`);
                 setCurrentProductoIndex(siguienteIndex);
-                setRecolectados(productos[siguienteIndex].cantidad);
+                // CORRECCIÓN CRUCIAL: Siempre iniciar productos no procesados con 0 en lugar de la cantidad máxima
+                // Esto evita la autocomplección incorrecta
+                setRecolectados(0);
                 return true;
               }
               
               // Si todos están procesados, usar el primero
               console.log("No hay productos sin procesar, usando el primero");
               setCurrentProductoIndex(0);
-              setRecolectados(productos[0].cantidad);
+              // CORRECCIÓN CRUCIAL: Iniciar siempre con 0 para evitar autocomplección
+              setRecolectados(0);
               return false;
             };
             
