@@ -426,15 +426,6 @@ export default function ArmadoPageSimple() {
             <Button 
               variant="secondary"
               size="sm"
-              onClick={() => setMostrarModalPausa(true)}
-              className="bg-white/10 text-white hover:bg-white/20"
-            >
-              Pausar
-            </Button>
-            
-            <Button 
-              variant="secondary"
-              size="sm"
               onClick={() => setMostrarModalVerPedido(true)}
               className="bg-white/10 text-white hover:bg-white/20"
             >
@@ -499,7 +490,7 @@ export default function ArmadoPageSimple() {
           {productos[currentProductoIndex] && (
             <div className="bg-[#1a2234] rounded-md border border-slate-700 p-5">
               <h3 className="text-xl font-medium mb-4">
-                Producto Actual ({currentProductoIndex + 1} de {productos.length})
+                Producto Actual
               </h3>
               
               <div className="mb-5">
@@ -587,18 +578,26 @@ export default function ArmadoPageSimple() {
                 </div>
               )}
               
-              <div className="flex justify-end">
+              <div className="flex flex-col items-center space-y-2 mt-4">
                 <Button 
                   onClick={handleGuardarYContinuar}
                   disabled={actualizarProductoMutation.isPending}
-                  className="px-6 bg-slate-700 hover:bg-slate-600 text-white"
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-white py-5"
                 >
                   {actualizarProductoMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Guardando...
+                      Procesando...
                     </>
-                  ) : "Guardar y continuar"}
+                  ) : "Continuar"}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={() => setMostrarModalPausa(true)}
+                  className="w-full border-slate-600 text-white hover:bg-slate-700 py-5"
+                >
+                  Pausar
                 </Button>
               </div>
             </div>
