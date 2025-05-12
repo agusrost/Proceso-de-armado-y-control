@@ -108,29 +108,43 @@ export default function ArmadoPageSimple() {
   
   // Obtener productos cuando tenemos el pedido
   useEffect(() => {
-    if (pedido && pedido.id) {
-      console.log("Cargando productos para pedido:", pedido.id);
+    const pedidoId = pedido?.id;
+    if (pedidoId && pedidoId > 0) {
+      console.log("Cargando productos para pedido:", pedidoId);
       
-      fetch(`/api/productos/pedido/${pedido.id}`)
-        .then(res => res.json())
-        .then(data => {
-          console.log("Productos cargados:", data);
-          setProductos(data);
-          
-          // Seleccionar el primer producto y establecer cantidad inicial
-          if (data.length > 0) {
-            setCurrentProductoIndex(0);
-            setRecolectados(data[0].cantidad);
+      // Usar una función async/await para mayor claridad
+      const cargarProductos = async () => {
+        try {
+          const res = await fetch(`/api/productos/pedido/${pedidoId}`);
+          if (!res.ok) {
+            throw new Error(`Error HTTP: ${res.status}`);
           }
-        })
-        .catch(err => {
+          
+          const data = await res.json();
+          console.log("Productos cargados:", data);
+          
+          if (Array.isArray(data)) {
+            setProductos(data);
+            
+            // Seleccionar el primer producto y establecer cantidad inicial
+            if (data.length > 0) {
+              setCurrentProductoIndex(0);
+              setRecolectados(data[0].cantidad);
+            }
+          } else {
+            console.error("Respuesta no es un array:", data);
+          }
+        } catch (err) {
           console.error("Error al cargar productos:", err);
           toast({
             title: "Error al cargar productos",
-            description: "No se pudieron cargar los productos del pedido.",
+            description: "No se pudieron cargar los productos del pedido. Intente de nuevo.",
             variant: "destructive",
           });
-        });
+        }
+      };
+      
+      cargarProductos();
     }
   }, [pedido, toast]);
   
@@ -293,14 +307,29 @@ export default function ArmadoPageSimple() {
   
   // Finalizar todo el pedido
   const handleFinalizarPedido = () => {
-    if (pedido) {
-      finalizarPedidoMutation.mutate(pedido.id);
+    const pedidoId = pedido?.id;
+    if (pedidoId && pedidoId > 0) {
+      finalizarPedidoMutation.mutate(pedidoId);
+    } else {
+      toast({
+        title: "Error al finalizar pedido",
+        description: "No se pudo identificar el pedido a finalizar.",
+        variant: "destructive",
+      });
     }
   };
   
   // Manejar la pausa del armado
   const handlePausarArmado = () => {
-    if (!pedido) return;
+    const pedidoId = pedido?.id;
+    if (!pedidoId || pedidoId <= 0) {
+      toast({
+        title: "Error al pausar",
+        description: "No se pudo identificar el pedido a pausar.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (motivoPausa === "") {
       toast({
@@ -326,9 +355,9 @@ export default function ArmadoPageSimple() {
       ? motivoPausaDetalle 
       : motivoPausa;
     
-    console.log(`Pausando armado del pedido ${pedido.id} con motivo: ${motivoFinal}`);
+    console.log(`Pausando armado del pedido ${pedidoId} con motivo: ${motivoFinal}`);
     crearPausaMutation.mutate({ 
-      pedidoId: pedido.id, 
+      pedidoId, 
       motivo: motivoFinal 
     });
     
@@ -387,7 +416,9 @@ export default function ArmadoPageSimple() {
           <div className="flex items-center space-x-4">
             <div>
               <h1 className="text-xl font-bold">Armado de Pedido</h1>
-              <p className="text-sm text-white/70">{pedido.pedidoId} - {pedido.clienteId}</p>
+              <p className="text-sm text-white/70">
+                {pedido?.pedidoId || 'Cargando...'} - {pedido?.clienteId || 'Cargando...'}
+              </p>
             </div>
           </div>
           
