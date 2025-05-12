@@ -8,8 +8,16 @@ import { useLocation } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   Loader2, ArrowLeft, CheckCircle2, Minus, Plus, Pause, 
-  FileText, ClipboardList, X
+  FileText, ClipboardList, X, ChevronDown
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
@@ -626,36 +634,13 @@ export default function ArmadoPageSimple() {
                   ) : "Continuar"}
                 </Button>
                 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="destructive" 
-                      className="w-full bg-red-600 text-white hover:bg-red-700 py-5 h-14"
-                    >
-                      Pausar
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuLabel>Seleccione motivo</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {motivosPausa.map((motivo) => (
-                      <DropdownMenuItem 
-                        key={motivo}
-                        onClick={() => {
-                          if (motivo === "Otro: especificar") {
-                            setMotivoPausa(motivo);
-                            setMostrarModalPausa(true);
-                          } else {
-                            setMotivoPausa(motivo);
-                            handlePausarArmado();
-                          }
-                        }}
-                      >
-                        {motivo}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button 
+                  variant="outline"
+                  className="w-full text-white bg-transparent border-slate-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center"
+                  onClick={() => setMostrarModalPausa(true)}
+                >
+                  Pausar
+                </Button>
               </div>
             </div>
           )}
