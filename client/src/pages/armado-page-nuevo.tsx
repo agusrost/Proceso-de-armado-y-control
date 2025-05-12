@@ -71,6 +71,7 @@ export default function ArmadoPageNuevo() {
   const [cantidad, setCantidad] = useState<number>(0);
   const [motivo, setMotivo] = useState<string>("");
   const [mostrarExito, setMostrarExito] = useState(false);
+  const [mostrarTodoPedido, setMostrarTodoPedido] = useState(false);
   
   // Consulta del pedido directamente de la API de armador
   const { data: pedido, isLoading: pedidoLoading } = useQuery<Pedido>({
@@ -820,6 +821,68 @@ export default function ArmadoPageNuevo() {
               className="bg-green-800 hover:bg-green-900 text-white px-8 py-2 text-lg"
             >
               Volver al inicio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de Ver Todo el Pedido */}
+      <Dialog open={mostrarTodoPedido} onOpenChange={setMostrarTodoPedido}>
+        <DialogContent className="max-w-4xl bg-black border border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Detalle de Pedido #{pedido?.pedidoId}
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 text-lg">
+              <div className="mt-2 p-3 bg-gray-900 border border-gray-700 rounded-md">
+                <p className="mb-1"><strong>Cliente:</strong> {pedido?.clienteId}</p>
+                <p className="mb-1"><strong>Total de productos:</strong> {productos.length}</p>
+                <p><strong>Fecha:</strong> {pedido?.fecha ? new Date(pedido.fecha).toLocaleString() : ''}</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4 max-h-[60vh] overflow-y-auto">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-900 sticky top-0">
+                <tr>
+                  <th className="py-3 px-4 text-left border-b border-gray-700 text-lg font-semibold">Código</th>
+                  <th className="py-3 px-4 text-left border-b border-gray-700 text-lg font-semibold">Descripción</th>
+                  <th className="py-3 px-4 text-left border-b border-gray-700 text-lg font-semibold">Ubicación</th>
+                  <th className="py-3 px-4 text-center border-b border-gray-700 text-lg font-semibold">Cantidad</th>
+                  <th className="py-3 px-4 text-center border-b border-gray-700 text-lg font-semibold">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productos.map((producto, index) => (
+                  <tr key={producto.id} className={index === currentIndex ? "bg-blue-900/30" : (index % 2 === 0 ? "bg-gray-900/50" : "")}>
+                    <td className="py-3 px-4 border-b border-gray-800 text-yellow-300 font-semibold">{producto.codigo}</td>
+                    <td className="py-3 px-4 border-b border-gray-800">{producto.descripcion}</td>
+                    <td className="py-3 px-4 border-b border-gray-800">
+                      <span className="bg-blue-900 text-yellow-200 px-2 py-1 rounded">{producto.ubicacion}</span>
+                    </td>
+                    <td className="py-3 px-4 border-b border-gray-800 text-center font-semibold">{producto.cantidad}</td>
+                    <td className="py-3 px-4 border-b border-gray-800 text-center">
+                      {producto.recolectado === null ? (
+                        <span className="bg-gray-700 text-white px-2 py-1 rounded">Pendiente</span>
+                      ) : producto.recolectado === producto.cantidad ? (
+                        <span className="bg-green-700 text-white px-2 py-1 rounded">Completo</span>
+                      ) : (
+                        <span className="bg-amber-700 text-white px-2 py-1 rounded">Parcial: {producto.recolectado}/{producto.cantidad}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button 
+              onClick={() => setMostrarTodoPedido(false)}
+              className="bg-blue-800 hover:bg-blue-700 text-white px-8 py-2 text-lg"
+            >
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>
