@@ -634,13 +634,38 @@ export default function ArmadoPageSimple() {
                   ) : "Continuar"}
                 </Button>
                 
-                <Button 
-                  variant="outline"
-                  className="w-full text-white bg-transparent border-slate-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center"
-                  onClick={() => setMostrarModalPausa(true)}
-                >
-                  Pausar
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      className="w-full text-white bg-transparent border-slate-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center"
+                    >
+                      <span>Pausar</span>
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuLabel>Seleccione motivo</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {motivosPausa.map((motivo) => (
+                      <DropdownMenuItem 
+                        key={motivo}
+                        onClick={() => {
+                          if (motivo === "Otro: especificar") {
+                            setMotivoPausa(motivo);
+                            setMostrarModalPausa(true);
+                          } else {
+                            setMotivoPausa(motivo);
+                            handlePausarArmado();
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        {motivo}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           )}
