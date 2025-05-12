@@ -535,10 +535,10 @@ export default function ArmadoPageSimple() {
               Ver Pedido
             </Button>
             <Button 
-              variant="secondary"
+              variant="destructive"
               size="sm"
               onClick={() => authLogoutMutation.mutate()}
-              className="bg-white/10 text-white hover:bg-white/20"
+              className="bg-red-600 text-white hover:bg-red-700 font-bold"
             >
               Cerrar Sesión
             </Button>
@@ -646,22 +646,26 @@ export default function ArmadoPageSimple() {
                 <Button 
                   onClick={handleGuardarYContinuar}
                   disabled={actualizarProductoMutation.isPending}
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-white py-5 h-14"
+                  className="w-full bg-green-700 hover:bg-green-600 text-white py-5 h-14 text-xl font-bold"
                 >
                   {actualizarProductoMutation.isPending ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Procesando...
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      PROCESANDO...
                     </>
-                  ) : "Continuar"}
+                  ) : (
+                    <>
+                      CONTINUAR <CheckCircle2 className="ml-2 h-5 w-5" />
+                    </>
+                  )}
                 </Button>
                 
                 <Button 
                   variant="outline"
-                  className="w-full text-white bg-transparent border-slate-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center"
+                  className="w-full text-yellow-300 bg-slate-800 border-yellow-600 hover:bg-slate-700 py-5 h-14 flex items-center justify-center text-xl font-bold"
                   onClick={() => setMostrarModalPausa(true)}
                 >
-                  Pausar
+                  <Pause className="mr-2 h-5 w-5" /> PAUSAR
                 </Button>
               </div>
             </div>
