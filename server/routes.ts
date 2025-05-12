@@ -48,6 +48,21 @@ function requireAdminPlus(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// Función auxiliar para determinar si un producto está completado
+function esProductoCompletado(p: any): boolean {
+  // Si recolectado es null, no está completado
+  if (p.recolectado === null) return false;
+  
+  // Si recolectado es igual a cantidad, está completado
+  if (p.recolectado === p.cantidad) return true;
+  
+  // Si es una recolección parcial pero tiene motivo, se considera completado
+  if (p.recolectado < p.cantidad && p.motivo && p.motivo.trim() !== '') return true;
+  
+  // En cualquier otro caso, no está completado
+  return false;
+}
+
 export async function registerRoutes(app: Application): Promise<Server> {
   // Endpoint temporal para corregir el estado del pedido P0090
   app.get("/api/corregir-pedido-p0090", async (req, res, next) => {
