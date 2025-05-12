@@ -832,8 +832,16 @@ export default function ArmadoPage() {
   
   // Actualizar pedido actual cuando cambia el pedido del armador
   useEffect(() => {
-    if (pedidoArmador && pedidoArmador.estado === 'en-proceso') {
+    // Verificar estados válidos para armado: en-proceso, pendiente-stock, o cualquier pedido con pausas
+    const estadoValido = pedidoArmador && (
+      pedidoArmador.estado === 'en-proceso' || 
+      pedidoArmador.estado === 'armado-pendiente-stock' ||
+      pedidoArmador.pausaActiva === true
+    );
+    
+    if (estadoValido) {
       console.log("Pedido del armador actualizado:", pedidoArmador);
+      console.log(`Estado del pedido: ${pedidoArmador.estado}, Pausa activa: ${pedidoArmador.pausaActiva}`);
       setCurrentPedido(pedidoArmador);
       
       // Verificar si hay pausas activas y actualizar el estado local
