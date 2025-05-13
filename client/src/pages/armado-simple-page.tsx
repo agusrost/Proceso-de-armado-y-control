@@ -68,7 +68,12 @@ export default function ArmadoSimplePage() {
       if (proceso.debeFinalizar(productosActualizados)) {
         console.log("Todos los productos procesados, finalizando pedido automáticamente");
         
-        finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+        // Verificar que el pedido no sea null
+        if (pedido?.id) {
+          finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+        } else {
+          console.error("Error: No se puede finalizar porque el pedido es null");
+        }
       } else {
         console.log("No se puede finalizar automáticamente. Algunos productos no están procesados");
       }
