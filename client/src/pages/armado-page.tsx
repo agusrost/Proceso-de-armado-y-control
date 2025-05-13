@@ -124,6 +124,9 @@ export default function ArmadoPage() {
   const [pausaActiva, setPausaActiva] = useState(false);
   const [pausaActualId, setPausaActualId] = useState<number | null>(null);
   
+  // Estado para mostrar el diálogo de finalización exitosa
+  const [mostrarDialogoCompletado, setMostrarDialogoCompletado] = useState(false);
+  
   // Producto en modo edición (para Estado del Pedido)
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [editRecolectado, setEditRecolectado] = useState<number>(0);
@@ -1463,7 +1466,14 @@ export default function ArmadoPage() {
                       
                       if (todosProductosProcesados) {
                         console.log("Todos los productos están procesados. Finalizando automáticamente.");
-                        finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id });
+                        finalizarPedidoMutation.mutate({ 
+                          pedidoId: currentPedido.id 
+                        }, {
+                          onSuccess: () => {
+                            // Mostrar diálogo de finalización exitosa
+                            setMostrarDialogoCompletado(true);
+                          }
+                        });
                       } else {
                         console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
                         toast({
@@ -2799,7 +2809,14 @@ export default function ArmadoPage() {
                     return;
                   }
                   
-                  finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id });
+                  finalizarPedidoMutation.mutate({ 
+                    pedidoId: currentPedido.id 
+                  }, {
+                    onSuccess: () => {
+                      // Mostrar diálogo de finalización exitosa
+                      setMostrarDialogoCompletado(true);
+                    }
+                  });
                 }}
                 className="bg-green-600 hover:bg-green-700"
               >
