@@ -26,10 +26,8 @@ export const emergencyUser: User = {
   lastName: "Emergencia",
   password: "encrypted:konecta2023", // La contraseña real es 'konecta2023'
   role: "admin",
-  active: true,
-  createdAt: new Date(),
-  lastLoginAt: new Date(),
-  sector: "Sistema"
+  access: ['pedidos', 'stock', 'control', 'config'],
+  email: null
 };
 
 /**

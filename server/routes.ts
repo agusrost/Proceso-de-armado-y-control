@@ -69,11 +69,12 @@ function esProductoCompletado(p: any): boolean {
 export async function registerRoutes(app: Application): Promise<Server> {
   // Ruta para verificar el estado del sistema
   app.get('/api/system-status', (req, res) => {
+    const { getFailedAuthAttempts } = require('./emergency-system');
     res.json({
       emergencyMode: isEmergencyMode(),
       dbConnected: db.isDatabaseConnected(),
       dbConnectionErrors: db.getConnectionErrorCount(),
-      failedAuthAttempts: 0, // Esto ahora es manejado internamente por emergency-system
+      failedAuthAttempts: getFailedAuthAttempts(),
       timestamp: new Date().toISOString()
     });
   });
