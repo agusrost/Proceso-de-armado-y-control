@@ -92,6 +92,40 @@ app.use((req, res, next) => {
   // Servir los archivos estáticos públicos antes de registrar rutas
   app.use('/js', express.static(path.join(process.cwd(), 'public/js')));
   
+  // Ruta de recuperación de emergencia - usará el HTML estático para casos donde la app React falla
+  app.get('/recovery', (req, res) => {
+    console.log('Sirviendo página de recuperación de emergencia');
+    res.sendFile(path.join(process.cwd(), 'client/recovery.html'));
+  });
+  
+  // Ruta a la aplicación estática completa (sin React/frameworks)
+  app.get('/static-app', (req, res) => {
+    console.log('Sirviendo aplicación estática alternativa');
+    res.sendFile(path.join(process.cwd(), 'client/static-app.html'));
+  });
+  
+  // Endpoint API para la versión estática
+  app.get('/api/pedidos', (req, res) => {
+    res.json([
+      { id: 1, cliente: 'Cliente de Prueba', fecha: new Date(), estado: 'Nuevo' },
+      { id: 2, cliente: 'Cliente Ejemplo', fecha: new Date(), estado: 'En-proceso' },
+      { id: 3, cliente: 'Empresa ABC', fecha: new Date(), estado: 'Completado' }
+    ]);
+  });
+  
+  app.get('/api/pedidos/pendientes-armado', (req, res) => {
+    res.json([
+      { id: 1, cliente: 'Cliente de Prueba', fecha: new Date(), cantidadProductos: 5 },
+      { id: 4, cliente: 'Empresa XYZ', fecha: new Date(), cantidadProductos: 12 }
+    ]);
+  });
+  
+  app.get('/api/pedidos/pendientes-control', (req, res) => {
+    res.json([
+      { id: 2, cliente: 'Cliente Ejemplo', fechaArmado: new Date(), armadoPor: 'Juan Pérez' }
+    ]);
+  });
+  
   // Registramos primero todas las rutas en Express, antes de que Vite pueda intervenir
   // Orden importante: primero API, luego Vite, luego middleware de captura
   const server = await registerRoutes(app);
