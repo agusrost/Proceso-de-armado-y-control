@@ -649,7 +649,6 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   }`}>
                                     {/* CORRECCIÓN: Mostrar siempre la cantidad real recolectada, no 0 */}
                                     {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad}
-                                    {proceso.DEBUG && <span className="ml-1 text-xs opacity-50">({JSON.stringify(producto)})</span>}
                                   </span>
                                   
                                   {/* Mostrar unidades transferidas si hay */}
