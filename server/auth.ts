@@ -103,12 +103,12 @@ export function setupAuth(app: Express) {
         } catch (dbError) {
           console.error(`Error de base de datos en autenticación:`, dbError);
           
-          // Si hay un error de base de datos, permitir el inicio de sesión de emergencia
-          failedDbConnectionAttempts++;
+          // Si hay un error de base de datos, registrar intento fallido para activar modo emergencia
+          registerFailedAuthAttempt();
           
-          if (failedDbConnectionAttempts >= MAX_DB_CONNECTION_ATTEMPTS) {
-            console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA después de ${failedDbConnectionAttempts} intentos fallidos`);
-            emergencyModeActive = true;
+          // Si el modo de emergencia está activo, permitir acceso especial
+          if (isEmergencyMode()) {
+            console.warn(`⚠️ MODO DE EMERGENCIA ACTIVO - Permitiendo acceso de emergencia`);
             
             // Verificar si las credenciales actuales coinciden con las de emergencia
             if (username.toLowerCase() === "emergency" && password === "konecta2023") {
@@ -139,7 +139,7 @@ export function setupAuth(app: Express) {
 
   passport.serializeUser((user: any, done) => {
     // En modo emergencia, agregar un prefijo especial al ID
-    const userId = emergencyModeActive ? `emergency_${user.id}` : user.id;
+    const userId = isEmergencyMode() ? `emergency_${user.id}` : user.id;
     done(null, userId);
   });
   
@@ -180,7 +180,7 @@ export function setupAuth(app: Express) {
           console.warn(`Usuario con ID ${numericId} no encontrado en la base de datos`);
           
           // Si el modo de emergencia está activo, proporcionar usuario de respaldo
-          if (emergencyModeActive) {
+          if (isEmergencyMode()) {
             console.log(`Modo emergencia activo - Proporcionando usuario de emergencia para ID: ${numericId}`);
             if (numericId === 1) {
               return done(null, {
@@ -202,12 +202,12 @@ export function setupAuth(app: Express) {
       } catch (dbError) {
         console.error(`Error al obtener usuario ${numericId} de la base de datos:`, dbError);
         
-        // Si hay error de base de datos, activar modo emergencia
-        failedDbConnectionAttempts++;
+        // Si hay error de base de datos, registrar intento fallido
+        registerFailedAuthAttempt();
         
-        if (failedDbConnectionAttempts >= MAX_DB_CONNECTION_ATTEMPTS) {
-          console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA en deserialize después de ${failedDbConnectionAttempts} intentos fallidos`);
-          emergencyModeActive = true;
+        // Si el modo de emergencia está activo, proporcionar usuario de respaldo
+        if (isEmergencyMode()) {
+          console.warn(`⚠️ MODO DE EMERGENCIA ACTIVO en deserialize`);
           
           // Proporcionar usuario de emergencia
           if (numericId === 1) {
@@ -319,7 +319,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     // Si estamos en modo de emergencia, agregar un indicador al usuario
-    if (emergencyModeActive && req.user) {
+    if (isEmergencyMode() && req.user) {
       return res.json({
         ...req.user,
         emergencyMode: true,
@@ -336,10 +336,10 @@ export function setupAuth(app: Express) {
     checkEmergencyMode();
     
     res.json({
-      emergencyMode: emergencyModeActive,
+      emergencyMode: isEmergencyMode(),
       dbConnected: isDatabaseConnected(),
       dbConnectionErrors: getConnectionErrorCount(),
-      failedAuthAttempts: failedDbConnectionAttempts,
+      failedAuthAttempts: 0, // Este valor ahora se gestiona en emergency-system.ts
       timestamp: new Date().toISOString()
     });
   });

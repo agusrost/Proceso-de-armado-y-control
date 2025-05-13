@@ -1,12 +1,13 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'http';
 import { storage } from './storage';
-import { db, isDatabaseConnected, getConnectionErrorCount } from './db';
+import { db } from './db';
 import { formatTimeHM } from '../client/src/lib/utils';
 import { WebSocketServer } from 'ws';
 import { sql, eq } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import { pedidos, StockSolicitud } from '@shared/schema';
+import { isEmergencyMode, registerFailedAuthAttempt } from './emergency-system';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
