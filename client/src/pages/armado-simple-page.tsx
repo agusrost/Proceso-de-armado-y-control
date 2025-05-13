@@ -60,17 +60,33 @@ export default function ArmadoSimplePage() {
   const verificarFinalizacionAutomatica = async () => {
     console.log("Verificando finalización automática...");
     try {
-      // Obtener los productos más recientes
-      const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
-      const productosActualizados = await res.json();
+      // Obtener los productos más recientes - usamos refetchQueries para asegurarnos de tener datos actualizados
+      await queryClient.refetchQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
+      const productosActualizadosQuery = queryClient.getQueryData([`/api/productos/pedido/${pedido?.id}`]);
       
-      // Verificar si todos los productos están procesados
-      if (proceso.debeFinalizar(productosActualizados)) {
-        console.log("Todos los productos procesados, finalizando pedido automáticamente");
-        
-        finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+      // Si no podemos obtener los datos de la caché, hacemos una petición directa
+      let productosActualizados;
+      if (productosActualizadosQuery) {
+        productosActualizados = productosActualizadosQuery;
+        console.log("Usando datos de la caché para verificar finalización");
       } else {
-        console.log("No se puede finalizar automáticamente. Algunos productos no están procesados");
+        console.log("Caché no disponible, haciendo petición directa");
+        const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
+        productosActualizados = await res.json();
+      }
+      
+      console.log("Productos actualizados para verificación:", productosActualizados);
+      
+      // Verificar si todos los productos están procesados usando nuestra función de utilidad
+      if (proceso.debeFinalizar(productosActualizados)) {
+        console.log("✅ FINALIZAR AUTOMÁTICAMENTE: Todos los productos están procesados");
+        
+        // Pequeño retraso para asegurarnos de que la UI se actualice primero
+        setTimeout(() => {
+          finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+        }, 500);
+      } else {
+        console.log("❌ NO FINALIZAR: Aún hay productos sin procesar");
       }
     } catch (error) {
       console.error("Error al verificar finalización:", error);
@@ -80,6 +96,7 @@ export default function ArmadoSimplePage() {
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
     mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
+      console.log(`Actualizando producto ${params.id} - recolectado: ${params.recolectado}, motivo: ${params.motivo || 'ninguno'}`);
       const res = await apiRequest("PATCH", `/api/productos/${params.id}`, {
         recolectado: params.recolectado,
         motivo: params.motivo
@@ -87,12 +104,46 @@ export default function ArmadoSimplePage() {
       return await res.json();
     },
     onSuccess: async (data) => {
+      console.log("Producto actualizado con éxito:", data);
+      
       // Actualizar queries
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
       
-      // Verificar finalización automática
-      await verificarFinalizacionAutomatica();
+      // Creamos una copia actualizada del producto local para el verificador de finalización
+      if (productos && currentProducto) {
+        // Crear una copia actualizada de todos los productos (usando productos del estado)
+        const productosActualizados = [...productos];
+        
+        // Encontrar el índice del producto actual y actualizarlo con los datos que acabamos de guardar
+        const index = productosActualizados.findIndex(p => p.id === currentProducto.id);
+        if (index !== -1) {
+          productosActualizados[index] = {
+            ...currentProducto,
+            recolectado: data.recolectado, // Usamos los datos devueltos por la API
+            motivo: data.motivo
+          };
+          
+          // Verificar si todos los productos están procesados usando nuestros datos locales actualizados
+          // Esto debería ser más confiable que hacer una nueva petición al servidor
+          console.log("Verificando finalización con datos locales después de mutation");
+          
+          // Mostrar el estado de cada producto para depuración
+          productosActualizados.forEach(p => {
+            console.log(`Producto ${p.codigo}: recolectado=${p.recolectado}/${p.cantidad}, motivo='${p.motivo || ''}'`);
+          });
+          
+          const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
+          
+          if (todosProductosProcesados) {
+            console.log("⚠️ FINALIZACIÓN AUTOMÁTICA: Todos los productos están procesados según verificación local");
+            
+            // Si este es el último producto, o si hemos determinado que todos están procesados,
+            // finalizamos el pedido directamente
+            finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+          }
+        }
+      }
       
       // Avanzar al siguiente producto
       if (productos && currentProductoIndex < productos.length - 1) {
@@ -108,6 +159,7 @@ export default function ArmadoSimplePage() {
       setCantidad(0);
     },
     onError: (error: Error) => {
+      console.error("Error al actualizar producto:", error);
       toast({
         title: "Error al actualizar producto",
         description: error.message,
@@ -207,6 +259,38 @@ export default function ArmadoSimplePage() {
         recolectado: cantidad,
         motivo: undefined
       });
+    }
+    
+    // Crear una copia actualizada del producto actual con los nuevos valores
+    const productoActualizado = {
+      ...currentProducto,
+      recolectado: cantidad,
+      motivo: cantidad < currentProducto.cantidad ? motivo : ""
+    };
+    
+    // Crear una copia actualizada de todos los productos
+    const productosActualizados = [...(productos || [])];
+    
+    // Encontrar el índice del producto actual en el array
+    const index = productosActualizados.findIndex(p => p.id === currentProducto.id);
+    
+    // Reemplazar el producto con la versión actualizada
+    if (index !== -1) {
+      productosActualizados[index] = productoActualizado;
+      
+      // Verificar si todos los productos están procesados localmente
+      // Este código se ejecuta antes de la mutación, por lo que puede anticipar el resultado
+      console.log("Verificando finalización con datos locales actualizados");
+      const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
+      
+      if (todosProductosProcesados) {
+        console.log("DETECCIÓN LOCAL: Todos los productos están procesados, se finalizará automáticamente");
+        
+        // Solo para mostrar información en la consola
+        productosActualizados.forEach(p => {
+          console.log(`Producto ${p.codigo}: recolectado=${p.recolectado}/${p.cantidad}, motivo='${p.motivo || ''}'`);
+        });
+      }
     }
   };
   
