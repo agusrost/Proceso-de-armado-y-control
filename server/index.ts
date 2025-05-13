@@ -92,21 +92,6 @@ app.use((req, res, next) => {
   // Servir los archivos estáticos públicos antes de registrar rutas
   app.use('/js', express.static(path.join(process.cwd(), 'public/js')));
   
-  // Ruta de recuperación de emergencia - usará el HTML estático para casos donde la app React falla
-  app.get('/recovery', (req, res) => {
-    console.log('Sirviendo página de recuperación de emergencia');
-    res.sendFile(path.join(process.cwd(), 'client/recovery.html'));
-  });
-  
-  // Ruta a la aplicación estática completa (sin React/frameworks)
-  app.get('/static-app', (req, res) => {
-    console.log('Sirviendo aplicación estática alternativa');
-    res.sendFile(path.join(process.cwd(), 'client/static-app.html'));
-  });
-  
-  // Mantenemos los endpoints para la versión estática por si son necesarios
-  // pero no los utilizamos por defecto para no interferir con la aplicación principal
-  
   // Registramos primero todas las rutas en Express, antes de que Vite pueda intervenir
   // Orden importante: primero API, luego Vite, luego middleware de captura
   const server = await registerRoutes(app);

@@ -35,6 +35,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         console.log("Iniciando solicitud de inicio de sesión...");
         const res = await apiRequest("POST", "/api/login", credentials);
+        
+        // Verificar el tipo de contenido
+        const contentType = res.headers.get("Content-Type");
+        console.log("Tipo de contenido recibido:", contentType);
+        
+        if (!contentType || !contentType.includes("application/json")) {
+          console.error("Respuesta no es JSON:", contentType);
+          // Intentar obtener el texto de la respuesta para diagnóstico
+          const text = await res.text();
+          console.error("Contenido de respuesta:", text.substring(0, 150) + "...");
+          throw new Error(`Respuesta inesperada del servidor: ${contentType || "desconocido"}`);
+        }
+        
+        // Si llegamos aquí, es que la respuesta es JSON
         return await res.json();
       } catch (error) {
         console.error("Error en login:", error);

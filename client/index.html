@@ -140,38 +140,8 @@
   </head>
   <body>
     <div id="root"></div>
-    
-    <!-- Fallback content that will be shown if the React app fails to load -->
-    <div id="fallback-content" style="display: none; padding: 20px; max-width: 800px; margin: 40px auto; border: 1px solid #f0ad4e; background-color: #fcf8e3; border-radius: 5px;">
-      <h1 style="color: #8a6d3b;">Sistema de Gestión de Pedidos - Konecta</h1>
-      <p>El sistema está experimentando dificultades técnicas. Estamos intentando cargar la interfaz...</p>
-      <p style="margin-bottom: 15px;">Opciones disponibles:</p>
-      <ul style="margin-bottom: 20px;">
-        <li><a href="/recovery" style="color: #0066cc; text-decoration: underline;">Ir a la página de recuperación</a></li>
-        <li><a href="/static-app" style="color: #0066cc; font-weight: bold; text-decoration: underline;">Usar la versión estática del sistema</a> (recomendado)</li>
-      </ul>
-      <div style="margin-top: 20px;">
-        <a href="/static-app" style="display: inline-block; padding: 10px 16px; background-color: #17a2b8; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Acceder a la versión estática</a>
-      </div>
-    </div>
-    
-    <!-- Script que muestra el contenido de fallback si la app no carga en 5 segundos -->
-    <script>
-      // Mostrar el contenido de fallback después de 5 segundos si la app no carga
-      setTimeout(function() {
-        const rootElement = document.getElementById('root');
-        // Si el elemento root no tiene hijos, significa que la app no ha cargado
-        if (rootElement && (!rootElement.children || rootElement.children.length === 0)) {
-          console.log('La aplicación no ha cargado, mostrando contenido de fallback');
-          document.getElementById('fallback-content').style.display = 'block';
-        }
-      }, 5000);
-    </script>
-    
-    <!-- Intento principal de carga de la aplicación -->
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Replit banner script -->
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
   </body>
 </html>

@@ -34,7 +34,7 @@ export function ProtectedRoute({
   }
 
   // Check if the user has the required access permission
-  if (requiredAccess && Array.isArray(user.access) && !user.access.includes(requiredAccess)) {
+  if (requiredAccess && !user.access.includes(requiredAccess)) {
     return (
       <Route path={path}>
         <div className="flex flex-col items-center justify-center min-h-screen p-4">
