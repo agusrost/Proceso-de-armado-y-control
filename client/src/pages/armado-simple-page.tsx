@@ -200,21 +200,27 @@ export default function ArmadoSimplePage() {
       setCurrentProducto(producto);
       
       console.log(`-------------------------------------------------------------------------`);
-      console.log(`🔄 INICIALIZANDO PRODUCTO ${producto.codigo} (versión: ${proceso.VERSION})`);
+      console.log(`Inicializando producto ${producto.codigo}`);
       
       // Resetear el estado de motivo y el selector de motivo
       setShowMotivoInput(false);
       setMotivo(producto.motivo || "");
       
-      // Usar la nueva función de utilidad para obtener el valor inicial
-      const cantidadInicial = proceso.obtenerCantidadInicial(producto);
-      console.log(`✅ Cantidad inicial: ${cantidadInicial}`);
-      setCantidad(cantidadInicial);
-      
-      // Si tiene cantidad menor a la solicitada y no tiene motivo, mostrar el selector de motivo
-      if (cantidadInicial < producto.cantidad && (!producto.motivo || producto.motivo.trim() === "")) {
-        console.log(`⚠️ Producto con faltante sin motivo, mostrando selector de motivo`);
-        setShowMotivoInput(true);
+      // Inicializar cantidad
+      if (producto.recolectado !== null && producto.recolectado !== undefined) {
+        // Si el producto ya tiene un valor recolectado, usar ese valor
+        console.log(`Usando valor recolectado existente: ${producto.recolectado}`);
+        setCantidad(producto.recolectado);
+        
+        // Si tiene cantidad menor a la solicitada y no tiene motivo, mostrar el selector de motivo
+        if (producto.recolectado < producto.cantidad && (!producto.motivo || producto.motivo.trim() === "")) {
+          console.log(`Producto con faltante sin motivo, mostrando selector de motivo`);
+          setShowMotivoInput(true);
+        }
+      } else {
+        // Si el producto no ha sido procesado, iniciar en 0
+        console.log(`Producto sin procesar, inicializando en 0`);
+        setCantidad(0);
       }
       
       console.log(`-------------------------------------------------------------------------`);
