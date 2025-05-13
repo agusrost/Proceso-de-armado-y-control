@@ -199,36 +199,24 @@ export default function ArmadoSimplePage() {
       const producto = productos[currentProductoIndex];
       setCurrentProducto(producto);
       
-      // CORRECCIÓN: Inicializar cantidad con el valor recolectado SOLO si es un valor diferente a null/undefined
-      // Si la recolección es null/undefined (no procesado), inicializar en 0 para que el usuario ingrese la cantidad
-      // Si tiene motivo, significa que fue procesado parcialmente o no recolectado, así que mostrar el valor real
-      
       console.log(`-------------------------------------------------------------------------`);
-      console.log(`⚠️ INICIALIZANDO PRODUCTO ${producto.codigo}:`);
-      console.log(`Estado actual:`);
-      console.log(`- Cantidad recolectada: ${producto.recolectado || 'null'}`);
-      console.log(`- Cantidad solicitada: ${producto.cantidad}`);
-      console.log(`- Motivo: "${producto.motivo || 'ninguno'}"`);
+      console.log(`🔄 INICIALIZANDO PRODUCTO ${producto.codigo} (versión: ${proceso.VERSION})`);
       
       // Resetear el estado de motivo y el selector de motivo
       setShowMotivoInput(false);
       setMotivo(producto.motivo || "");
       
-      if (producto.recolectado !== null && producto.recolectado !== undefined) {
-        // Si el producto ya tiene un valor recolectado, usar ese valor
-        console.log(`✅ Usando valor recolectado existente: ${producto.recolectado} (NO cantidad solicitada)`);
-        setCantidad(producto.recolectado);
-        
-        // Si tiene cantidad menor a la solicitada y no tiene motivo, mostrar el selector de motivo
-        if (producto.recolectado < producto.cantidad && (!producto.motivo || producto.motivo.trim() === "")) {
-          console.log(`⚠️ Producto con faltante sin motivo, mostrando selector de motivo`);
-          setShowMotivoInput(true);
-        }
-      } else {
-        // Si el producto no ha sido procesado, iniciar en 0
-        console.log(`❌ Producto sin procesar, inicializando en 0 (NO en ${producto.cantidad})`);
-        setCantidad(0);
+      // Usar la nueva función de utilidad para obtener el valor inicial
+      const cantidadInicial = proceso.obtenerCantidadInicial(producto);
+      console.log(`✅ Cantidad inicial: ${cantidadInicial}`);
+      setCantidad(cantidadInicial);
+      
+      // Si tiene cantidad menor a la solicitada y no tiene motivo, mostrar el selector de motivo
+      if (cantidadInicial < producto.cantidad && (!producto.motivo || producto.motivo.trim() === "")) {
+        console.log(`⚠️ Producto con faltante sin motivo, mostrando selector de motivo`);
+        setShowMotivoInput(true);
       }
+      
       console.log(`-------------------------------------------------------------------------`);
     }
   }, [productos, currentProductoIndex]);

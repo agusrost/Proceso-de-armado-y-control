@@ -16,17 +16,17 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Variables para reintentos
+// Variables para reintentos con retroceso exponencial
 let retryCount = 0;
 const MAX_RETRIES = 5;
-const RETRY_DELAY = 2000; // 2 segundos
+const BASE_DELAY = 1000; // 1 segundo inicial
 
-// Crear pool de conexiones con opciones de manejo de errores y reconexión
+// Crear un pool más robusto con manejo de errores mejorado
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 10, // reducido para evitar problemas de conexión excesiva
+  max: 5, // reducido para evitar problemas de conexión excesiva
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000, // incrementado para dar más tiempo
+  connectionTimeoutMillis: 5000, // reducido para fallar más rápido y permitir reintentos
 });
 
 // Función para crear un cliente dedicado para operaciones críticas
@@ -45,31 +45,55 @@ pool.on('error', (err) => {
   // No cerramos la aplicación, solo registramos el error
 });
 
-// Configurar Drizzle ORM con el pool
+// Configurar Drizzle ORM con el pool y manejo de errores
 export const db = drizzle(pool, { schema });
 
-// Función de utilidad para probar la conexión con reintentos
-export const testConnection = async () => {
+// Función para calcular el tiempo de retroceso exponencial
+const getExponentialBackoff = (retry: number) => {
+  // Fórmula de retroceso exponencial con jitter (variación aleatoria)
+  const jitter = Math.random() * 0.5 + 0.5; // 0.5-1.0 para evitar sincronización
+  return Math.min(
+    BASE_DELAY * Math.pow(2, retry) * jitter, 
+    30000 // máximo 30 segundos
+  );
+};
+
+// Función de utilidad para probar la conexión con reintentos exponenciales
+export const testConnection = async (): Promise<boolean> => {
   try {
     console.log('Probando conexión a la base de datos...');
+    
+    // Reiniciar la configuración de neon en cada intento
+    neonConfig.webSocketConstructor = ws;
+    neonConfig.pipelineConnect = "password";
+    
     const client = await pool.connect();
+    
+    // Ejecutar una consulta simple para verificar que la conexión está funcionando
+    await client.query('SELECT 1');
+    
     console.log('✅ Conexión a la base de datos establecida correctamente');
     client.release();
+    retryCount = 0; // Reiniciar contador después de una conexión exitosa
     return true;
   } catch (error) {
-    console.error(`❌ Error conectando a la base de datos (intento ${retryCount + 1}/${MAX_RETRIES}):`, error);
+    const currentRetry = retryCount + 1;
+    console.error(`❌ Error conectando a la base de datos (intento ${currentRetry}/${MAX_RETRIES}):`, error);
     
     if (retryCount < MAX_RETRIES) {
       retryCount++;
-      console.log(`Reintentando en ${RETRY_DELAY/1000} segundos...`);
+      const delay = getExponentialBackoff(retryCount);
+      console.log(`Reintentando en ${(delay/1000).toFixed(1)} segundos (retroceso exponencial)...`);
       
+      // Usar Promise para manejar el retraso
       return new Promise((resolve) => {
         setTimeout(async () => {
           resolve(await testConnection());
-        }, RETRY_DELAY);
+        }, delay);
       });
     } else {
-      console.error(`Se alcanzó el máximo de reintentos (${MAX_RETRIES}). La aplicación continuará con funcionalidad limitada.`);
+      console.error(`⚠️ Se alcanzó el máximo de reintentos (${MAX_RETRIES}). La aplicación continuará en modo de contingencia.`);
+      console.log(`ℹ️ ATENCIÓN: Algunas funciones que dependen de la base de datos no estarán disponibles.`);
       return false;
     }
   }
@@ -77,5 +101,9 @@ export const testConnection = async () => {
 
 // Iniciar la conexión asíncrona sin bloquear el arranque
 (async () => {
-  await testConnection();
+  try {
+    await testConnection();
+  } catch (err) {
+    console.error("Error crítico al intentar conectar a la base de datos:", err);
+  }
 })();
