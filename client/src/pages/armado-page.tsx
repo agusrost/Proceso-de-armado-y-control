@@ -1062,6 +1062,7 @@ export default function ArmadoPage() {
     
     // Si recolectados es null, establecerlo como la cantidad requerida
     if (recolectados === null) {
+      console.log("Estableciendo recolectados a cantidad total:", cantidadRequerida);
       setRecolectados(cantidadRequerida);
       return;
     }
