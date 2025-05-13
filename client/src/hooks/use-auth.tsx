@@ -33,15 +33,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
-  } = useQuery<User | null, Error>({
+  } = useQuery<UserWithEmergencyInfo | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+  
+  // Comprueba si estamos en modo de emergencia basado en la respuesta del usuario
+  const isEmergencyMode = !!user?.emergencyMode;
+  const emergencyMessage = user?.emergencyMessage || null;
+
+  // También verificamos el estado del sistema para mostrar alertas
+  const systemStatusQuery = useQuery<{ emergencyMode: boolean, dbConnected: boolean, dbConnectionErrors: number }>({
+    queryKey: ['/api/system-status'],
+    refetchInterval: 30000, // Verificar cada 30 segundos
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       try {
         console.log("Iniciando solicitud de inicio de sesión...");
+        
+        // Verificar si estamos en modo de emergencia antes de iniciar sesión
+        try {
+          const statusResponse = await fetch('/api/system-status');
+          if (statusResponse.ok) {
+            const status = await statusResponse.json();
+            if (status.emergencyMode) {
+              console.log("Detectado modo de emergencia activo durante inicio de sesión", status);
+            }
+          }
+        } catch (err) {
+          console.warn("No se pudo verificar el estado del sistema:", err);
+        }
+        
         const res = await apiRequest("POST", "/api/login", credentials);
         
         // Verificar el tipo de contenido
@@ -57,18 +83,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         // Si llegamos aquí, es que la respuesta es JSON
-        return await res.json();
+        const userData = await res.json();
+        
+        // Verificar si la respuesta contiene información de modo de emergencia
+        if (userData.emergencyMode) {
+          console.log("Usuario autenticado en modo de emergencia");
+        }
+        
+        return userData;
       } catch (error) {
         console.error("Error en login:", error);
         throw error;
       }
     },
-    onSuccess: (user: User) => {
+    onSuccess: (user: UserWithEmergencyInfo) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: `Bienvenido, ${user.firstName || user.username}`,
-      });
+      
+      const welcomeMessage = `Bienvenido, ${user.firstName || user.username}`;
+      
+      // Mostrar una notificación de modo de emergencia si es necesario
+      if (user.emergencyMode) {
+        toast({
+          title: "Inicio de sesión en modo de emergencia",
+          description: welcomeMessage + ". Sistema operando con funcionalidades limitadas.",
+          variant: "destructive",
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: "Inicio de sesión exitoso",
+          description: welcomeMessage,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -81,16 +127,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (userData: ExtendedUser) => {
-      const { confirmPassword, ...data } = userData;
-      const res = await apiRequest("POST", "/api/register", data);
-      return await res.json();
+      try {
+        // Verificar si estamos en modo de emergencia
+        const systemStatus = systemStatusQuery.data;
+        if (systemStatus?.emergencyMode) {
+          console.log("Registro en modo de emergencia");
+        }
+        
+        const { confirmPassword, ...data } = userData;
+        const res = await apiRequest("POST", "/api/register", data);
+        const registeredUser = await res.json();
+        
+        // Verificar si la respuesta contiene información de modo de emergencia
+        if (registeredUser.emergencyMode) {
+          console.log("Usuario registrado en modo de emergencia");
+        }
+        
+        return registeredUser;
+      } catch (error) {
+        console.error("Error en registro:", error);
+        throw error;
+      }
     },
-    onSuccess: (user: User) => {
+    onSuccess: (user: UserWithEmergencyInfo) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Registro exitoso",
-        description: `Bienvenido, ${user.firstName || user.username}`,
-      });
+      
+      const welcomeMessage = `Bienvenido, ${user.firstName || user.username}`;
+      
+      // Mostrar una notificación de modo de emergencia si es necesario
+      if (user.emergencyMode) {
+        toast({
+          title: "Registro en modo de emergencia",
+          description: welcomeMessage + ". Sistema operando con funcionalidades limitadas.",
+          variant: "destructive",
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: "Registro exitoso",
+          description: welcomeMessage,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -103,7 +180,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", "/api/logout");
+      try {
+        // Check if we're in emergency mode
+        const wasInEmergencyMode = isEmergencyMode;
+        
+        await apiRequest("POST", "/api/logout");
+        
+        // En modo de emergencia, forzar invalidación del caché
+        if (wasInEmergencyMode) {
+          queryClient.clear();
+          console.log("Caché limpiado después de cerrar sesión en modo de emergencia");
+        }
+      } catch (error) {
+        console.error("Error al cerrar sesión:", error);
+        
+        // Si estamos en modo de emergencia, eliminar datos de usuario de todas formas
+        if (isEmergencyMode) {
+          queryClient.setQueryData(["/api/user"], null);
+          console.log("Forzando limpieza de datos de usuario en modo de emergencia a pesar del error");
+          // No propagar el error en modo de emergencia para asegurar que el usuario pueda cerrar sesión
+          return;
+        }
+        
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
@@ -113,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      // Si ocurre un error que llegue hasta aquí, mostrar mensaje
       toast({
         title: "Error al cerrar sesión",
         description: error.message,
@@ -127,6 +228,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user ?? null,
         isLoading,
         error,
+        isEmergencyMode,
+        emergencyMessage,
         loginMutation,
         logoutMutation,
         registerMutation,
