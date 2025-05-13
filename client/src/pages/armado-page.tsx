@@ -15,18 +15,9 @@ import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls
 import proceso from "@/utils/proceso";
 
 // Función auxiliar para determinar si un producto está completado
+// Utilizamos la función centralizada de proceso.ts
 const esProductoCompletado = (producto: Producto): boolean => {
-  // Si recolectado es null, no está completado
-  if (producto.recolectado === null) return false;
-  
-  // Si recolectado es igual a cantidad, está completado
-  if (producto.recolectado === producto.cantidad) return true;
-  
-  // Si es una recolección parcial pero tiene motivo, se considera completado
-  if (producto.recolectado < producto.cantidad && producto.motivo) return true;
-  
-  // En cualquier otro caso, no está completado
-  return false;
+  return proceso.esProductoProcesado(producto);
 };
 
 function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: { 
@@ -374,13 +365,9 @@ export default function ArmadoPage() {
           const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
           const productosActualizados = await res.json();
           
-          // Un producto está completamente procesado si:
-          // 1. Ha sido recolectado completamente (recolectado = cantidad), O
-          // 2. Ha sido recolectado parcialmente pero tiene motivo de faltante
-          const todosProductosProcesados = productosActualizados.every((p: any) => 
-            p.recolectado !== null && 
-            (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
-          );
+          // Usar la función centralizada del proceso para verificar
+          // si todos los productos están completamente procesados
+          const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
           
           // Si todos los productos están procesados, finalizar el pedido automáticamente
           if (todosProductosProcesados) {
@@ -426,13 +413,9 @@ export default function ArmadoPage() {
             const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
             const productosActualizados = await res.json();
             
-            // Un producto está completamente procesado si:
-            // 1. Ha sido recolectado completamente (recolectado = cantidad), O
-            // 2. Ha sido recolectado parcialmente pero tiene motivo de faltante
-            const todosProductosProcesados = productosActualizados.every((p: any) => 
-              p.recolectado !== null && 
-              (p.recolectado === p.cantidad || (p.recolectado < p.cantidad && p.motivo))
-            );
+            // Usar la función centralizada del proceso para verificar
+            // si todos los productos están completamente procesados
+            const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
             
             // Si todos los productos están procesados, finalizar el pedido automáticamente
             if (todosProductosProcesados) {
