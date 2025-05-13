@@ -760,6 +760,7 @@ export default function ArmadoPage() {
             // CORRECCIÓN: Inicializar el campo con la cantidad total solicitada como valor predeterminado
             const valorInicial = primerProductoPendiente.cantidad;
             console.log(`🔧 Estableciendo cantidad inicial a ${valorInicial} (cantidad total solicitada)`);
+            // Es muy importante que este valor sea la cantidad total solicitada
             setRecolectados(valorInicial);
             
             // Preservar motivo si existe

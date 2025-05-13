@@ -33,6 +33,7 @@ export function ArmadoSimpleControls({
   
   // Sincronizar el estado local cuando cambian las props
   useEffect(() => {
+    console.log(`ArmadoSimpleControls - cantidadInicial cambiada a: ${cantidadInicial}`);
     setCantidadLocal(cantidadInicial);
   }, [cantidadInicial]);
 
