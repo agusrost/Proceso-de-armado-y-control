@@ -1219,16 +1219,25 @@ export default function ArmadoPage() {
 
   // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - VERSIÓN MEJORADA
   const asegurarCantidadInicial = (producto) => {
-    // Forzar siempre el valor correcto
-    console.log(`INICIALIZACIÓN FORZADA: Estableciendo cantidad inicial para SKU ${producto.codigo} a ${producto.recolectado || 0}`);
+    // CORRECCIÓN: Para productos sin procesar, mostrar la cantidad total solicitada como valor inicial
+    // Para productos ya procesados parcialmente (con recolectados > 0 o con motivo), preservar ese valor
     
-    // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
-    const valorActual = producto.recolectado !== null ? producto.recolectado : 0;
+    let valorInicial;
+    
+    if (producto.recolectado === null) {
+      // Si nunca fue procesado, usar la cantidad solicitada como valor inicial
+      valorInicial = producto.cantidad;
+      console.log(`INICIALIZACIÓN: Producto sin procesar, estableciendo valor inicial a cantidad solicitada: ${valorInicial}`);
+    } else {
+      // Si ya fue procesado parcialmente, preservar ese valor
+      valorInicial = producto.recolectado;
+      console.log(`INICIALIZACIÓN: Producto ya procesado, preservando valor recolectado: ${valorInicial}`);
+    }
     
     // Siempre actualizar el estado para garantizar la consistencia
-    if (recolectados === null || recolectados !== valorActual) {
-      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${valorActual}`);
-      setRecolectados(valorActual);
+    if (recolectados === null || recolectados !== valorInicial) {
+      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${valorInicial}`);
+      setRecolectados(valorInicial);
     }
     
     // Si hay un motivo de faltante, preservarlo siempre
@@ -1237,8 +1246,8 @@ export default function ArmadoPage() {
       setMotivo(producto.motivo);
     }
     
-    // IMPORTANTE: Retornar la cantidad correcta recolectada, NO la cantidad solicitada
-    return valorActual; 
+    // Retornar el valor inicial establecido
+    return valorInicial;
   };
 
   // Renderizar la interfaz simplificada
@@ -1814,9 +1823,6 @@ export default function ArmadoPage() {
     // Verificar si todos los productos tienen un estado de recolección definido
     const todosProductosProcesados = productos.every(p => p.recolectado !== null);
     
-    // Estado para el diálogo de confirmación de finalización
-    const [mostrarFinalizadoDialog, setMostrarFinalizadoDialog] = useState(false);
-    
     return (
       <div className="min-h-screen flex flex-col bg-blue-950 text-white">
         <div className="p-6 text-center">
@@ -1825,7 +1831,7 @@ export default function ArmadoPage() {
         </div>
         
         {/* Diálogo de finalización exitosa */}
-        <Dialog open={mostrarFinalizadoDialog} onOpenChange={setMostrarFinalizadoDialog}>
+        <Dialog open={mostrarModalExito} onOpenChange={setMostrarModalExito}>
           <DialogContent className="bg-white text-center">
             <div className="py-10 px-4">
               <div className="flex justify-center mb-4">
@@ -1836,7 +1842,7 @@ export default function ArmadoPage() {
               </DialogTitle>
               <DialogFooter className="flex justify-center mt-6">
                 <Button 
-                  onClick={() => setMostrarFinalizadoDialog(false)}
+                  onClick={() => setMostrarModalExito(false)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   OK
