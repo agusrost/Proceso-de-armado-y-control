@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls";
 
+import proceso from "@/utils/proceso";
+
 // Función auxiliar para determinar si un producto está completado
 const esProductoCompletado = (producto: Producto): boolean => {
   // Si recolectado es null, no está completado
@@ -1264,7 +1266,9 @@ export default function ArmadoPage() {
     if (!producto) return <div>Cargando productos...</div>;
     
     // FORZAR INICIALIZACIÓN INMEDIATA
-    const cantidadMostrada = asegurarCantidadInicial(producto);
+    // Usar la cantidad del producto directamente como valor inicial
+    console.log("Configurando valor inicial para el producto", producto);
+    const cantidadMostrada = producto.cantidad;
     
     return (
       <div className="min-h-screen flex flex-col items-center bg-blue-950 text-white">
