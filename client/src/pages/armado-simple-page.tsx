@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Minus } from "lucide-react";
+import proceso from "@/utils/proceso";
 
 export default function ArmadoSimplePage() {
   const { user, logoutMutation } = useAuth();
@@ -28,6 +29,54 @@ export default function ArmadoSimplePage() {
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
   const [currentProducto, setCurrentProducto] = useState<any>(null);
   
+  // Finalizar pedido mutation
+  const finalizarPedidoMutation = useMutation({
+    mutationFn: async (params: { pedidoId: number }) => {
+      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/finalizar`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "¡Pedido finalizado!",
+        description: "Todos los productos han sido procesados y el pedido ha sido finalizado.",
+        variant: "default",
+      });
+      
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al finalizar pedido",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Utilidad de proceso importado al inicio del archivo
+  
+  // Verificar finalización automática
+  const verificarFinalizacionAutomatica = async () => {
+    console.log("Verificando finalización automática...");
+    try {
+      // Obtener los productos más recientes
+      const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
+      const productosActualizados = await res.json();
+      
+      // Verificar si todos los productos están procesados
+      if (proceso.debeFinalizar(productosActualizados)) {
+        console.log("Todos los productos procesados, finalizando pedido automáticamente");
+        
+        finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+      } else {
+        console.log("No se puede finalizar automáticamente. Algunos productos no están procesados");
+      }
+    } catch (error) {
+      console.error("Error al verificar finalización:", error);
+    }
+  };
+  
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
     mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
@@ -37,16 +86,20 @@ export default function ArmadoSimplePage() {
       });
       return await res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Actualizar queries
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
+      
+      // Verificar finalización automática
+      await verificarFinalizacionAutomatica();
       
       // Avanzar al siguiente producto
       if (productos && currentProductoIndex < productos.length - 1) {
         setCurrentProductoIndex(currentProductoIndex + 1);
       } else {
         toast({
-          title: "Pedido finalizado",
+          title: "Último producto procesado",
           description: "Has procesado todos los productos del pedido."
         });
       }
