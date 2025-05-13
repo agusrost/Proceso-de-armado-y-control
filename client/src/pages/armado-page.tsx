@@ -408,10 +408,11 @@ export default function ArmadoPage() {
           const siguienteProducto = productos[currentProductoIndex + 1];
           if (siguienteProducto) {
             // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
-          setRecolectados(siguienteProducto.recolectado !== null ? siguienteProducto.recolectado : 0);
+          // Inicializar con la cantidad total para facilitar al usuario
+          setRecolectados(siguienteProducto.cantidad);
           } else {
             // Inicializa con cantidad requerida si no hay producto
-            setRecolectados(null);
+            setRecolectados(productos[0]?.cantidad || 0);
           }
           setMotivo("");
         } else {
@@ -1077,14 +1078,20 @@ export default function ArmadoPage() {
       return;
     }
     
-    // Si hay faltantes, requerir motivo
+    // Si hay faltantes (cantidad menor que la requerida), pedir motivo
     if (recolectados < cantidadRequerida && !motivo) {
+      console.log(`Pidiendo motivo porque recolectados (${recolectados}) < cantidad requerida (${cantidadRequerida})`);
       toast({
         title: "Motivo requerido",
         description: "Debe indicar un motivo para los faltantes",
         variant: "destructive",
       });
       return;
+    }
+    
+    // Si la cantidad es exactamente igual a la requerida, no pedir motivo
+    if (recolectados === cantidadRequerida) {
+      console.log("Cantidad exacta, no se requiere motivo");
     }
     
     // Determinar si necesitamos enviar el motivo
