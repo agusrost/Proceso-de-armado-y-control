@@ -1883,15 +1883,15 @@ export default function ArmadoPage() {
                       <p className={`text-sm font-medium ${
                         producto.recolectado === producto.cantidad 
                           ? 'text-green-400' 
-                          : producto.motivo
+                          : producto.motivo && producto.motivo.trim() !== ''
                             ? 'text-green-400' // Con motivo = completado aunque sea parcial
                             : producto.recolectado === 0 
                               ? 'text-red-400' 
                               : 'text-yellow-400'
                       }`}>
                         Recolectado: {producto.recolectado}/{producto.cantidad}
-                        {producto.motivo && producto.recolectado < producto.cantidad && (
-                          <span className="ml-1 bg-green-800 text-green-200 text-xs px-1 py-0.5 rounded-sm">✓</span>
+                        {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
+                          <span className="ml-1 bg-green-800 text-green-200 text-xs px-1 py-0.5 rounded-sm">Justificado</span>
                         )}
                       </p>
                     ) : (
