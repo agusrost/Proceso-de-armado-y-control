@@ -5,8 +5,8 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User, loginSchema, insertUserSchema, extendedUserSchema } from "@shared/schema";
-import { isEmergencyMode, registerFailedAuthAttempt, emergencyUser, checkEmergencyMode } from "./emergency-system";
+import { User, loginSchema, insertUserSchema, extendedUserSchema } from "@shared/schema"; 
+import { isDatabaseConnected, getConnectionErrorCount } from "./db";
 
 declare global {
   namespace Express {
@@ -32,14 +32,59 @@ export async function comparePasswords(supplied: string, stored: string) {
 
 
 export function setupAuth(app: Express) {
-  // Verificar si el modo de emergencia ya debería estar activo
-  checkEmergencyMode();
+  // Variables para el modo de emergencia
+  let emergencyModeActive = false;
+  let failedDbConnectionAttempts = 0;
+  const MAX_DB_CONNECTION_ATTEMPTS = 3;
+
+  // Función para determinar si el sistema está en modo de emergencia
+  function isEmergencyMode() {
+    // Estamos en modo emergencia si:
+    // 1. La base de datos no está conectada y hemos tenido múltiples errores
+    // 2. O si se ha activado explícitamente el modo emergencia
+    return (!isDatabaseConnected() && getConnectionErrorCount() > 3) || emergencyModeActive;
+  }
+  
+  // Función para registrar un intento fallido de autenticación y activar el modo de emergencia si necesario
+  function registerFailedAuthAttempt() {
+    failedDbConnectionAttempts++;
+    console.warn(`⚠️ Registro de error de conexión #${failedDbConnectionAttempts}`);
+    
+    if (failedDbConnectionAttempts >= MAX_DB_CONNECTION_ATTEMPTS) {
+      console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA después de ${failedDbConnectionAttempts} intentos fallidos`);
+      emergencyModeActive = true;
+    }
+  }
+  
+  // Función para verificar si el modo de emergencia debería estar activo
+  function checkEmergencyMode() {
+    if (!isDatabaseConnected() && getConnectionErrorCount() > 3) {
+      console.warn("⚠️ Activando modo de emergencia por problemas persistentes de conexión");
+      emergencyModeActive = true;
+    }
+  }
+
+  // Usuario de emergencia que se utilizará cuando la base de datos no esté disponible
+  const emergencyUser: User = {
+    id: 9999,
+    username: "emergency",
+    firstName: "Usuario",
+    lastName: "Emergencia",
+    password: "encrypted:konecta2023", // La contraseña real es 'konecta2023'
+    role: "admin",
+    access: ['pedidos', 'stock', 'control', 'config'],
+    email: null
+  };
   
   // Make sure we have the default admin user "Config"
   setupDefaultUser().catch(err => {
     console.error("No se pudo configurar el usuario predeterminado:", err);
-    registerFailedAuthAttempt();
-    checkEmergencyMode();
+    failedDbConnectionAttempts++;
+    
+    if (failedDbConnectionAttempts >= MAX_DB_CONNECTION_ATTEMPTS) {
+      console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA después de ${failedDbConnectionAttempts} intentos fallidos`);
+      emergencyModeActive = true;
+    }
   });
 
   // Configuración de sesión con manejo de errores para el store
