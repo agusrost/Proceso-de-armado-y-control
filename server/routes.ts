@@ -64,36 +64,16 @@ function esProductoCompletado(p: any): boolean {
   return false;
 }
 
-// Variables para seguimiento del estado del sistema
-let failedAuthAttempts = 0;
-let emergencyModeActivated = false;
-
-// Función para registrar intentos fallidos de autenticación
-export function registerFailedAuthAttempt() {
-  failedAuthAttempts++;
-  
-  // Si hay muchos errores de conexión a la DB y fallas de autenticación, activar modo emergencia
-  if (getConnectionErrorCount() > 3 && failedAuthAttempts > 2) {
-    emergencyModeActivated = true;
-  }
-}
-
-// Función para determinar si el sistema está en modo de emergencia
-export function isEmergencyMode() {
-  // Estamos en modo emergencia si:
-  // 1. La base de datos no está conectada y hemos tenido múltiples errores
-  // 2. O si se ha activado explícitamente el modo emergencia
-  return (!isDatabaseConnected() && getConnectionErrorCount() > 3) || emergencyModeActivated;
-}
+// Las funciones de gestión del modo de emergencia han sido movidas a emergency-system.ts
 
 export async function registerRoutes(app: Application): Promise<Server> {
   // Ruta para verificar el estado del sistema
   app.get('/api/system-status', (req, res) => {
     res.json({
       emergencyMode: isEmergencyMode(),
-      dbConnected: isDatabaseConnected(),
-      dbConnectionErrors: getConnectionErrorCount(),
-      failedAuthAttempts: failedAuthAttempts,
+      dbConnected: db.isDatabaseConnected(),
+      dbConnectionErrors: db.getConnectionErrorCount(),
+      failedAuthAttempts: 0, // Esto ahora es manejado internamente por emergency-system
       timestamp: new Date().toISOString()
     });
   });
