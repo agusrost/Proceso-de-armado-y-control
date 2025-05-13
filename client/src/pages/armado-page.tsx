@@ -2093,7 +2093,7 @@ export default function ArmadoPage() {
                     finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id }, {
                       onSuccess: () => {
                         // Mostrar el diálogo de finalización exitosa
-                        setMostrarFinalizadoDialog(true);
+                        setMostrarModalExito(true);
                       }
                     });
                   }}
