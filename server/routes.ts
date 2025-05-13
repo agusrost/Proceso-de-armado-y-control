@@ -1,7 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import { createServer, type Server } from 'http';
 import { storage } from './storage';
-import { db } from './db';
+import { db, isDatabaseConnected, getConnectionErrorCount } from './db';
 import { formatTimeHM } from '../client/src/lib/utils';
 import { WebSocketServer } from 'ws';
 import { sql, eq } from 'drizzle-orm';
@@ -63,7 +63,39 @@ function esProductoCompletado(p: any): boolean {
   return false;
 }
 
+// Variables para seguimiento del estado del sistema
+let failedAuthAttempts = 0;
+let emergencyModeActivated = false;
+
+// Función para registrar intentos fallidos de autenticación
+export function registerFailedAuthAttempt() {
+  failedAuthAttempts++;
+  
+  // Si hay muchos errores de conexión a la DB y fallas de autenticación, activar modo emergencia
+  if (getConnectionErrorCount() > 3 && failedAuthAttempts > 2) {
+    emergencyModeActivated = true;
+  }
+}
+
+// Función para determinar si el sistema está en modo de emergencia
+export function isEmergencyMode() {
+  // Estamos en modo emergencia si:
+  // 1. La base de datos no está conectada y hemos tenido múltiples errores
+  // 2. O si se ha activado explícitamente el modo emergencia
+  return (!isDatabaseConnected() && getConnectionErrorCount() > 3) || emergencyModeActivated;
+}
+
 export async function registerRoutes(app: Application): Promise<Server> {
+  // Ruta para verificar el estado del sistema
+  app.get('/api/system-status', (req, res) => {
+    res.json({
+      emergencyMode: isEmergencyMode(),
+      dbConnected: isDatabaseConnected(),
+      dbConnectionErrors: getConnectionErrorCount(),
+      failedAuthAttempts: failedAuthAttempts,
+      timestamp: new Date().toISOString()
+    });
+  });
   // Endpoint temporal para corregir el estado del pedido P0090
   app.get("/api/corregir-pedido-p0090", async (req, res, next) => {
     try {

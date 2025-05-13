@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User, loginSchema, insertUserSchema, extendedUserSchema } from "@shared/schema";
+import { isEmergencyMode, registerFailedAuthAttempt } from "./routes";
 
 declare global {
   namespace Express {
