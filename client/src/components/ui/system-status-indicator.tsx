@@ -40,7 +40,7 @@ export function SystemStatusIndicator() {
     );
   }
   
-  if (status?.emergencyMode) {
+  if (status && status.emergencyMode) {
     return (
       <Alert className="mb-4 bg-amber-50 border-amber-500">
         <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -69,7 +69,7 @@ export function SystemStatusIndicator() {
   }
   
   // Si hay problemas con la base de datos pero no estamos en modo emergencia
-  if (!status?.dbConnected) {
+  if (status && !status.dbConnected) {
     return (
       <Alert className="mb-4 bg-amber-50 border-amber-500">
         <AlertTriangle className="h-4 w-4 text-amber-600" />
