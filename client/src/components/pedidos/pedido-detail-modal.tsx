@@ -648,7 +648,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                     producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
                                   }`}>
                                     {/* CORRECCIÓN: Mostrar siempre la cantidad real recolectada, no 0 */}
-                                    {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad}
+                                    {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} {producto.motivo && "(Faltante)"}
                                   </span>
                                   
                                   {/* Mostrar unidades transferidas si hay */}
