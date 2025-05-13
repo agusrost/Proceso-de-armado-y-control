@@ -20,7 +20,9 @@ export function ArmadoSimpleControls({
   onMotivoChange
 }: ArmadoSimpleControlsProps) {
   // Estado local para la cantidad mostrada
-  const [cantidadLocal, setCantidadLocal] = useState(cantidadInicial);
+  const cantidadInicialCorrecta = cantidadInicial === 0 ? cantidadSolicitada : cantidadInicial;
+  console.log(`FORZANDO cantidadInicial de ${cantidadInicial} a ${cantidadInicialCorrecta}`);
+  const [cantidadLocal, setCantidadLocal] = useState(cantidadInicialCorrecta);
   const [motivoPersonalizado, setMotivoPersonalizado] = useState("");
   
   // Lista de motivos predefinidos
@@ -33,9 +35,13 @@ export function ArmadoSimpleControls({
   
   // Sincronizar el estado local cuando cambian las props
   useEffect(() => {
-    console.log(`ArmadoSimpleControls - cantidadInicial cambiada a: ${cantidadInicial}`);
-    setCantidadLocal(cantidadInicial);
-  }, [cantidadInicial]);
+    console.log(`ArmadoSimpleControls - cantidadInicial recibida: ${cantidadInicial}, solicitada: ${cantidadSolicitada}`);
+    // Si cantidadInicial es 0, usar cantidadSolicitada como valor inicial
+    const valorInicial = cantidadInicial === 0 ? cantidadSolicitada : cantidadInicial;
+    console.log(`Estableciendo cantidadLocal a: ${valorInicial}`);
+    setCantidadLocal(valorInicial);
+    onCantidadChange(valorInicial);
+  }, [cantidadInicial, cantidadSolicitada]);
 
   // Función para decrementar la cantidad
   const decrementar = () => {

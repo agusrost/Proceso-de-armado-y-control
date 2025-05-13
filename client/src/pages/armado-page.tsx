@@ -1423,7 +1423,8 @@ export default function ArmadoPage() {
               }
               
               // Validación para productos no recolectados o con faltantes parciales
-              if ((cantidadMostrada === 0 || cantidadMostrada < producto.cantidad) && !motivo) {
+              // Solo pedir motivo cuando hay diferencia entre lo solicitado y lo recolectado
+              if (cantidadMostrada < producto.cantidad && !motivo) {
                 toast({
                   title: "Motivo requerido",
                   description: cantidadMostrada === 0 
@@ -1432,6 +1433,11 @@ export default function ArmadoPage() {
                   variant: "destructive",
                 });
                 return;
+              }
+              
+              // Si la cantidad recolectada es igual a la solicitada, no necesita motivo
+              if (cantidadMostrada === producto.cantidad) {
+                console.log("Cantidad completa, no se requiere motivo");
               }
               
               // Verificar si este es el último producto
