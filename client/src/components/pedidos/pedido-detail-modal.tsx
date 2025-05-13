@@ -647,7 +647,8 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                     producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
                                   }`}>
-                                    {producto.recolectado}/{producto.cantidad}
+                                    {/* CORRECCIÓN: Mostrar siempre la cantidad real recolectada, no 0 */}
+                                    {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad}
                                   </span>
                                   
                                   {/* Mostrar unidades transferidas si hay */}
@@ -687,8 +688,14 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                           </span>
                                         </div>
                                       ) : (
-                                        <div className="flex items-center gap-1">
-                                          <span className="font-medium">Faltante:</span> {producto.motivo}
+                                        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded p-1">
+                                          <AlertCircle className="h-3 w-3 text-amber-600" />
+                                          <span className="font-medium">
+                                            Faltante: {producto.motivo} 
+                                            {producto.recolectado > 0 && 
+                                              ` (${producto.recolectado} de ${producto.cantidad} unidades recolectadas)`
+                                            }
+                                          </span>
                                         </div>
                                       )}
                                     </div>
