@@ -15,6 +15,7 @@ export function ProtectedRoute({
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
+  // Mostrar pantalla de carga si estamos cargando y no hay usuario
   if (isLoading) {
     return (
       <Route path={path}>
@@ -25,6 +26,7 @@ export function ProtectedRoute({
     );
   }
 
+  // Redirigir a la página de autenticación si no hay usuario
   if (!user) {
     return (
       <Route path={path}>
@@ -33,8 +35,8 @@ export function ProtectedRoute({
     );
   }
 
-  // Check if the user has the required access permission
-  if (requiredAccess && !user.access.includes(requiredAccess)) {
+  // Verificar permisos de acceso
+  if (requiredAccess && user.access && !user.access.includes(requiredAccess)) {
     return (
       <Route path={path}>
         <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -51,8 +53,8 @@ export function ProtectedRoute({
     );
   }
 
-  // For armador users, redirect to the armador page if they're not already there
-  // Exception: allow armador to access '/armado' and '/armado-simple' pages
+  // Para usuarios armadores, redirigir a la página de armador si no están ya allí
+  // Excepción: permitir a armadores acceder a '/armado' y '/armado-simple'
   if (
     user.role === 'armador' && 
     !path.includes('/armador') && 
