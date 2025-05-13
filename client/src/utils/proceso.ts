@@ -20,6 +20,10 @@ export const proceso = {
     // Si es una recolección parcial pero tiene motivo, se considera completado
     if (producto.recolectado < producto.cantidad && producto.motivo && producto.motivo.trim() !== '') return true;
     
+    // NUEVA REGLA: Si recolectado es 0 pero el usuario lo ha registrado, se considera procesado
+    // ya que el usuario tomó la decisión consciente de registrar 0 unidades
+    if (producto.recolectado === 0) return true;
+    
     // En cualquier otro caso, no está completado
     return false;
   },
