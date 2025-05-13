@@ -203,7 +203,12 @@ export default function ArmadoSimplePage() {
       // Si la recolección es null/undefined (no procesado), inicializar en 0 para que el usuario ingrese la cantidad
       // Si tiene motivo, significa que fue procesado parcialmente o no recolectado, así que mostrar el valor real
       
-      console.log(`Inicializando producto ${producto.codigo} con recolectado=${producto.recolectado}, motivo="${producto.motivo || 'ninguno'}"`);
+      console.log(`-------------------------------------------------------------------------`);
+      console.log(`⚠️ INICIALIZANDO PRODUCTO ${producto.codigo}:`);
+      console.log(`Estado actual:`);
+      console.log(`- Cantidad recolectada: ${producto.recolectado || 'null'}`);
+      console.log(`- Cantidad solicitada: ${producto.cantidad}`);
+      console.log(`- Motivo: "${producto.motivo || 'ninguno'}"`);
       
       // Resetear el estado de motivo y el selector de motivo
       setShowMotivoInput(false);
@@ -211,19 +216,20 @@ export default function ArmadoSimplePage() {
       
       if (producto.recolectado !== null && producto.recolectado !== undefined) {
         // Si el producto ya tiene un valor recolectado, usar ese valor
-        console.log(`Usando valor recolectado existente: ${producto.recolectado}`);
+        console.log(`✅ Usando valor recolectado existente: ${producto.recolectado} (NO cantidad solicitada)`);
         setCantidad(producto.recolectado);
         
         // Si tiene cantidad menor a la solicitada y no tiene motivo, mostrar el selector de motivo
         if (producto.recolectado < producto.cantidad && (!producto.motivo || producto.motivo.trim() === "")) {
-          console.log("Producto con faltante sin motivo, mostrando selector de motivo");
+          console.log(`⚠️ Producto con faltante sin motivo, mostrando selector de motivo`);
           setShowMotivoInput(true);
         }
       } else {
         // Si el producto no ha sido procesado, iniciar en 0
-        console.log(`Producto sin procesar, inicializando en 0 (no en ${producto.cantidad})`);
+        console.log(`❌ Producto sin procesar, inicializando en 0 (NO en ${producto.cantidad})`);
         setCantidad(0);
       }
+      console.log(`-------------------------------------------------------------------------`);
     }
   }, [productos, currentProductoIndex]);
   
