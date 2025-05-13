@@ -7,7 +7,6 @@ import { WebSocketServer } from 'ws';
 import { sql, eq } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import { pedidos, StockSolicitud } from '@shared/schema';
-import { isEmergencyMode, registerFailedAuthAttempt } from './emergency-system';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
@@ -64,20 +63,7 @@ function esProductoCompletado(p: any): boolean {
   return false;
 }
 
-// Las funciones de gestión del modo de emergencia han sido movidas a emergency-system.ts
-
 export async function registerRoutes(app: Application): Promise<Server> {
-  // Ruta para verificar el estado del sistema
-  app.get('/api/system-status', (req, res) => {
-    const { getFailedAuthAttempts } = require('./emergency-system');
-    res.json({
-      emergencyMode: isEmergencyMode(),
-      dbConnected: db.isDatabaseConnected(),
-      dbConnectionErrors: db.getConnectionErrorCount(),
-      failedAuthAttempts: getFailedAuthAttempts(),
-      timestamp: new Date().toISOString()
-    });
-  });
   // Endpoint temporal para corregir el estado del pedido P0090
   app.get("/api/corregir-pedido-p0090", async (req, res, next) => {
     try {

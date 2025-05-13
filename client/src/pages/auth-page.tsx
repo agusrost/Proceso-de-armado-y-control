@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 import konectaLogo from "@/assets/konecta-logo.jpg";
-import { SystemStatusIndicator } from "@/components/ui/system-status-indicator";
 
 export default function AuthPage() {
   const { user, isLoading } = useAuth();
@@ -25,10 +24,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-100">
-      <div className="w-full max-w-4xl mx-auto mb-4">
-        <SystemStatusIndicator />
-      </div>
+    <div className="flex items-center justify-center min-h-screen bg-neutral-100">
       <div className="w-full max-w-4xl mx-auto flex flex-col md:flex-row shadow-md">
         {/* Hero section */}
         <div className="bg-primary p-8 text-white flex flex-col justify-center md:w-1/2 rounded-l-lg">
