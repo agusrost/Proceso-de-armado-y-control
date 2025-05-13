@@ -134,9 +134,29 @@
       })();
     </script>
     
-    <!-- Cargar scripts adicionales de bloqueo -->
-    <script src="/js/runtime-error-fix.js"></script>
-    <script src="/js/error-interceptor.js"></script>
+    <!-- Cargar scripts adicionales de bloqueo - uso de version para evitar caché -->
+    <script src="/js/runtime-error-fix.js?v=1"></script>
+    <script src="/js/error-interceptor.js?v=1"></script>
+    
+    <!-- Script para prevenir el modo de recuperación -->
+    <script>
+      window.addEventListener('load', function() {
+        // Detectar si estamos en la pantalla de fallback/recuperación
+        setTimeout(function() {
+          if (document.body.textContent.includes('Hmm... We couldn\'t reach this app') ||
+              document.body.innerHTML.includes('app has a port open') ||
+              document.body.innerHTML.includes('Learn more about hosting on Replit')) {
+            
+            console.error('¡Detectado modo de recuperación! Intentando reiniciar...');
+            
+            // Intentar recargar la página para evitar el fallback
+            window.location.reload(true);
+          } else {
+            console.log('Aplicación cargada correctamente sin fallback');
+          }
+        }, 3000); // Verificar después de 3 segundos
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
