@@ -1818,9 +1818,12 @@ export default function ArmadoPage() {
     );
   }
   
-  // Si hay pedido activo pero estamos mostrando el resumen de productos
+  // El siguiente bloque se encarga de mostrar el resumen completo de productos
+  // cuando no estamos en modo de interfaz simplificada
   if (!usingSimpleInterface && currentPedido && productos.length > 0) {
     // Verificar si todos los productos tienen un estado de recolección definido
+    // Esta variable no debe ser declarada como estado mediante hook para evitar errores
+    // con las reglas de hooks de React
     const todosProductosProcesados = productos.every(p => p.recolectado !== null);
     
     return (
