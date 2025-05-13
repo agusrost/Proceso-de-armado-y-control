@@ -164,23 +164,12 @@
         if (rootElement && (!rootElement.children || rootElement.children.length === 0)) {
           console.log('La aplicación no ha cargado, mostrando contenido de fallback');
           document.getElementById('fallback-content').style.display = 'block';
-          
-          // Intentar cargar la versión de emergencia
-          const script = document.createElement('script');
-          script.type = 'module';
-          script.src = '/src/main-emergency.tsx';
-          document.body.appendChild(script);
-          
-          // Redirigir a la página de recuperación después de 15 segundos
-          setTimeout(function() {
-            window.location.href = '/static-app';
-          }, 15000);
         }
-      }, 3000);
+      }, 5000);
     </script>
     
-    <!-- Intentar cargar la versión de emergencia primero, en lugar de la aplicación principal -->
-    <script type="module" src="/src/main-emergency.tsx"></script>
+    <!-- Intento principal de carga de la aplicación -->
+    <script type="module" src="/src/main.tsx"></script>
     
     <!-- Replit banner script -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>

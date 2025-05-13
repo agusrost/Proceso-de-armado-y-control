@@ -104,27 +104,8 @@ app.use((req, res, next) => {
     res.sendFile(path.join(process.cwd(), 'client/static-app.html'));
   });
   
-  // Endpoint API para la versión estática
-  app.get('/api/pedidos', (req, res) => {
-    res.json([
-      { id: 1, cliente: 'Cliente de Prueba', fecha: new Date(), estado: 'Nuevo' },
-      { id: 2, cliente: 'Cliente Ejemplo', fecha: new Date(), estado: 'En-proceso' },
-      { id: 3, cliente: 'Empresa ABC', fecha: new Date(), estado: 'Completado' }
-    ]);
-  });
-  
-  app.get('/api/pedidos/pendientes-armado', (req, res) => {
-    res.json([
-      { id: 1, cliente: 'Cliente de Prueba', fecha: new Date(), cantidadProductos: 5 },
-      { id: 4, cliente: 'Empresa XYZ', fecha: new Date(), cantidadProductos: 12 }
-    ]);
-  });
-  
-  app.get('/api/pedidos/pendientes-control', (req, res) => {
-    res.json([
-      { id: 2, cliente: 'Cliente Ejemplo', fechaArmado: new Date(), armadoPor: 'Juan Pérez' }
-    ]);
-  });
+  // Mantenemos los endpoints para la versión estática por si son necesarios
+  // pero no los utilizamos por defecto para no interferir con la aplicación principal
   
   // Registramos primero todas las rutas en Express, antes de que Vite pueda intervenir
   // Orden importante: primero API, luego Vite, luego middleware de captura
