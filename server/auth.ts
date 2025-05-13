@@ -32,27 +32,26 @@ export async function comparePasswords(supplied: string, stored: string) {
 // Importar verificación de estado de la base de datos
 import { isDatabaseConnected, getConnectionErrorCount } from './db';
 
-// Variable para el modo de emergencia
-let emergencyModeActive = false;
+// Variables para el modo de emergencia
 let failedDbConnectionAttempts = 0;
 const MAX_DB_CONNECTION_ATTEMPTS = 3;
 
 // Función para verificar el estado del modo de emergencia
+// Usa isEmergencyMode de routes.ts como la fuente única de verdad
 export function checkEmergencyMode() {
-  // Si el modo ya está activo, mantenerlo
-  if (emergencyModeActive) return true;
-  
   // Verificar el estado de la conexión a la base de datos
   const dbConnected = isDatabaseConnected();
   const errorCount = getConnectionErrorCount();
   
+  // Si hay suficientes errores de conexión, registrarlos para el modo de emergencia
   if (!dbConnected && errorCount >= MAX_DB_CONNECTION_ATTEMPTS) {
-    console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA: Base de datos desconectada con ${errorCount} errores`);
-    emergencyModeActive = true;
-    return true;
+    console.warn(`⚠️ DETECCIÓN DE PROBLEMAS DE CONEXIÓN: Base de datos desconectada con ${errorCount} errores`);
+    // Registrar el fallo para que routes.ts pueda activar el modo de emergencia si es necesario
+    registerFailedAuthAttempt();
   }
   
-  return false;
+  // Usar isEmergencyMode como la fuente única de verdad
+  return isEmergencyMode();
 }
 
 // Función para monitorear el estado de la base de datos periódicamente
@@ -106,7 +105,7 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         // Si el modo de emergencia está activo, permitir acceso con credenciales de emergencia
-        if (emergencyModeActive) {
+        if (isEmergencyMode()) {
           // Solo permitir acceso con el usuario de emergencia (caso insensible)
           if (username.toLowerCase() === "emergency" && password === "konecta2023") {
             console.log("⚠️ MODO EMERGENCIA: Iniciando sesión con credenciales de emergencia");

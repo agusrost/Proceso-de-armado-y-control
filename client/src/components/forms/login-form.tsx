@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2 } from "lucide-react";
-import { SystemStatusIndicator } from "@/components/ui/system-status-indicator";
 
 export default function LoginForm() {
   const { loginMutation } = useAuth();
