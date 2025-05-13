@@ -645,11 +645,19 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                               producto.recolectado !== null ? (
                                 <div>
                                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
+                                    producto.recolectado >= producto.cantidad 
+                                      ? 'bg-green-500 text-white' 
+                                      : producto.motivo && producto.motivo.trim() !== ''
+                                        ? 'bg-blue-500 text-white' // Azul para productos con motivo de faltante
+                                        : 'bg-orange-500 text-white'
                                   }`}>
-                                    {/* CORRECCIÓN: Mostrar siempre la cantidad real recolectada, no 0 */}
+                                    {/* Mostrar siempre la cantidad real recolectada */}
                                     {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} 
-                                    {producto.recolectado !== null && producto.recolectado < producto.cantidad && "(Faltante)"}
+                                    {producto.motivo && producto.motivo.trim() !== '' 
+                                      ? " (✓ Justificado)" 
+                                      : producto.recolectado !== null && producto.recolectado < producto.cantidad 
+                                        ? " (Faltante)" 
+                                        : ""}
                                   </span>
                                   
                                   {/* Mostrar unidades transferidas si hay */}
