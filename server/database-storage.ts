@@ -21,10 +21,30 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
-    });
+    try {
+      // Crear el store de sesión con manejo de errores
+      this.sessionStore = new PostgresSessionStore({ 
+        pool, 
+        createTableIfMissing: true,
+        // Configuraciones para manejar errores y reconexiones
+        errorLogging: true,
+        pruneSessionInterval: 60 * 5, // Comprobar cada 5 minutos
+      });
+
+      // Manejar posibles errores en el almacén de sesión
+      (this.sessionStore as any).on('error', (error: any) => {
+        console.error('Error en sessionStore PostgreSQL:', error);
+        // No detener la aplicación por errores de sesión
+      });
+    } catch (error) {
+      console.error('Error al crear PostgreSQL sessionStore:', error);
+      // Fallback a un almacén en memoria si no se puede conectar a la base de datos
+      const MemoryStore = require('memorystore')(session);
+      this.sessionStore = new MemoryStore({
+        checkPeriod: 86400000 // prune expired entries every 24h
+      });
+      console.warn('Usando MemoryStore como respaldo para sessionStore');
+    }
   }
 
   // User methods
