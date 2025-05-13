@@ -648,7 +648,8 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                     producto.recolectado >= producto.cantidad ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'
                                   }`}>
                                     {/* CORRECCIÓN: Mostrar siempre la cantidad real recolectada, no 0 */}
-                                    {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} {producto.motivo && "(Faltante)"}
+                                    {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} 
+                                    {producto.recolectado !== null && producto.recolectado < producto.cantidad && "(Faltante)"}
                                   </span>
                                   
                                   {/* Mostrar unidades transferidas si hay */}
@@ -671,16 +672,17 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                     ) : null;
                                   })()}
                                   
-                                  {producto.motivo && (
-                                    <div className={`mt-1 text-xs ${producto.motivo.includes('[Stock: Transferencia completada') ? 'text-green-600' : 'text-red-600'}`}>
-                                      {producto.motivo.includes('[Stock: Transferencia completada') ? (
+                                  {/* Mostrar motivo de faltante o estado de recolección parcial */}
+                                  {(producto.motivo || (producto.recolectado !== null && producto.recolectado < producto.cantidad)) && (
+                                    <div className={`mt-1 text-xs ${producto.motivo?.includes('[Stock: Transferencia completada') ? 'text-green-600' : 'text-red-600'}`}>
+                                      {producto.motivo?.includes('[Stock: Transferencia completada') ? (
                                         <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded p-1">
                                           <CheckCircle2 className="h-3 w-3 text-green-600" />
                                           <span className="font-medium">
                                             Completado con transferencia de stock
                                           </span>
                                         </div>
-                                      ) : producto.motivo.includes('[Stock: No disponible') ? (
+                                      ) : producto.motivo?.includes('[Stock: No disponible') ? (
                                         <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded p-1">
                                           <AlertCircle className="h-3 w-3 text-red-600" />
                                           <span className="font-medium">
@@ -691,8 +693,11 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                         <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded p-1">
                                           <AlertCircle className="h-3 w-3 text-amber-600" />
                                           <span className="font-medium">
-                                            Faltante: {producto.motivo} 
-                                            {producto.recolectado > 0 && 
+                                            {producto.motivo 
+                                              ? `Faltante: ${producto.motivo}` 
+                                              : "Faltante de stock"
+                                            }
+                                            {producto.recolectado !== null && 
                                               ` (${producto.recolectado} de ${producto.cantidad} unidades recolectadas)`
                                             }
                                           </span>
