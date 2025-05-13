@@ -756,10 +756,9 @@ export default function ArmadoPage() {
             
             setCurrentProductoIndex(primerProductoPendienteIndex);
             
-            // CORRECCIÓN: Nunca establecer automáticamente a la cantidad total
-            // Siempre usar 0 o el valor real recolectado
-            const valorInicial = primerProductoPendiente.recolectado !== null ? primerProductoPendiente.recolectado : 0;
-            console.log(`🔧 Estableciendo cantidad inicial a ${valorInicial} (NO a cantidad total)`);
+            // CORRECCIÓN: Inicializar el campo con la cantidad total solicitada como valor predeterminado
+            const valorInicial = primerProductoPendiente.cantidad;
+            console.log(`🔧 Estableciendo cantidad inicial a ${valorInicial} (cantidad total solicitada)`);
             setRecolectados(valorInicial);
             
             // Preservar motivo si existe
@@ -2573,10 +2572,11 @@ export default function ArmadoPage() {
                 </div>
               )}
               
-              {recolectados > 0 && recolectados < productos[currentProductoIndex].cantidad && (
+              {/* Solo mostrar motivo cuando es menor a la cantidad solicitada */}
+              {recolectados < productos[currentProductoIndex].cantidad && (
                 <div>
                   <label htmlFor="motivo-parcial" className="block mb-1 font-medium">
-                    Motivo del Faltante Parcial
+                    Motivo del Faltante
                   </label>
                   <Input
                     id="motivo-parcial"
