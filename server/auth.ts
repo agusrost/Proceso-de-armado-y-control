@@ -6,7 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User, loginSchema, insertUserSchema, extendedUserSchema } from "@shared/schema";
-import { isEmergencyMode, registerFailedAuthAttempt } from "./routes";
+import { isEmergencyMode, registerFailedAuthAttempt, emergencyUser, checkEmergencyMode } from "./emergency-system";
 
 declare global {
   namespace Express {
@@ -29,49 +29,7 @@ export async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-// Importar verificación de estado de la base de datos
-import { isDatabaseConnected, getConnectionErrorCount } from './db';
 
-// Variables para el modo de emergencia
-let failedDbConnectionAttempts = 0;
-const MAX_DB_CONNECTION_ATTEMPTS = 3;
-
-// Función para verificar el estado del modo de emergencia
-// Usa isEmergencyMode de routes.ts como la fuente única de verdad
-export function checkEmergencyMode() {
-  // Verificar el estado de la conexión a la base de datos
-  const dbConnected = isDatabaseConnected();
-  const errorCount = getConnectionErrorCount();
-  
-  // Si hay suficientes errores de conexión, registrarlos para el modo de emergencia
-  if (!dbConnected && errorCount >= MAX_DB_CONNECTION_ATTEMPTS) {
-    console.warn(`⚠️ DETECCIÓN DE PROBLEMAS DE CONEXIÓN: Base de datos desconectada con ${errorCount} errores`);
-    // Registrar el fallo para que routes.ts pueda activar el modo de emergencia si es necesario
-    registerFailedAuthAttempt();
-  }
-  
-  // Usar isEmergencyMode como la fuente única de verdad
-  return isEmergencyMode();
-}
-
-// Función para monitorear el estado de la base de datos periódicamente
-setInterval(() => {
-  checkEmergencyMode();
-}, 60000); // Verificar cada minuto
-
-// Usuario de emergencia para usar cuando la base de datos no está disponible
-const emergencyUser = {
-  id: 9999,
-  username: "EmergencyAccess",
-  password: "", // No se usa directamente
-  firstName: "Acceso",
-  lastName: "Emergencia",
-  email: "emergency@system.local",
-  role: "admin-plus",
-  access: ["pedidos", "stock", "control", "config"],
-  createdAt: new Date(),
-  updatedAt: new Date()
-};
 
 export function setupAuth(app: Express) {
   // Verificar si el modo de emergencia ya debería estar activo
@@ -80,7 +38,7 @@ export function setupAuth(app: Express) {
   // Make sure we have the default admin user "Config"
   setupDefaultUser().catch(err => {
     console.error("No se pudo configurar el usuario predeterminado:", err);
-    failedDbConnectionAttempts++;
+    registerFailedAuthAttempt();
     checkEmergencyMode();
   });
 
