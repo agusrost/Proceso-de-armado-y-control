@@ -8,13 +8,21 @@ import { User, LoginData, InsertUser, ExtendedUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Tipo extendido para User con propiedades del modo de emergencia
+interface UserWithEmergencyInfo extends User {
+  emergencyMode?: boolean;
+  emergencyMessage?: string;
+}
+
 type AuthContextType = {
-  user: User | null;
+  user: UserWithEmergencyInfo | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
+  isEmergencyMode: boolean;
+  emergencyMessage: string | null;
+  loginMutation: UseMutationResult<UserWithEmergencyInfo, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<User, Error, ExtendedUser>;
+  registerMutation: UseMutationResult<UserWithEmergencyInfo, Error, ExtendedUser>;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);

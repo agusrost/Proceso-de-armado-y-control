@@ -28,10 +28,36 @@ export async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+// Importar verificación de estado de la base de datos
+import { isDatabaseConnected, getConnectionErrorCount } from './db';
+
 // Variable para el modo de emergencia
 let emergencyModeActive = false;
 let failedDbConnectionAttempts = 0;
 const MAX_DB_CONNECTION_ATTEMPTS = 3;
+
+// Función para verificar el estado del modo de emergencia
+export function checkEmergencyMode() {
+  // Si el modo ya está activo, mantenerlo
+  if (emergencyModeActive) return true;
+  
+  // Verificar el estado de la conexión a la base de datos
+  const dbConnected = isDatabaseConnected();
+  const errorCount = getConnectionErrorCount();
+  
+  if (!dbConnected && errorCount >= MAX_DB_CONNECTION_ATTEMPTS) {
+    console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA: Base de datos desconectada con ${errorCount} errores`);
+    emergencyModeActive = true;
+    return true;
+  }
+  
+  return false;
+}
+
+// Función para monitorear el estado de la base de datos periódicamente
+setInterval(() => {
+  checkEmergencyMode();
+}, 60000); // Verificar cada minuto
 
 // Usuario de emergencia para usar cuando la base de datos no está disponible
 const emergencyUser = {
@@ -48,15 +74,14 @@ const emergencyUser = {
 };
 
 export function setupAuth(app: Express) {
+  // Verificar si el modo de emergencia ya debería estar activo
+  checkEmergencyMode();
+  
   // Make sure we have the default admin user "Config"
   setupDefaultUser().catch(err => {
     console.error("No se pudo configurar el usuario predeterminado:", err);
     failedDbConnectionAttempts++;
-    
-    if (failedDbConnectionAttempts >= MAX_DB_CONNECTION_ATTEMPTS) {
-      console.warn(`⚠️ ACTIVANDO MODO DE EMERGENCIA después de ${failedDbConnectionAttempts} intentos fallidos`);
-      emergencyModeActive = true;
-    }
+    checkEmergencyMode();
   });
 
   // Configuración de sesión con manejo de errores para el store
@@ -349,9 +374,14 @@ export function setupAuth(app: Express) {
   
   // Endpoint para verificar el estado del modo de emergencia
   app.get("/api/system-status", (req, res) => {
+    // Forzar verificación del modo de emergencia
+    checkEmergencyMode();
+    
     res.json({
       emergencyMode: emergencyModeActive,
-      dbConnectionAttempts: failedDbConnectionAttempts,
+      dbConnected: isDatabaseConnected(),
+      dbConnectionErrors: getConnectionErrorCount(),
+      failedAuthAttempts: failedDbConnectionAttempts,
       timestamp: new Date().toISOString()
     });
   });
