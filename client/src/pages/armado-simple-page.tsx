@@ -127,8 +127,8 @@ export default function ArmadoSimplePage() {
     
     // Si hay menos cantidad de la solicitada y estamos mostrando el input de motivo
     if (cantidad < currentProducto.cantidad && showMotivoInput) {
-      // Verificar que se haya especificado un motivo
-      if (!motivo) {
+      // Verificar que se haya especificado un motivo solo si la cantidad es diferente de la completa
+      if (!motivo && cantidad !== currentProducto.cantidad) {
         toast({
           title: "Motivo requerido",
           description: "Por favor, especifique el motivo del faltante",

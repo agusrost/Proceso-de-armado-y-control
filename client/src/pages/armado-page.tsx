@@ -2844,6 +2844,11 @@ export default function ArmadoPage() {
                       finalizarPedidoMutation.mutate({ 
                         pedidoId: currentPedido.id,
                         forzar: true
+                      }, {
+                        onSuccess: () => {
+                          // Mostrar diálogo de finalización exitosa
+                          setMostrarDialogoCompletado(true);
+                        }
                       });
                     }
                   }}
@@ -2862,16 +2867,21 @@ export default function ArmadoPage() {
         
         {/* Modal de pedido completado con éxito */}
         <Dialog 
-          open={mostrarModalExito} 
+          open={mostrarDialogoCompletado} 
           onOpenChange={(open) => {
-            // Si se cierra manualmente, evitar que vuelva a mostrarse
-            if (!open) setMostrarModalExito(false);
+            // Si se cierra manualmente, redirigir al usuario a la lista de pedidos
+            if (!open) {
+              setMostrarDialogoCompletado(false);
+              // Refrescar los datos
+              queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
+            }
           }}
         >
           <DialogContent className="bg-green-50 border-green-500">
             <DialogHeader>
               <DialogTitle className="text-center text-2xl font-bold text-green-800">
-                ¡Pedido Completado!
+                ¡Armado Exitoso!
               </DialogTitle>
             </DialogHeader>
             
@@ -2880,19 +2890,19 @@ export default function ArmadoPage() {
             </div>
             
             <p className="text-center text-lg mb-2">
-              El pedido <span className="font-bold">{currentPedido.pedidoId}</span> ha sido preparado con éxito.
+              Ha finalizado el armado de manera exitosa
             </p>
             
             <p className="text-center text-gray-600 mb-4">
-              Todos los productos han sido procesados correctamente.
+              Pedido: <span className="font-bold">{currentPedido?.pedidoId}</span>
             </p>
             
             <DialogFooter className="justify-center">
               <Button 
                 className="bg-green-600 hover:bg-green-700 px-8 py-2 text-lg" 
-                onClick={() => setMostrarModalExito(false)}
+                onClick={() => setMostrarDialogoCompletado(false)}
               >
-                Aceptar
+                ACEPTAR
               </Button>
             </DialogFooter>
           </DialogContent>
