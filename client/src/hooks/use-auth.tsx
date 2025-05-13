@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useState, useEffect } from "react";
+import { createContext, ReactNode, useContext } from "react";
 import {
   useQuery,
   useMutation,
@@ -8,14 +8,8 @@ import { User, LoginData, InsertUser, ExtendedUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-// Tipo de usuario simplificado que podemos usar mientras se carga el componente
-type BasicUser = {
-  id: number;
-  username: string;
-};
-
 type AuthContextType = {
-  user: User | BasicUser | null;
+  user: User | null;
   isLoading: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<User, Error, LoginData>;
@@ -27,40 +21,6 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const [fallbackUser, setFallbackUser] = useState<BasicUser | null>(null);
-  
-  // Intento de recuperar el usuario automáticamente
-  useEffect(() => {
-    // Solo intentamos recuperar el usuario si no tenemos uno ya
-    if (!fallbackUser) {
-      fetch('/__api/user', {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
-        .then(res => {
-          if (res.ok) {
-            return res.json();
-          }
-          if (res.status === 401) {
-            // Usuario no autenticado, es esperado
-            return null;
-          }
-          throw new Error(`Error al obtener usuario: ${res.status}`);
-        })
-        .then(userData => {
-          if (userData) {
-            console.log('Usuario recuperado manualmente:', userData.username);
-            setFallbackUser(userData);
-          }
-        })
-        .catch(err => {
-          console.error('Error al recuperar usuario manualmente:', err);
-        });
-    }
-  }, []);
-
   const {
     data: user,
     error,
@@ -68,8 +28,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    retry: 1,
-    retryDelay: 1000,
   });
 
   const loginMutation = useMutation({
@@ -77,12 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         console.log("Iniciando solicitud de inicio de sesión...");
         const res = await apiRequest("POST", "/api/login", credentials);
-        
-        // Si llegamos aquí, es que la respuesta es JSON
-        const userData = await res.json();
-        // Usar el fallback si está disponible
-        setFallbackUser(userData);
-        return userData;
+        return await res.json();
       } catch (error) {
         console.error("Error en login:", error);
         throw error;
@@ -108,10 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async (userData: ExtendedUser) => {
       const { confirmPassword, ...data } = userData;
       const res = await apiRequest("POST", "/api/register", data);
-      const newUser = await res.json();
-      // Usar el fallback si está disponible
-      setFallbackUser(newUser);
-      return newUser;
+      return await res.json();
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
@@ -132,8 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
-      // Limpiar el usuario fallback también
-      setFallbackUser(null);
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
@@ -151,14 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Usar el usuario de la query o el fallback si está disponible
-  const activeUser = user || fallbackUser;
-
   return (
     <AuthContext.Provider
       value={{
-        user: activeUser,
-        isLoading: isLoading && !fallbackUser,
+        user: user ?? null,
+        isLoading,
         error,
         loginMutation,
         logoutMutation,
