@@ -5,13 +5,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, CheckCircle } from "lucide-react";
 import proceso from "@/utils/proceso";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function ArmadoSimplePage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [cantidad, setCantidad] = useState(0);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   
   // Fetch current pedido assigned to armador
   const { data: pedido, isLoading: isLoadingPedido } = useQuery({
@@ -36,9 +43,13 @@ export default function ArmadoSimplePage() {
       return await res.json();
     },
     onSuccess: () => {
+      // Mostrar diálogo de éxito en lugar de un toast
+      setShowSuccessDialog(true);
+      
+      // También enviamos un toast para confirmación
       toast({
         title: "¡Pedido finalizado!",
-        description: "Todos los productos han sido procesados y el pedido ha sido finalizado.",
+        description: "Todos los productos han sido procesados.",
         variant: "default",
       });
       
@@ -313,6 +324,31 @@ export default function ArmadoSimplePage() {
           Volver a inicio
         </Button>
       </div>
+      
+      {/* Diálogo de finalización exitosa */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="bg-white text-center">
+          <div className="py-10 px-4">
+            <div className="flex justify-center mb-4">
+              <CheckCircle className="h-16 w-16 text-green-500" />
+            </div>
+            <DialogTitle className="text-xl mb-4">
+              Ha finalizado el armado con éxito
+            </DialogTitle>
+            <DialogFooter className="mt-6 flex justify-center">
+              <Button 
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2" 
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  window.location.href = "/armador"; // Redirigir al dashboard
+                }}
+              >
+                Continuar
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
