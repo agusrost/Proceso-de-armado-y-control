@@ -77,16 +77,32 @@ export default function ArmadoSimplePage() {
       
       // Verificar si todos los productos están procesados
       if (proceso.debeFinalizar(productosActualizados)) {
-        console.log("Todos los productos procesados, finalizando pedido automáticamente");
+        console.log("✅ Todos los productos procesados, finalizando pedido automáticamente");
         
-        // Verificar que el pedido no sea null
+        // Mostrar primero el diálogo de éxito
+        setShowSuccessDialog(true);
+        
+        // Verificar que el pedido no sea null y finalizar
         if (pedido?.id) {
-          finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+          // Pequeño delay para asegurar que el diálogo se muestre antes
+          setTimeout(() => {
+            finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+          }, 300);
         } else {
           console.error("Error: No se puede finalizar porque el pedido es null");
         }
       } else {
-        console.log("No se puede finalizar automáticamente. Algunos productos no están procesados");
+        console.log("⚠️ No se puede finalizar automáticamente. Algunos productos no están procesados");
+        
+        // Verificar si ya se procesó el último producto
+        if (productos && currentProductoIndex >= productos.length - 1) {
+          // Si estamos en el último producto pero no se puede finalizar, mostrar mensaje explicativo
+          toast({
+            title: "Pedido incompleto",
+            description: "Hay productos sin procesar correctamente. Verifica que todos los productos tengan cantidad o motivo de faltante.",
+            variant: "warning"
+          });
+        }
       }
     } catch (error) {
       console.error("Error al verificar finalización:", error);
@@ -333,8 +349,11 @@ export default function ArmadoSimplePage() {
               <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
             <DialogTitle className="text-xl mb-4">
-              Ha finalizado el armado con éxito
+              Ha finalizado el armado del pedido con éxito!
             </DialogTitle>
+            <p className="text-gray-600 mb-6">
+              Todos los productos han sido procesados correctamente.
+            </p>
             <DialogFooter className="mt-6 flex justify-center">
               <Button 
                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-2" 

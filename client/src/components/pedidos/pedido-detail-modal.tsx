@@ -660,6 +660,16 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                         : ""}
                                   </span>
                                   
+                                  {/* Mostrar mensaje de faltante de stock si aplica */}
+                                  {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
+                                    <div className="mt-1 px-2 py-1 text-xs rounded bg-amber-100 border border-amber-300 text-amber-800 flex items-center">
+                                      <span className="mr-1">⚠️</span>
+                                      {producto.motivo.toLowerCase().includes('stock') 
+                                        ? `Faltante: Faltante de stock (${producto.cantidad - producto.recolectado} unidades no recolectadas)`
+                                        : `Faltante: ${producto.motivo} (${producto.cantidad - producto.recolectado} unidades no recolectadas)`}
+                                    </div>
+                                  )}
+                                  
                                   {/* Mostrar unidades transferidas si hay */}
                                   {(() => {
                                     // Verificar si el producto tiene unidades transferidas mediante stock
