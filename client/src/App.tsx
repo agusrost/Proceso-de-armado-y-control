@@ -35,8 +35,8 @@ function Router() {
       <ProtectedRoute path="/pedidos/estado" component={PedidosEstadoPage} />
       <ProtectedRoute path="/stock" component={StockPage} />
       <ProtectedRoute path="/config" component={ConfigPage} />
-      <ProtectedRoute path="/armado" component={ArmadoPage} />
-      <ProtectedRoute path="/armado-simple" component={ArmadoSimplePage} />
+      <ProtectedRoute path="/armado" component={ArmadoSimplePage} />
+      <ProtectedRoute path="/armado-antiguo" component={ArmadoPage} />
       <ProtectedRoute path="/armador" component={ArmadorPage} />
       
       {/* Control module routes */}
