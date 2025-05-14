@@ -535,23 +535,9 @@ export default function ArmadoSimplePage() {
                 </Button>
               </div>
               
-              {/* Botones de acción */}
+              {/* Botones de acción - nuevo orden según la imagen de referencia */}
               <div className="flex flex-col space-y-2 mt-4 w-full">
-                <Button 
-                  onClick={handleMostrarFinalizar}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2"
-                >
-                  FINALIZAR ARMADO
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  className="w-full bg-white text-blue-900 hover:bg-gray-100"
-                  onClick={() => setShowTodosModal(true)}
-                >
-                  Ver todo el pedido
-                </Button>
-                
+                {/* 1. REANUDAR (o Pausar armado) - primer botón */}
                 {pausaActiva ? (
                   // Botón de reanudar cuando está pausado
                   <Button 
@@ -571,6 +557,23 @@ export default function ArmadoSimplePage() {
                     <Pause className="h-4 w-4" /> Pausar armado
                   </Button>
                 )}
+                
+                {/* 2. Ver todo el pedido - segundo botón */}
+                <Button 
+                  variant="outline"
+                  className="w-full bg-white text-blue-900 hover:bg-gray-100"
+                  onClick={() => setShowTodosModal(true)}
+                >
+                  Ver todo el pedido
+                </Button>
+                
+                {/* 3. FINALIZAR ARMADO - tercer botón */}
+                <Button 
+                  onClick={handleMostrarFinalizar}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2"
+                >
+                  FINALIZAR ARMADO
+                </Button>
               </div>
             </div>
             
