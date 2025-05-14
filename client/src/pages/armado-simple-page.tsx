@@ -141,25 +141,49 @@ export default function ArmadoSimplePage() {
   
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
-    mutationFn: async (params: { id: number, recolectado: number, motivo?: string, prevenAutocompletar?: boolean }) => {
-      console.log(`📌 ENVIANDO ACTUALIZACIÓN: Producto ${params.id}, Recolectado=${params.recolectado}, Motivo=${params.motivo || 'ninguno'}, PrevenAutocompletar=${params.prevenAutocompletar}`);
+    mutationFn: async (params: { 
+      id: number, 
+      recolectado: number, 
+      motivo?: string, 
+      prevenAutocompletar?: boolean,
+      preservarFaltante?: boolean,
+      proteccionDoble?: boolean
+    }) => {
+      console.log(`📌 ENVIANDO ACTUALIZACIÓN v2.0: Producto ${params.id}, Recolectado=${params.recolectado}, Motivo=${params.motivo || 'ninguno'}, Triple Protección Activa`);
       
-      // Crear el cuerpo de la solicitud
+      // Crear el cuerpo de la solicitud con todos los campos necesarios para proteger las cantidades parciales
       const requestBody: any = {
         recolectado: params.recolectado,
-        motivo: params.motivo
+        motivo: params.motivo,
+        prevenAutocompletar: true, // Siempre enviamos esto
+        preservarFaltante: params.preservarFaltante === true,
+        proteccionDoble: params.proteccionDoble === true
       };
-      
-      // Agregar flag para prevenir autocompletado si está presente
-      if (params.prevenAutocompletar === true) {
-        requestBody.prevenAutocompletar = true;
-      }
       
       const res = await apiRequest("PATCH", `/api/productos/${params.id}`, requestBody);
       return await res.json();
     },
     onSuccess: async (data) => {
-      // Actualizar queries
+      console.log(`✅ PRODUCTO ACTUALIZADO CORRECTAMENTE: ID=${data.id}, Código=${data.codigo}`);
+      console.log(`📊 VALORES FINALES: recolectado=${data.recolectado}/${data.cantidad}, motivo="${data.motivo || 'ninguno'}"`);
+      
+      // PUNTO CRÍTICO: Verificar que los datos devueltos sean correctos
+      // Si el backend devuelve un valor de recolectado diferente al enviado, lanzar alarma
+      const cantidadEsperada = cantidad;
+      const cantidadRecibida = data.recolectado;
+      
+      if (cantidadEsperada !== cantidadRecibida) {
+        console.error(`⛔ ERROR CRÍTICO DETECTADO: Cantidad enviada (${cantidadEsperada}) ≠ Cantidad recibida (${cantidadRecibida})`);
+        toast({
+          title: "Error de sincronización",
+          description: `Las cantidades no coinciden (enviada: ${cantidadEsperada}, recibida: ${cantidadRecibida})`,
+          variant: "destructive"
+        });
+      } else {
+        console.log(`✅ VERIFICACIÓN DE INTEGRIDAD: Cantidad enviada (${cantidadEsperada}) = Cantidad recibida (${cantidadRecibida})`);
+      }
+      
+      // Actualizar queries para refrescar datos
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
       
@@ -174,8 +198,10 @@ export default function ArmadoSimplePage() {
       
       // Avanzar al siguiente producto
       if (productos && currentProductoIndex < productos.length - 1) {
+        console.log(`⏭️ AVANZANDO AL SIGUIENTE PRODUCTO: ${currentProductoIndex+1}/${productos.length}`);
         setCurrentProductoIndex(currentProductoIndex + 1);
       } else {
+        console.log(`🏁 LLEGAMOS AL ÚLTIMO PRODUCTO: ${currentProductoIndex+1}/${productos.length}`);
         toast({
           title: "Último producto procesado",
           description: "Has procesado todos los productos del pedido."
@@ -220,18 +246,32 @@ export default function ArmadoSimplePage() {
   useEffect(() => {
     if (productos && productos[currentProductoIndex]) {
       setCurrentProducto(productos[currentProductoIndex]);
-      // CORRECCIÓN CRÍTICA: Inicializar cantidad con lo que ya esté recolectado o con CERO
+      // CORRECCIÓN CRÍTICA v2.0: Inicializar cantidad con lo que ya esté recolectado o con CERO
       // NUNCA inicializar con la cantidad solicitada para evitar autocompletado
       const productoActual = productos[currentProductoIndex];
-      console.log(`Inicializando cantidad para producto ${productoActual.codigo}: recolectado=${productoActual.recolectado}, cantidad requerida=${productoActual.cantidad}`);
-
+      
+      // Log detallado para debugging
+      console.log(`🔍 CAMBIO DE PRODUCTO → ${productoActual.codigo}`);
+      console.log(`📊 DATOS ACTUALES: recolectado=${productoActual.recolectado}, cantidad requerida=${productoActual.cantidad}, motivo="${productoActual.motivo || 'ninguno'}"`);
+      
+      // ⚠️ PUNTO CRÍTICO: Inicialización de cantidades
+      // Este es un punto crítico donde debemos asegurarnos de preservar cantidades parciales
+      
       if (productoActual.recolectado !== null && productoActual.recolectado !== undefined) {
-        // Si ya tiene una cantidad recolectada, usarla
-        console.log(`Usando cantidad ya recolectada: ${productoActual.recolectado}`);
-        setCantidad(productoActual.recolectado);
+        // Si ya tiene una cantidad recolectada, usarla EXACTAMENTE cómo está
+        console.log(`✅ PRESERVAR: Usando cantidad recolectada existente: ${productoActual.recolectado}/${productoActual.cantidad}`);
+        
+        // ASEGURANDO cantidad exacta (no redondeada ni modificada)
+        const cantidadExacta = productoActual.recolectado;
+        setCantidad(cantidadExacta);
+        
+        // Si tiene motivo de faltante, mostrar advertencia
+        if (productoActual.motivo && productoActual.motivo.trim() !== '') {
+          console.log(`⚠️ ATENCIÓN: Producto con motivo de faltante: "${productoActual.motivo}"`);
+        }
       } else {
-        // IMPORTANTE: Inicializar con 0, no con la cantidad total
-        console.log(`Inicializando con 0 en lugar de ${productoActual.cantidad} para evitar autocompletado`);
+        // IMPORTANTE: Inicializar con 0, NUNCA con la cantidad total
+        console.log(`✅ NUEVO: Inicializando con 0 en lugar de ${productoActual.cantidad} para evitar autocompletado`);
         setCantidad(0);
       }
     }
@@ -401,7 +441,22 @@ export default function ArmadoSimplePage() {
             className="w-full bg-blue-500 hover:bg-blue-600 text-white text-lg py-6"
             disabled={actualizarProductoMutation.isPending}
           >
-            {actualizarProductoMutation.isPending ? "Procesando..." : (showMotivoInput ? "GUARDAR" : "CONTINUAR")}
+            {actualizarProductoMutation.isPending ? (
+              <span className="flex items-center justify-center">
+                <span className="animate-spin mr-2">⟳</span> Procesando...
+              </span>
+            ) : (
+              <span className="flex flex-col items-center">
+                <span className="text-lg font-bold">
+                  {showMotivoInput ? "GUARDAR CANTIDAD PARCIAL" : "GUARDAR Y CONTINUAR"}
+                </span>
+                <span className="text-xs mt-1">
+                  {showMotivoInput 
+                    ? `Se guardará exactamente: ${cantidad}/${currentProducto?.cantidad} unidades` 
+                    : `Se guardará exactamente: ${cantidad}/${currentProducto?.cantidad} unidades`}
+                </span>
+              </span>
+            )}
           </Button>
         </div>
         
