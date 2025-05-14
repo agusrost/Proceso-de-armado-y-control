@@ -58,38 +58,26 @@ export default function ArmadoSimplePage() {
     }
   });
   
-  // Filtrar productos para mostrar solo los pendientes cuando se reanuda un pedido pausado
+  // Filtrar productos para mostrar solo los que están pendientes de procesar
   const productos = React.useMemo(() => {
     // Si no hay productos, retornar un array vacío
     if (!productosRaw.length) return [];
     
-    // Si el pedido está pausado, mostrar solo los pendientes
-    // Si no está pausado, mostrar todos los productos
-    if (pausaActiva) {
-      // Filtrar para mostrar solo los pendientes (no completados y no parciales)
-      return productosRaw.filter((producto: any) => {
-        // Si el producto no tiene cantidad recolectada, está pendiente
-        if (producto.recolectado === null || producto.recolectado === 0) {
-          return true;
-        }
-        
-        // Si el producto tiene cantidad recolectada pero no está completo y no tiene motivo,
-        // también está pendiente
-        if (
-          producto.recolectado < producto.cantidad && 
-          (!producto.motivo || producto.motivo === "ninguno" || producto.motivo.trim() === "")
-        ) {
-          return true;
-        }
-        
-        // En cualquier otro caso, no mostrar (completados o parciales con motivo)
-        return false;
-      });
-    } else {
-      // Si no está pausado, mostrar todos los productos
-      return productosRaw;
-    }
-  }, [productosRaw, pausaActiva]);
+    // Siempre mostrar solo los productos pendientes (no completados y no parciales)
+    return productosRaw.filter((producto: any) => {
+      // Un producto se considera pendiente si:
+      // 1. No tiene cantidad recolectada
+      const sinRecolectar = producto.recolectado === null || producto.recolectado === 0;
+      
+      // 2. Tiene cantidad recolectada parcial pero no tiene motivo de faltante
+      const parcialSinMotivo = 
+        producto.recolectado > 0 && 
+        producto.recolectado < producto.cantidad && 
+        (!producto.motivo || producto.motivo === "ninguno" || producto.motivo.trim() === "");
+      
+      return sinRecolectar || parcialSinMotivo;
+    });
+  }, [productosRaw]);
   
   // Estado para el producto actual
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
@@ -472,7 +460,13 @@ export default function ArmadoSimplePage() {
               {pausaActiva && (
                 <div className="mt-2 text-amber-500 bg-amber-50 p-2 rounded-md border border-amber-300">
                   <p>Este pedido estaba pausado por motivo: <strong>{pedido.pausaActiva?.motivo}</strong></p>
-                  <p className="text-sm">Se muestran solo los productos pendientes de procesar</p>
+                  <p className="text-sm">Se muestran solo los productos pendientes (sin recolectar o incompletos sin motivo)</p>
+                </div>
+              )}
+              
+              {!pausaActiva && (
+                <div className="mt-2 text-blue-500 bg-blue-50 p-2 rounded-md border border-blue-300">
+                  <p className="text-sm">Solo se muestran los productos pendientes de procesar</p>
                 </div>
               )}
             </div>
