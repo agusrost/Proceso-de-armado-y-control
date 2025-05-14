@@ -66,7 +66,7 @@ export default function ArmadorPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       // Redirigir a la página de armado usando setLocation
-      setLocation('/armado');
+      setLocation('/armado-simple');
     },
     onError: (error: Error) => {
       console.error("Error en mutación:", error);
