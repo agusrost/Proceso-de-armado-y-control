@@ -180,6 +180,10 @@ export default function ArmadoSimplePage() {
     mutationFn: async (pausaId: number) => {
       try {
         console.log("Intentando reanudar pausa ID:", pausaId);
+        if (!pausaId) {
+          throw new Error("No se pudo reanudar el pedido: ID de pausa no disponible");
+        }
+        
         const res = await apiRequest("POST", `/api/pausas/${pausaId}/reanudar`, {});
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
@@ -204,8 +208,11 @@ export default function ArmadoSimplePage() {
         description: "El pedido ha sido reanudado exitosamente.",
       });
       
-      // Recargar datos del pedido
+      // Recargar datos del pedido y productos
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      if (pedido?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido.id}`] });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -302,11 +309,25 @@ export default function ArmadoSimplePage() {
   
   // Verificar si el pedido tiene pausas activas
   useEffect(() => {
+    console.log("Verificando estado de pausas del pedido:", pedido);
+    
     if (pedido && pedido.pausaActiva) {
+      console.log("Pedido con pausa activa:", pedido.pausaActiva);
       setPausaActiva(true);
-      setPausaActualId(pedido.pausaActiva.id);
+      if (pedido.pausaActiva.id) {
+        console.log("Estableciendo pausaActualId:", pedido.pausaActiva.id);
+        setPausaActualId(pedido.pausaActiva.id);
+      } else if (pedido.pausas && pedido.pausas.length > 0) {
+        // Buscar la pausa activa (sin fecha de fin)
+        const pausaActiva = pedido.pausas.find(p => p.fin === null && p.tipo === "armado");
+        if (pausaActiva) {
+          console.log("Encontrada pausa activa en arreglo de pausas:", pausaActiva.id);
+          setPausaActualId(pausaActiva.id);
+        }
+      }
       setMensajePausa(`El armado del pedido se encuentra pausado (${pedido.pausaActiva.motivo})`);
     } else {
+      console.log("Pedido sin pausas activas");
       setPausaActiva(false);
       setPausaActualId(null);
     }
@@ -542,7 +563,10 @@ export default function ArmadoSimplePage() {
                   // Botón de reanudar cuando está pausado
                   <Button 
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 flex items-center justify-center gap-2"
-                    onClick={handleReanudarPedido}
+                    onClick={() => {
+                      console.log("Intentando reanudar pausa con ID:", pausaActualId);
+                      handleReanudarPedido();
+                    }}
                     disabled={reanudarPedidoMutation.isPending}
                   >
                     {reanudarPedidoMutation.isPending ? "REANUDANDO..." : "REANUDAR"}
