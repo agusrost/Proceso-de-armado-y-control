@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Pause } from "lucide-react";
 import proceso from "@/utils/proceso";
 import {
   Dialog,
@@ -26,6 +26,7 @@ export default function ArmadoSimplePage() {
   const [showPausaModal, setShowPausaModal] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
+  const [showTodosModal, setShowTodosModal] = useState(false);
   
   // Obtener el pedido asignado al armador
   const { data: pedido } = useQuery({
@@ -140,7 +141,7 @@ export default function ArmadoSimplePage() {
   };
   
   // Manejar guardar y continuar
-  const handleGuardarYContinuar = () => {
+  const handleContinuar = () => {
     const productoActual = productos[currentProductoIndex];
     if (!productoActual) return;
     
@@ -256,158 +257,117 @@ export default function ArmadoSimplePage() {
   // Obtener el producto actual
   const productoActual = productos[currentProductoIndex];
   
-  // Función para renderizar un producto en la lista
-  const renderProducto = (producto: any, index: number) => {
-    // Determinar el estado del producto
-    let estado = "Pendiente";
-    let bgColor = "bg-red-200";
-    
-    if (producto.recolectado !== null) {
-      if (producto.recolectado === producto.cantidad) {
-        estado = "Completo";
-        bgColor = "bg-green-200";
-      } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
-        estado = "Parcial";
-        bgColor = "bg-amber-200";
-      }
-    }
-    
-    return (
-      <div 
-        key={producto.id}
-        className={`${bgColor} p-2 mb-1`}
-        onClick={() => setCurrentProductoIndex(index)}
-      >
-        <div className="flex justify-between items-center">
-          <span className="font-bold">{producto.codigo}</span>
-          <span className="text-xs">{estado}</span>
-        </div>
-        <div className="text-sm">{producto.descripcion}</div>
-        <div className="text-xs mt-1">
-          Recolectado: {producto.recolectado === null ? "0" : producto.recolectado}/{producto.cantidad}
-        </div>
-      </div>
-    );
+  // Obtener el estado de recolección
+  const getEstadoRecoleccion = () => {
+    if (productoActual.recolectado === null) return "";
+    if (productoActual.recolectado === productoActual.cantidad) return "COMPLETADO";
+    if (productoActual.recolectado > 0) return "INCOMPLETO";
+    return "";
   };
   
   return (
     <>
       <div className="min-h-screen bg-slate-900 flex flex-col">
         {/* Header */}
-        <header className="bg-blue-950 p-2 shadow">
-          <div className="container mx-auto">
-            <h1 className="text-3xl font-bold text-white text-center">KONECTA</h1>
-            <div className="flex justify-end mt-2 gap-2">
-              <Button 
-                onClick={() => setShowFinalizarModal(true)}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white"
-              >
-                Finalizar armado
-              </Button>
-              <Button 
-                variant="destructive"
-                onClick={() => setShowPausaModal(true)}
-              >
-                Pausar armado
-              </Button>
-            </div>
+        <div className="bg-blue-950 py-2 shadow">
+          <div className="container mx-auto text-center">
+            <h1 className="text-3xl font-bold text-white">KONECTA</h1>
           </div>
-        </header>
+        </div>
         
         {/* Contenido */}
-        <div className="container mx-auto p-2 text-white">
-          <h2 className="text-center text-lg mb-2">
-            Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Lista de productos */}
-            <div className="bg-white rounded-md shadow p-3 text-black">
-              <h3 className="font-bold mb-2">Productos del pedido</h3>
-              <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-                {productos.map(renderProducto)}
-              </div>
+        <div className="flex-grow flex flex-col items-center justify-center p-4 text-white">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-4">
+              <h2>Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}</h2>
             </div>
             
-            {/* Detalle del producto actual */}
-            <div className="bg-white rounded-md shadow p-4 text-black">
-              <div>
-                <div className="mb-2">
-                  <strong>Código:</strong> {productoActual.codigo}
+            <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <div className="font-bold">Código SKU: {productoActual.codigo}</div>
                 </div>
-                <div className="mb-2">
-                  <strong>Ubicación:</strong> {productoActual.ubicacion}
-                </div>
-                <div className="mb-3">
-                  <strong>Descripción:</strong> {productoActual.descripcion}
-                </div>
-                
-                <div className="mb-3">
-                  <div className="mb-1">
-                    <strong>Cantidad solicitada:</strong> {productoActual.cantidad}
-                  </div>
-                  <div>
-                    <strong>Cantidad recolectada:</strong>
-                    <div className="flex items-center mt-1">
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          className="h-8 rounded text-center w-full"
-                          value={cantidad}
-                          onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
-                        />
-                      </div>
-                      <div className="ml-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="h-8 w-8 p-0 rounded"
-                          onClick={() => handleCantidadChange(cantidad - 1)}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="h-8 w-8 p-0 rounded ml-1"
-                          onClick={() => handleCantidadChange(cantidad + 1)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Motivo de faltante - solo mostrar si cantidad < solicitada */}
-                {cantidad < productoActual.cantidad && (
-                  <div className="mb-4">
-                    <div className="mb-1">
-                      <strong>Motivo del faltante:</strong>
-                    </div>
-                    <Select 
-                      value={motivo} 
-                      onValueChange={setMotivo}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Seleccione un motivo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {motivosFaltante.map((m) => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {getEstadoRecoleccion() && (
+                  <div className={`text-xs font-semibold py-1 px-2 rounded ${getEstadoRecoleccion() === "COMPLETADO" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
+                    {getEstadoRecoleccion()}
                   </div>
                 )}
-                
+              </div>
+              
+              <div className="mb-2">
+                <div className="flex">
+                  <div className="w-24 font-semibold">Cantidad:</div> 
+                  <div>{productoActual.cantidad}</div>
+                  <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
+                </div>
+              </div>
+              
+              <div className="mb-2">
+                <div className="flex">
+                  <div className="w-24 font-semibold">Ubicación:</div> 
+                  <div>{productoActual.ubicacion}</div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <div className="flex">
+                  <div className="w-24 font-semibold">Descripción:</div> 
+                  <div>{productoActual.descripcion}</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-center my-4">
                 <Button 
-                  onClick={handleGuardarYContinuar}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white uppercase"
+                  onClick={() => handleCantidadChange(cantidad - 1)}
+                  variant="outline"
+                  className="h-10 w-10 rounded-full font-bold"
                 >
-                  GUARDAR Y CONTINUAR
+                  <span className="text-xl">-</span>
+                </Button>
+                <Input
+                  type="number"
+                  className="h-10 w-32 mx-4 text-center"
+                  value={cantidad}
+                  onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
+                />
+                <Button 
+                  onClick={() => handleCantidadChange(cantidad + 1)}
+                  variant="outline"
+                  className="h-10 w-10 rounded-full font-bold"
+                >
+                  <span className="text-xl">+</span>
                 </Button>
               </div>
+              
+              <Button 
+                onClick={handleContinuar}
+                className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2"
+              >
+                CONTINUAR
+              </Button>
+            </div>
+            
+            <div className="mt-4 flex flex-col gap-2 items-center">
+              <Button 
+                variant="outline"
+                className="w-full bg-white text-blue-900 hover:bg-gray-100"
+                onClick={() => setShowTodosModal(true)}
+              >
+                Ver todo el pedido
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full bg-white text-blue-900 hover:bg-gray-100 flex items-center justify-center gap-2"
+                onClick={() => setShowPausaModal(true)}
+              >
+                <Pause className="h-4 w-4" /> Pausar armado
+              </Button>
+            </div>
+            
+            <div className="mt-8 text-center text-xs text-gray-400">
+              <div>Usuario: {user?.username}</div>
+              <div>Cerrar sesión</div>
             </div>
           </div>
         </div>
@@ -502,6 +462,77 @@ export default function ArmadoSimplePage() {
               Volver al inicio
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de ver todos los productos */}
+      <Dialog open={showTodosModal} onOpenChange={setShowTodosModal}>
+        <DialogContent className="bg-white max-w-2xl">
+          <DialogTitle>Productos del pedido {pedido.pedidoId}</DialogTitle>
+          
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="py-2 px-3 text-left">Código</th>
+                  <th className="py-2 px-3 text-left">Descripción</th>
+                  <th className="py-2 px-3 text-left">Ubicación</th>
+                  <th className="py-2 px-3 text-right">Cantidad</th>
+                  <th className="py-2 px-3 text-right">Recolectado</th>
+                  <th className="py-2 px-3 text-center">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productos.map((producto: any) => {
+                  // Determinar el estado
+                  let estado = "Pendiente";
+                  let bgColor = "bg-red-100";
+                  
+                  if (producto.recolectado !== null) {
+                    if (producto.recolectado === producto.cantidad) {
+                      estado = "Completo";
+                      bgColor = "bg-green-100";
+                    } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
+                      estado = "Parcial";
+                      bgColor = "bg-amber-100";
+                    }
+                  }
+                  
+                  return (
+                    <tr 
+                      key={producto.id}
+                      className={`${bgColor} hover:bg-gray-50 cursor-pointer`}
+                      onClick={() => {
+                        setCurrentProductoIndex(productos.findIndex((p: any) => p.id === producto.id));
+                        setShowTodosModal(false);
+                      }}
+                    >
+                      <td className="py-2 px-3">{producto.codigo}</td>
+                      <td className="py-2 px-3">{producto.descripcion}</td>
+                      <td className="py-2 px-3">{producto.ubicacion}</td>
+                      <td className="py-2 px-3 text-right">{producto.cantidad}</td>
+                      <td className="py-2 px-3 text-right">{producto.recolectado === null ? 0 : producto.recolectado}</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-semibold
+                          ${estado === 'Completo' ? 'bg-green-600 text-white' : 
+                            estado === 'Parcial' ? 'bg-amber-600 text-white' : 
+                            'bg-red-600 text-white'}`}
+                        >
+                          {estado}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setShowTodosModal(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
