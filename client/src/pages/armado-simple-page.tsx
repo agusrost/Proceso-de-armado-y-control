@@ -28,6 +28,10 @@ export default function ArmadoSimplePage() {
   const [successModal, setSuccessModal] = useState(false);
   const [showTodosModal, setShowTodosModal] = useState(false);
   const [showFaltanteModal, setShowFaltanteModal] = useState(false);
+  // Estados para manejar la pausa
+  const [pausaActiva, setPausaActiva] = useState(false);
+  const [pausaActualId, setPausaActualId] = useState<number | null>(null);
+  const [mensajePausa, setMensajePausa] = useState("");
   
   // Obtener el pedido asignado al armador
   const { data: pedido } = useQuery({
@@ -107,14 +111,21 @@ export default function ArmadoSimplePage() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Pedido pausado",
         description: "El pedido ha sido pausado correctamente"
       });
       setShowPausaModal(false);
-      // Redireccionar al dashboard del armador
-      window.location.href = "/armador";
+      
+      // En lugar de redirigir, mostrar un mensaje indicando que el pedido está pausado
+      setPausaActiva(true);
+      if (data && data.id) {
+        setPausaActualId(data.id);
+      }
+      
+      // Mostrar mensaje en pantalla que indique que el pedido está pausado
+      setMensajePausa("El pedido se encuentra pausado");
     },
     onError: (error: Error) => {
       console.error("Error al pausar pedido:", error);
@@ -303,6 +314,17 @@ export default function ArmadoSimplePage() {
       setMotivo(producto.motivo || "");
     }
   }, [productos, currentProductoIndex]);
+  
+  // Verificar si el pedido está pausado al cargar la página
+  useEffect(() => {
+    if (pedido && pedido.pausaActiva) {
+      setPausaActiva(true);
+      if (pedido.pausaActiva.id) {
+        setPausaActualId(pedido.pausaActiva.id);
+      }
+      setMensajePausa("El pedido se encuentra pausado");
+    }
+  }, [pedido]);
   
   // Si no hay datos, mostrar cargando
   if (!pedido || !productos.length) {
