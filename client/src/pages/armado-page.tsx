@@ -354,6 +354,34 @@ export default function ArmadoPage() {
         description: "Las cantidades han sido actualizadas correctamente",
       });
       
+      // Verificar inmediatamente si todos los productos están procesados
+      // Esto ocurrirá después de cada actualización de producto
+      try {
+        // Primero, obtener la lista actualizada de productos
+        const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
+        const productosActualizados = await res.json();
+        
+        // Verificar si todos los productos están completamente procesados
+        const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
+        
+        // Si todos están procesados, mostrar la pantalla de finalización y terminar el pedido
+        if (todosProductosProcesados) {
+          console.log("✅ TODOS LOS PRODUCTOS ESTÁN PROCESADOS - FINALIZANDO AUTOMÁTICAMENTE");
+          
+          // Mostrar el diálogo de finalización exitosa
+          setMostrarModalExito(true);
+          
+          // Con un pequeño retraso, finalizar formalmente el pedido
+          setTimeout(() => {
+            finalizarPedidoMutation.mutate({ pedidoId: currentPedido!.id });
+          }, 500);
+        } else {
+          console.log("⚠️ Aún hay productos sin procesar - continuando el armado");
+        }
+      } catch (error) {
+        console.error("Error al verificar estado de productos:", error);
+      }
+      
       if (editingProductId) {
         // Si estamos en modo edición, resetear el estado
         setEditingProductId(null);
@@ -1852,14 +1880,20 @@ export default function ArmadoPage() {
                 <CheckCircle2 className="h-16 w-16 text-green-500" />
               </div>
               <DialogTitle className="text-xl mb-4">
-                El armado del pedido ha finalizado con éxito
+                Ha finalizado el armado del pedido con éxito!
               </DialogTitle>
+              <p className="text-gray-600 mb-6">
+                Todos los productos han sido procesados correctamente.
+              </p>
               <DialogFooter className="flex justify-center mt-6">
                 <Button 
-                  onClick={() => setMostrarModalExito(false)}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    setMostrarModalExito(false);
+                    window.location.href = "/armador"; // Redirigir al dashboard
+                  }}
+                  className="bg-green-500 hover:bg-green-600 text-white"
                 >
-                  OK
+                  Continuar
                 </Button>
               </DialogFooter>
             </div>
