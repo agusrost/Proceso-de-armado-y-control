@@ -367,15 +367,17 @@ export default function ArmadoSimplePage() {
           </div>
         </div>
         
-        {/* Contenido */}
+        {/* Contenido principal */}
         <div className="flex-grow flex flex-col items-center justify-center p-4 text-white">
           <div className="w-full max-w-md">
+            {/* Título del pedido */}
             <div className="text-center mb-4">
               <h2>Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}</h2>
             </div>
             
+            {/* Contenido condicional basado en el estado de pausa */}
             {pausaActiva ? (
-              /* Mensaje de pedido pausado */
+              // Mensaje de pedido pausado
               <div className="bg-amber-50 text-amber-800 border-2 border-amber-400 rounded-md shadow-lg p-6 w-full text-center">
                 <h3 className="text-xl font-bold mb-4">El pedido se encuentra pausado</h3>
                 <p className="mb-4">{mensajePausa}</p>
@@ -391,105 +393,113 @@ export default function ArmadoSimplePage() {
                 </div>
               </div>
             ) : (
-              /* Interfaz normal de armado */
-              <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
-              <div className="mb-2">
-                <div className="font-bold">Código SKU: {productoActual.codigo}</div>
-              </div>
-              
-              <div className="mb-2">
-                <div className="flex">
-                  <div className="font-semibold">Cantidad:</div> 
-                  <div className="ml-1">{productoActual.cantidad}</div>
-                  <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
-                </div>
-              </div>
-              
-              <div className="mb-2">
-                <div>
-                  <div className="font-semibold">Ubicación:</div> 
-                  <div>{productoActual.ubicacion}</div>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <div>
-                  <div className="font-semibold">Descripción:</div> 
-                  <div>{productoActual.descripcion}</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-center my-4">
-                <Button 
-                  onClick={() => handleCantidadChange(cantidad - 1)}
-                  variant="outline"
-                  className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
-                >
-                  <span className="text-xl">-</span>
-                </Button>
-                <Input
-                  type="number"
-                  className="h-10 w-32 mx-4 text-center"
-                  value={cantidad}
-                  onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
-                />
-                <Button 
-                  onClick={() => handleCantidadChange(cantidad + 1)}
-                  variant="outline"
-                  className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
-                >
-                  <span className="text-xl">+</span>
-                </Button>
-              </div>
-              
-              {/* Botón de motivo de faltante - sólo aparece si cantidad < requerida */}
-              {cantidad < productoActual.cantidad && (
-                <div className="mb-3">
-                  <div className="flex flex-col bg-amber-50 p-2 rounded border border-amber-200">
-                    <div className="font-semibold text-amber-800 mb-1">Motivo del faltante:</div>
-                    <Select 
-                      value={motivo} 
-                      onValueChange={setMotivo}
-                    >
-                      <SelectTrigger className="w-full bg-white">
-                        <SelectValue placeholder="Seleccione un motivo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {motivosFaltante.map((m) => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              // Interfaz normal de armado cuando no está pausado
+              <div>
+                {/* Tarjeta de producto */}
+                <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
+                  <div className="mb-2">
+                    <div className="font-bold">Código SKU: {productoActual.codigo}</div>
                   </div>
+                  
+                  <div className="mb-2">
+                    <div className="flex">
+                      <div className="font-semibold">Cantidad:</div> 
+                      <div className="ml-1">{productoActual.cantidad}</div>
+                      <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-2">
+                    <div>
+                      <div className="font-semibold">Ubicación:</div> 
+                      <div>{productoActual.ubicacion}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <div>
+                      <div className="font-semibold">Descripción:</div> 
+                      <div>{productoActual.descripcion}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Control de cantidad */}
+                  <div className="flex items-center justify-center my-4">
+                    <Button 
+                      onClick={() => handleCantidadChange(cantidad - 1)}
+                      variant="outline"
+                      className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
+                    >
+                      <span className="text-xl">-</span>
+                    </Button>
+                    <Input
+                      type="number"
+                      className="h-10 w-32 mx-4 text-center"
+                      value={cantidad}
+                      onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
+                    />
+                    <Button 
+                      onClick={() => handleCantidadChange(cantidad + 1)}
+                      variant="outline"
+                      className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
+                    >
+                      <span className="text-xl">+</span>
+                    </Button>
+                  </div>
+                  
+                  {/* Motivo de faltante - solo aparece si cantidad < requerida */}
+                  {cantidad < productoActual.cantidad && (
+                    <div className="mb-3">
+                      <div className="flex flex-col bg-amber-50 p-2 rounded border border-amber-200">
+                        <div className="font-semibold text-amber-800 mb-1">Motivo del faltante:</div>
+                        <Select 
+                          value={motivo} 
+                          onValueChange={setMotivo}
+                        >
+                          <SelectTrigger className="w-full bg-white">
+                            <SelectValue placeholder="Seleccione un motivo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {motivosFaltante.map((m) => (
+                              <SelectItem key={m} value={m}>{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Botón para continuar */}
+                  <Button 
+                    onClick={handleContinuar}
+                    className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2"
+                  >
+                    CONTINUAR
+                  </Button>
                 </div>
-              )}
-              
-              <Button 
-                onClick={handleContinuar}
-                className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2"
-              >
-                CONTINUAR
-              </Button>
-            </div>
+                
+                {/* Botones adicionales */}
+                <div className="mt-4 flex flex-col gap-2 items-center">
+                  <Button 
+                    variant="outline"
+                    className="w-full bg-white text-blue-900 hover:bg-gray-100"
+                    onClick={() => setShowTodosModal(true)}
+                  >
+                    Ver todo el pedido
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    className="w-full bg-white text-blue-900 hover:bg-gray-100 flex items-center justify-center gap-2"
+                    onClick={() => setShowPausaModal(true)}
+                  >
+                    <Pause className="h-4 w-4" /> Pausar armado
+                  </Button>
+                </div>
+              </div>
+            )}
             
-            <div className="mt-4 flex flex-col gap-2 items-center">
-              <Button 
-                variant="outline"
-                className="w-full bg-white text-blue-900 hover:bg-gray-100"
-                onClick={() => setShowTodosModal(true)}
-              >
-                Ver todo el pedido
-              </Button>
-              
-              <Button 
-                variant="outline"
-                className="w-full bg-white text-blue-900 hover:bg-gray-100 flex items-center justify-center gap-2"
-                onClick={() => setShowPausaModal(true)}
-              >
-                <Pause className="h-4 w-4" /> Pausar armado
-              </Button>
-            </div>
-            
+            {/* Información de usuario y cierre de sesión */}
             <div className="mt-8 text-center text-xs text-gray-400">
               <div>Usuario: {user?.username}</div>
               <button 
