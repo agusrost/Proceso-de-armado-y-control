@@ -645,16 +645,21 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                               producto.recolectado !== null ? (
                                 <div>
                                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    producto.recolectado >= producto.cantidad 
+                                    // Si es recolectado completo y sin motivo: verde
+                                    producto.recolectado !== null && producto.recolectado >= producto.cantidad && (!producto.motivo || producto.motivo.trim() === '')
                                       ? 'bg-green-500 text-white' 
+                                      // Si tiene motivo: azul (FALTANTE JUSTIFICADO)
                                       : producto.motivo && producto.motivo.trim() !== ''
                                         ? 'bg-blue-500 text-white' // Azul para productos con motivo de faltante
+                                        // Si no está completo y sin motivo: naranja (FALTANTE SIN JUSTIFICAR)
                                         : 'bg-orange-500 text-white'
                                   }`}>
-                                    {/* Mostrar siempre la cantidad real recolectada */}
+                                    {/* CORRECCIÓN CRÍTICA: Mostrar siempre la cantidad real recolectada, NUNCA autocompletar visualmente */}
                                     {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} 
+                                    {/* Si tiene motivo: texto JUSTIFICADO */}
                                     {producto.motivo && producto.motivo.trim() !== '' 
                                       ? " (✓ Justificado)" 
+                                      // Si no completo y sin motivo: texto FALTANTE
                                       : producto.recolectado !== null && producto.recolectado < producto.cantidad 
                                         ? " (Faltante)" 
                                         : ""}

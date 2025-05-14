@@ -4221,11 +4221,21 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
       } 
       
-      // NUEVA REGLA CRÍTICA: Si se envía un motivo de faltante, asegurarnos de no autocompletar la cantidad 
-      // Si viene con motivo, respetar la cantidad recolectada que envía el usuario
-      else if (req.body.motivo && req.body.motivo.trim() !== '' && req.body.recolectado !== undefined) {
-        console.log(`🔒 PROTECCIÓN ADICIONAL: La cantidad recolectada ${req.body.recolectado} con motivo "${req.body.motivo}" será respetada y NO auto-completada.`);
-        // Se respeta la cantidad enviada por el cliente, que debería ser menor a la requerida total
+      // NUEVA REGLA CRÍTICA: Si se envía un motivo de faltante o el flag prevenAutocompletar,
+      // asegurarnos de no autocompletar la cantidad y respetar la cantidad recolectada que envía el usuario
+      else if ((req.body.motivo && req.body.motivo.trim() !== '' && req.body.recolectado !== undefined) || 
+               (req.body.prevenAutocompletar === true)) {
+        console.log(`🔒 PROTECCIÓN ADICIONAL: La cantidad recolectada ${req.body.recolectado} ${req.body.motivo ? `con motivo "${req.body.motivo}"` : 'con flag prevenAutocompletar=true'} será respetada y NO auto-completada.`);
+        
+        // Se respeta la cantidad enviada por el cliente, que debería ser menor o igual a la requerida total
+        
+        // Si envían flag prevenAutocompletar, agregamos un log especial
+        if (req.body.prevenAutocompletar === true) {
+          console.log(`🛡️ FLAG ESPECIAL ENVIADO: prevenAutocompletar=true - Se respetará estrictamente la cantidad ${req.body.recolectado}`);
+          
+          // Eliminamos el flag para que no se almacene en la base de datos
+          delete req.body.prevenAutocompletar;
+        }
       }
       
       // Actualizar el producto con los datos posiblemente modificados
