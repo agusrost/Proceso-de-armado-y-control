@@ -294,17 +294,20 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
         motivoFinal = "falta-stock";
       }
       
-      // Solicitud a la API
+      // Solicitud a la API con flag para prevenir autocompletado
       try {
+        console.log(`📦 Enviando actualización para producto ID=${editingProductId}: Recolectado=${editRecolectado}, Motivo="${motivoFinal || 'ninguno'}"`);
+        
         const res = await apiRequest("PATCH", `/api/productos/${editingProductId}`, {
           recolectado: editRecolectado,
-          motivo: motivoFinal
+          motivo: motivoFinal,
+          prevenAutocompletar: true // CORRECCIÓN CRÍTICA: Asegurarnos que no se autocomplete
         });
         
-        console.log("Respuesta API:", res.status);
+        console.log(`✅ Respuesta API: ${res.status}`);
         return await res.json();
       } catch (error) {
-        console.error("Error en solicitud:", error);
+        console.error("❌ Error en solicitud:", error);
         throw error;
       }
     },

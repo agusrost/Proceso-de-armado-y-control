@@ -401,7 +401,7 @@ export default function ArmadoSimplePage() {
               <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
             <DialogTitle className="text-xl mb-4">
-              Ha finalizado el armado del pedido de manera exitosa!
+              Ha finalizado el armado con éxito
             </DialogTitle>
             <p className="text-gray-600 mb-6">
               Todos los productos han sido procesados correctamente.
