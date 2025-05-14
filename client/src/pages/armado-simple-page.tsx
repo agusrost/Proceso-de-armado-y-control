@@ -40,10 +40,43 @@ export default function ArmadoSimplePage() {
   });
   
   // Obtener los productos del pedido
-  const { data: productos = [] } = useQuery({
+  const { data: productosRaw = [] } = useQuery({
     queryKey: [`/api/productos/pedido/${pedido?.id}`],
     enabled: !!pedido?.id,
   });
+  
+  // Filtrar productos para mostrar solo los pendientes cuando se reanuda un pedido pausado
+  const productos = React.useMemo(() => {
+    // Si no hay productos, retornar un array vacío
+    if (!productosRaw.length) return [];
+    
+    // Si el pedido está pausado, mostrar solo los pendientes
+    // Si no está pausado, mostrar todos los productos
+    if (pausaActiva) {
+      // Filtrar para mostrar solo los pendientes (no completados y no parciales)
+      return productosRaw.filter((producto: any) => {
+        // Si el producto no tiene cantidad recolectada, está pendiente
+        if (producto.recolectado === null || producto.recolectado === 0) {
+          return true;
+        }
+        
+        // Si el producto tiene cantidad recolectada pero no está completo y no tiene motivo,
+        // también está pendiente
+        if (
+          producto.recolectado < producto.cantidad && 
+          (!producto.motivo || producto.motivo === "ninguno" || producto.motivo.trim() === "")
+        ) {
+          return true;
+        }
+        
+        // En cualquier otro caso, no mostrar (completados o parciales con motivo)
+        return false;
+      });
+    } else {
+      // Si no está pausado, mostrar todos los productos
+      return productosRaw;
+    }
+  }, [productosRaw, pausaActiva]);
   
   // Estado para el producto actual
   const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
@@ -237,6 +270,17 @@ export default function ArmadoSimplePage() {
       setShowFinalizarModal(true);
     }
   };
+  
+  // Actualizar el índice del producto actual cuando cambian los productos filtrados
+  useEffect(() => {
+    // Si no hay productos, no hacer nada
+    if (!productos.length) return;
+    
+    // Si el índice actual está fuera de rango, reiniciar a 0
+    if (currentProductoIndex >= productos.length) {
+      setCurrentProductoIndex(0);
+    }
+  }, [productos, currentProductoIndex]);
   
   // Producto actual basado en el índice
   const productoActual = productos[currentProductoIndex] || { 
@@ -681,9 +725,16 @@ export default function ArmadoSimplePage() {
         <DialogContent className="bg-white max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogTitle>Pedido {pedido.pedidoId}</DialogTitle>
           <DialogDescription>
-            Lista completa de productos del pedido:
+            {pausaActiva ? (
+              <span className="text-amber-600 font-medium">
+                Mostrando sólo productos pendientes (se han ocultado los ya procesados)
+              </span>
+            ) : (
+              "Lista completa de productos del pedido:"
+            )}
           </DialogDescription>
           
+          {/* Productos para mostrar - si está pausado, usamos la lista filtrada, si no, todos */}
           <div className="mt-4 max-h-[60vh] overflow-y-auto">
             <table className="w-full border-collapse">
               <thead className="bg-gray-100">
@@ -697,6 +748,7 @@ export default function ArmadoSimplePage() {
                 </tr>
               </thead>
               <tbody>
+                {/* Al estar pausado, productos ya contiene solo los pendientes */}
                 {productos.map((producto: any) => {
                   let estado = "Pendiente";
                   let bgColor = "bg-white";
@@ -737,6 +789,17 @@ export default function ArmadoSimplePage() {
                     </tr>
                   );
                 })}
+                
+                {/* Si no hay productos después del filtrado, mostrar mensaje */}
+                {productos.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-4 text-center text-gray-500">
+                      {pausaActiva 
+                        ? "No hay productos pendientes para procesar" 
+                        : "No hay productos en este pedido"}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
