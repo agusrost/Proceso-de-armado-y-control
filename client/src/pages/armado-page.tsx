@@ -1,490 +1,327 @@
-import { useState, useEffect } from "react";
-import { Pedido, Producto, Pausa, InsertPausa } from "@shared/schema";
-import { MainLayout } from "@/components/layout/main-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { AlertTriangle, CheckCircle2, Play, Pause, Flag, XCircle, Edit, RefreshCw, Loader2 } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArmadoSimpleControls } from "@/components/armado/armado-simple-controls";
-
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Plus, Minus, CheckCircle, PauseCircle, X, Check, AlertTriangle } from "lucide-react";
 import proceso from "@/utils/proceso";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Función auxiliar para determinar si un producto está completado
-// Utilizamos la función centralizada de proceso.ts
-const esProductoCompletado = (producto: Producto): boolean => {
-  return proceso.esProductoProcesado(producto);
-};
+// Componente para mostrar el resumen de productos
+interface ProductoResumenProps {
+  producto: any;
+  isActive: boolean;
+  onSelect: () => void;
+}
 
-function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: { 
-  producto: Producto, 
-  isActive: boolean, 
-  isCompleted: boolean,
-  isPending: boolean
-}) {
-  // Determinar si el producto está realmente completado (lógica mejorada)
-  const realmenteCompletado = esProductoCompletado(producto);
+function ProductoResumen({ producto, isActive, onSelect }: ProductoResumenProps) {
+  // Determinar el estado del producto
+  let estadoColor = "bg-red-100 border-red-300 text-red-700"; // Por defecto: pendiente (rojo)
+  let estadoTexto = "Pendiente";
+  
+  if (producto.recolectado !== null) {
+    if (producto.recolectado === producto.cantidad) {
+      // Producto completamente recolectado
+      estadoColor = "bg-green-100 border-green-300 text-green-700";
+      estadoTexto = "Completo";
+    } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
+      // Producto parcialmente recolectado con motivo
+      estadoColor = "bg-amber-100 border-amber-300 text-amber-700";
+      estadoTexto = "Parcial";
+    }
+  }
   
   return (
-    <div className={`border p-4 rounded mb-2 ${
-      isActive 
-        ? 'border-green-700 bg-green-200' // Producto actual - Verde brillante
-        : realmenteCompletado 
-          ? 'border-green-300 bg-green-50' // Productos completados (total o parcial con motivo) - Verde claro
-          : isPending 
-            ? 'border-red-300 bg-red-50' // Productos pendientes - Rojo claro
-            : 'border-gray-300'
-    }`}>
+    <div 
+      className={`p-3 border rounded-md mb-2 cursor-pointer transition-all ${
+        isActive 
+        ? "border-blue-500 bg-blue-50" 
+        : `border ${estadoColor}`
+      }`}
+      onClick={onSelect}
+    >
       <div className="flex justify-between items-center">
-        <div>
-          <p className="font-mono text-sm">{producto.codigo}</p>
-          <p className="font-medium">{producto.descripcion || 'Sin descripción'}</p>
-          <p className="text-gray-600">Cantidad: {producto.cantidad}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-600">Ubicación: {producto.ubicacion || 'N/A'}</p>
-          {producto.recolectado !== null ? (
-            <>
-              <p className={`font-medium ${
-                producto.recolectado === producto.cantidad 
-                  ? 'text-green-600' 
-                  : producto.motivo 
-                    ? 'text-green-600' // Parcial con motivo (completado) - Verde
-                    : 'text-orange-600' // Parcial sin motivo (incompleto) - Naranja
-              }`}>
-                Recolectado: {producto.recolectado || 0}/{producto.cantidad}
-                {/* Mostrar "Completo" si tiene motivo pero cantidad parcial */}
-                {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
-                  <span className="ml-1 text-xs bg-green-100 px-1 py-0.5 rounded">✓ Con faltante</span>
-                )}
-              </p>
-              {producto.motivo && (
-                <p className="text-xs text-red-600 italic">Motivo: {producto.motivo}</p>
-              )}
-            </>
-          ) : (
-            <p className="text-gray-400">No procesado</p>
-          )}
-        </div>
+        <span className="font-medium">{producto.codigo}</span>
+        <span className={`text-sm px-2 py-0.5 rounded-full ${estadoColor}`}>
+          {estadoTexto}
+        </span>
+      </div>
+      <div className="text-sm truncate">{producto.descripcion}</div>
+      <div className="text-sm mt-1">
+        Recolectado: {producto.recolectado === null ? "0" : producto.recolectado}/{producto.cantidad}
+        {producto.motivo && producto.motivo.trim() !== "" && (
+          <span className="ml-2 text-amber-600">
+            <AlertTriangle className="inline h-3 w-3 mr-1" />
+            {producto.motivo}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-export default function ArmadoPage() {
-  const { toast } = useToast();
+export default function ArmadoSimplePage() {
   const { user, logoutMutation } = useAuth();
-  
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
-  const [currentPedido, setCurrentPedido] = useState<Pedido | null>(null);
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
-  const [recolectados, setRecolectados] = useState<number | null>(null);
-  const [motivo, setMotivo] = useState<string>("");
-  const [motivoPersonalizado, setMotivoPersonalizado] = useState<string>("");
-  
-  // Opciones de motivos predefinidos para faltantes
-  const motivosPreestablecidos = [
-    "Faltante de stock",
-    "No se encontró el artículo",
-    "Producto defectuoso",
-    "Otro motivo"
-  ];
-  
-  // Opciones de motivos de pausa
-  const motivosPausa = [
-    "Motivos sanitarios",
-    "Almuerzo",
-    "Fin de turno",
-    "Otro: especificar"
-  ];
-  const [mostrarAlertaInicio, setMostrarAlertaInicio] = useState(false);
-  const [mostrarAlertaFinal, setMostrarAlertaFinal] = useState(false);
-  const [mostrarEstadoPedido, setMostrarEstadoPedido] = useState(false);
-  const [errorInicioPedido, setErrorInicioPedido] = useState<string | null>(null);
-  
-  // Estado para manejo de pausas
-  const [mostrarModalPausa, setMostrarModalPausa] = useState(false);
+  const { toast } = useToast();
+  const [cantidad, setCantidad] = useState(0);
+  const [motivo, setMotivo] = useState("");
   const [motivoPausa, setMotivoPausa] = useState("");
-  const [motivoPausaDetalle, setMotivoPausaDetalle] = useState("");
+  const [detallePausa, setDetallePausa] = useState("");
+  const [mostrarResumen, setMostrarResumen] = useState(false);
   const [pausaActiva, setPausaActiva] = useState(false);
-  const [pausaActualId, setPausaActualId] = useState<number | null>(null);
+  const [mostrarPausaModal, setMostrarPausaModal] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   
-  // Estado para mostrar el diálogo de finalización exitosa
-  const [mostrarDialogoCompletado, setMostrarDialogoCompletado] = useState(false);
-  
-  // Producto en modo edición (para Estado del Pedido)
-  const [editingProductId, setEditingProductId] = useState<number | null>(null);
-  const [editRecolectado, setEditRecolectado] = useState<number>(0);
-  const [editMotivo, setEditMotivo] = useState<string>("");
-  
-  // Interfaz simplificada
-  const [usingSimpleInterface, setUsingSimpleInterface] = useState(true);
-  
-  // Modal de éxito al completar todos los productos
-  const [mostrarModalExito, setMostrarModalExito] = useState(false);
-  
-  // Fetch pedido en proceso
-  const { data: pedidoArmador, isLoading: isLoadingPedido } = useQuery({
+  // Fetch current pedido assigned to armador
+  const { data: pedido, isLoading: isLoadingPedido } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
-    enabled: !!user && user.role === 'armador',
+    enabled: !!user,
   });
   
-  // Iniciar pedido mutation
-  const iniciarPedidoMutation = useMutation({
-    mutationFn: async (pedidoId: number) => {
-      try {
-        console.log(`Iniciando pedido ${pedidoId}...`);
-        // Verificar si hay pausas activas
-        if (pedidoArmador?.pausaActiva) {
-          console.log(`El pedido ${pedidoId} tiene pausas activas, reanudando...`);
-        } else {
-          console.log(`El pedido ${pedidoId} NO tiene pausas activas, iniciando normalmente...`);
-        }
-        
-        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/iniciar`, {});
-        
-        // Si la respuesta no es exitosa, extraemos el mensaje de error
-        if (!res.ok) {
-          const errorData = await res.json();
-          // Lanzamos un error con el mensaje del servidor o uno por defecto
-          throw new Error(errorData.message || "El pedido ya no está disponible para iniciar");
-        }
-        
-        const responseData = await res.json();
-        console.log("Respuesta del servidor:", responseData);
-        return responseData;
-      } catch (err: any) {
-        // Personalizar el mensaje de error para que sea más amigable
-        if (err.message.includes("ya no está disponible") || 
-            err.message.includes("400") || 
-            err.message.includes("404")) {
-          throw new Error("El pedido ya no está disponible para iniciar. Podría haber sido completado o asignado a otro armador.");
-        }
-        throw err;
-      }
+  // Fetch productos de pedido
+  const { data: productos, isLoading: isLoadingProductos } = useQuery({
+    queryKey: [`/api/productos/pedido/${pedido?.id}`],
+    enabled: !!pedido?.id,
+  });
+  
+  // Estado para el producto actual
+  const [currentProductoIndex, setCurrentProductoIndex] = useState(0);
+  const [currentProducto, setCurrentProducto] = useState<any>(null);
+  
+  // Finalizar pedido mutation
+  const finalizarPedidoMutation = useMutation({
+    mutationFn: async (params: { pedidoId: number }) => {
+      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/finalizar`, {});
+      return await res.json();
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    onSuccess: () => {
+      // Mostrar diálogo de éxito en lugar de un toast
+      setShowSuccessDialog(true);
       
-      // Verificar si el pedido tiene un ultimoProductoId (si viene de una pausa)
-      if (data.ultimoProductoId) {
-        console.log(`Pedido iniciado con ultimo producto ID: ${data.ultimoProductoId}`);
-        // Este valor será usado en el useEffect cuando se carguen los productos
-      }
-      
-      // Establecer la bandera de pausa si es necesario
-      if (pedidoArmador?.pausaActiva) {
-        console.log("Estableciendo pausaActiva a true desde onSuccess de iniciarPedidoMutation");
-        setPausaActiva(true);
-        
-        // Si hay pausas, obtener el ID de la pausa activa
-        if (pedidoArmador.pausas && pedidoArmador.pausas.length > 0) {
-          const pausaActual = pedidoArmador.pausas.find(p => !p.fin);
-          if (pausaActual) {
-            setPausaActualId(pausaActual.id);
-            console.log(`Establecido ID de pausa actual: ${pausaActual.id}`);
-          }
-        }
-      }
-      
-      // Actualizar el state local con los datos del pedido iniciado
-      setCurrentPedido(data);
-      
+      // También enviamos un toast para confirmación
       toast({
-        title: pedidoArmador?.pausaActiva ? "Pedido reanudado" : "Pedido iniciado",
-        description: pedidoArmador?.pausaActiva 
-          ? "Has reanudado el armado del pedido correctamente" 
-          : "Has iniciado el armado del pedido correctamente",
+        title: "¡Pedido finalizado!",
+        description: "Todos los productos han sido procesados.",
+        variant: "default",
       });
       
-      // Cerrar el diálogo de confirmación
-      setMostrarAlertaInicio(false);
-      
-      // Cargar productos para establecer la cantidad por defecto
-      setTimeout(async () => {
-        try {
-          const res = await apiRequest("GET", `/api/productos/pedido/${data.id}`);
-          const productos = await res.json();
-          
-          if (productos.length > 0) {
-            // Función para buscar el siguiente producto no procesado
-            const encontrarSiguienteProductoNoProcesado = () => {
-              // CRITERIO ACTUALIZADO: Un producto se considera NO PROCESADO SOLO si:
-              // 1. recolectado === null (nunca se ha tocado), O
-              // 2. recolectado === 0 Y no tiene motivo (inicializado pero no recolectado sin justificación)
-              // 
-              // Se considera PROCESADO si:
-              // 1. recolectado > 0 (se ha recolectado algo), O
-              // 2. tiene un motivo de faltante registrado (incluso si recolectado = 0)
-              // 
-              // IMPORTANTE: La clave es saltar los productos que ya tienen recolectado > 0
-              const siguienteIndex = productos.findIndex(p => {
-                // Si tiene cualquier cantidad recolectada, se considera procesado
-                const tieneRecolectado = typeof p.recolectado === 'number' && p.recolectado > 0;
-                
-                // Si tiene motivo de faltante, se considera procesado
-                const tieneMotivo = p.motivo && p.motivo.trim() !== '';
-                
-                // Solo si NO tiene recolección Y NO tiene motivo, se considera sin procesar
-                return !tieneRecolectado && !tieneMotivo;
-              });
-              
-              if (siguienteIndex !== -1) {
-                console.log(`Encontrado siguiente producto no procesado: ${productos[siguienteIndex].codigo} (recolectado=${productos[siguienteIndex].recolectado})`);
-                setCurrentProductoIndex(siguienteIndex);
-                // CORRECCIÓN CRUCIAL: Siempre iniciar productos no procesados con 0 en lugar de la cantidad máxima
-                // Esto evita la autocomplección incorrecta
-                setRecolectados(0);
-                return true;
-              }
-              
-              // Si todos están procesados, usar el primero
-              console.log("No hay productos sin procesar, usando el primero");
-              setCurrentProductoIndex(0);
-              // CORRECCIÓN CRUCIAL: Iniciar siempre con 0 para evitar autocomplección
-              setRecolectados(0);
-              return false;
-            };
-            
-            // Si hay un último producto ID, verificar su estado
-            if (data.ultimoProductoId) {
-              const ultimoProducto = productos.find((p: any) => p.id === data.ultimoProductoId);
-              
-              if (ultimoProducto) {
-                console.log("Revisando último producto usado:", {
-                  id: ultimoProducto.id,
-                  codigo: ultimoProducto.codigo,
-                  recolectado: ultimoProducto.recolectado,
-                  cantidad: ultimoProducto.cantidad,
-                  motivo: ultimoProducto.motivo
-                });
-                
-                // CRITERIO ACTUALIZADO: Un producto se considera PROCESADO si:
-                // 1. recolectado > 0 (se ha recolectado algo), O
-                // 2. tiene un motivo de faltante registrado (incluso si recolectado = 0)
-                const tieneRecolectado = typeof ultimoProducto.recolectado === 'number' && ultimoProducto.recolectado > 0;
-                const tieneMotivo = ultimoProducto.motivo && ultimoProducto.motivo.trim() !== '';
-                const estaProcesado = tieneRecolectado || tieneMotivo;
-                
-                if (estaProcesado) {
-                  console.log(`Último producto (${ultimoProducto.codigo}) ya fue procesado (recolectado=${ultimoProducto.recolectado}, tiene motivo: ${tieneMotivo}). Buscando el siguiente no procesado.`);
-                  encontrarSiguienteProductoNoProcesado();
-                } else {
-                  // Si no ha sido procesado, quedarse en él
-                  console.log(`Continuando con el último producto no procesado: ${ultimoProducto.codigo}`);
-                  const index = productos.findIndex((p: any) => p.id === ultimoProducto.id);
-                  setCurrentProductoIndex(index);
-                  setRecolectados(ultimoProducto.cantidad);
-                }
-              } else {
-                // Si no se encuentra el último producto, buscar el siguiente no procesado
-                console.log("No se encontró el último producto, buscando el siguiente no procesado");
-                encontrarSiguienteProductoNoProcesado();
-              }
-            } else {
-              // Si no hay último producto, buscar el primero no procesado
-              console.log("Sin último producto, buscando el primero no procesado");
-              encontrarSiguienteProductoNoProcesado();
-            }
-          }
-        } catch (error) {
-          console.error("Error al cargar productos iniciales:", error);
-        }
-      }, 500);
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     },
     onError: (error: Error) => {
-      // Guardar el mensaje de error para mostrarlo en la interfaz
-      setErrorInicioPedido(error.message);
-      
-      // Mostrar un mensaje más amigable para el usuario
       toast({
-        title: "No se pudo iniciar el pedido",
+        title: "Error al finalizar pedido",
         description: error.message,
         variant: "destructive",
       });
-      
-      // Cerrar el diálogo y refrescar la lista de pedidos
-      setMostrarAlertaInicio(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     }
   });
   
-  // Actualizar producto mutation
-  const actualizarProductoMutation = useMutation({
-    mutationFn: async (params: { id: number, recolectado: number, motivo?: string, actualizacionAutomatica?: boolean }) => {
-      try {
-        console.log(`Actualizando producto ID=${params.id}, recolectado=${params.recolectado}, motivo=${params.motivo || ''}, actualizacionAutomatica=${params.actualizacionAutomatica || false}`);
-        
-        const res = await apiRequest("PATCH", `/api/productos/${params.id}`, {
-          recolectado: params.recolectado,
-          motivo: params.motivo,
-          actualizacionAutomatica: params.actualizacionAutomatica || false
-        });
-        
-        // Verificar que la respuesta es JSON antes de procesarla
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error(`Error: La respuesta no es JSON al actualizar producto ${params.id}`, res.status, res.statusText);
-          throw new Error(`Error al actualizar producto: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
-        }
-        
-        return await res.json();
-      } catch (err: any) {
-        console.error("Error al actualizar producto:", err);
-        throw new Error(err.message || "No se pudo actualizar el producto");
-      }
+  // Pausar pedido mutation
+  const pausarPedidoMutation = useMutation({
+    mutationFn: async (params: { pedidoId: number, motivo: string }) => {
+      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/pausar`, { motivo: params.motivo });
+      return await res.json();
     },
-    onSuccess: async (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${currentPedido?.id}`] });
-      
-      // Actualizar el producto en la lista local
-      setProductos(prevProductos => {
-        return prevProductos.map(p => p.id === data.id ? { ...p, ...data } : p);
-      });
+    onSuccess: () => {
+      setMostrarPausaModal(false);
+      setPausaActiva(true);
+      setMotivoPausa("");
+      setDetallePausa("");
       
       toast({
-        title: "Producto actualizado",
-        description: "Las cantidades han sido actualizadas correctamente",
+        title: "Pedido pausado",
+        description: "El pedido ha sido pausado correctamente.",
+        variant: "default",
       });
       
-      // Verificar inmediatamente si todos los productos están procesados
-      // Esto ocurrirá después de cada actualización de producto
-      try {
-        // Primero, obtener la lista actualizada de productos
-        const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
-        const productosActualizados = await res.json();
-        
-        // Verificar si todos los productos están completamente procesados
-        const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
-        
-        // Si todos están procesados, mostrar la pantalla de finalización y terminar el pedido
-        if (todosProductosProcesados) {
-          console.log("✅ TODOS LOS PRODUCTOS ESTÁN PROCESADOS - FINALIZANDO AUTOMÁTICAMENTE");
-          
-          // Mostrar el diálogo de finalización exitosa
-          setMostrarModalExito(true);
-          
-          // Con un pequeño retraso, finalizar formalmente el pedido
-          setTimeout(() => {
-            finalizarPedidoMutation.mutate({ pedidoId: currentPedido!.id });
-          }, 500);
-        } else {
-          console.log("⚠️ Aún hay productos sin procesar - continuando el armado");
-        }
-      } catch (error) {
-        console.error("Error al verificar estado de productos:", error);
-      }
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al pausar pedido",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Reanudar pedido mutation
+  const reanudarPedidoMutation = useMutation({
+    mutationFn: async (params: { pedidoId: number }) => {
+      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/reanudar`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      setPausaActiva(false);
       
-      if (editingProductId) {
-        // Si estamos en modo edición, resetear el estado
-        setEditingProductId(null);
-        setEditRecolectado(0);
-        setEditMotivo("");
+      toast({
+        title: "Pedido reanudado",
+        description: "El pedido ha sido reanudado correctamente.",
+        variant: "default",
+      });
+      
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al reanudar pedido",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Verificar finalización automática
+  const verificarFinalizacionAutomatica = async () => {
+    console.log("Verificando finalización automática...");
+    try {
+      // Obtener los productos más recientes
+      const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
+      const productosActualizados = await res.json();
+      
+      console.log("RESUMEN PRODUCTOS PROCESADOS:");
+      productosActualizados.forEach((p: any, index: number) => {
+        console.log(`[${index+1}/${productosActualizados.length}] Producto ${p.codigo}: ${p.recolectado}/${p.cantidad} ${p.motivo ? `- Motivo: "${p.motivo}"` : ''}`);
+      });
+      
+      // Verificar si todos los productos están procesados
+      if (proceso.debeFinalizar(productosActualizados)) {
+        console.log("✅ Todos los productos procesados, finalizando pedido automáticamente");
         
-        // Obtener los productos actualizados para verificar si todos están procesados
-        try {
-          const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
-          const productosActualizados = await res.json();
+        // Verificar explícitamente cada producto procesado para mostrar logs claros
+        console.log("📋 VERIFICACIÓN FINAL DE PRODUCTOS:");
+        let hayErroresCriticos = false;
+        
+        productosActualizados.forEach((p: any, index: number) => {
+          const esProcesado = proceso.esProductoProcesado(p);
+          console.log(`[${index+1}/${productosActualizados.length}] Producto ${p.codigo}: ${p.recolectado}/${p.cantidad} - ${esProcesado ? '✅ PROCESADO' : '❌ NO PROCESADO'} ${p.motivo ? `- Motivo: "${p.motivo}"` : ''}`);
           
-          // Usar la función centralizada del proceso para verificar
-          // si todos los productos están completamente procesados
-          const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
-          
-          // Si todos los productos están procesados, finalizar el pedido automáticamente
-          if (todosProductosProcesados) {
-            console.log("Todos los productos están procesados correctamente. Finalizando pedido automáticamente...");
-            
-            // Mostrar mensaje de éxito
-            toast({
-              title: "¡Pedido completado!",
-              description: "Todos los productos han sido procesados correctamente",
-              className: "bg-green-100 border-green-500",
-            });
-            
-            // Mostrar modal de éxito
-            setMostrarModalExito(true);
-            
-            // Finalizar el pedido con un pequeño retraso para mostrar la notificación
-            setTimeout(() => {
-              finalizarPedidoMutation.mutate({ pedidoId: currentPedido!.id });
-            }, 800);
+          // Si hay cantidad parcial sin motivo, esto es un error crítico
+          if (p.recolectado !== null && p.recolectado < p.cantidad && (!p.motivo || p.motivo.trim() === '')) {
+            console.error(`⛔ ERROR CRÍTICO: Producto ${p.codigo} con cantidad parcial ${p.recolectado}/${p.cantidad} SIN MOTIVO DE FALTANTE`);
+            hayErroresCriticos = true;
           }
-        } catch (error) {
-          console.error("Error al verificar productos procesados:", error);
+        });
+        
+        if (hayErroresCriticos) {
+          console.error("⛔ HAY ERRORES CRÍTICOS QUE IMPIDEN LA FINALIZACIÓN. SE CANCELARÁ LA OPERACIÓN.");
+          toast({
+            title: "Error en los productos",
+            description: "Hay productos con cantidades parciales sin motivo de faltante. Revisa todos los productos.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // Mostrar primero el diálogo de éxito
+        setShowSuccessDialog(true);
+        
+        // Verificar que el pedido no sea null y finalizar
+        if (pedido?.id) {
+          // Pequeño delay para asegurar que el diálogo se muestre antes
+          setTimeout(() => {
+            finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
+          }, 300);
+        } else {
+          console.error("Error: No se puede finalizar porque el pedido es null");
         }
       } else {
-        // Si estamos en la interfaz normal, avanzar al siguiente producto o finalizar
-        if (currentProductoIndex < productos.length - 1) {
-          // Aún hay más productos, avanzar al siguiente
-          setCurrentProductoIndex(currentProductoIndex + 1);
-          // Establecer valor inicial a la cantidad solicitada o al valor ya recolectado si existe
-          const siguienteProducto = productos[currentProductoIndex + 1];
-          if (siguienteProducto) {
-            // CORRECCIÓN CRÍTICA: Inicializar con la cantidad recolectada real, o con 0 si no está definida
-          // No usar automáticamente el valor total requerido
-          if (siguienteProducto.recolectado !== null && siguienteProducto.recolectado !== undefined) {
-            console.log(`Inicializando con cantidad ya recolectada: ${siguienteProducto.recolectado}`);
-            setRecolectados(siguienteProducto.recolectado);
-          } else {
-            // Inicializar con 0, no con la cantidad requerida
-            console.log(`Inicializando con 0 (en vez de ${siguienteProducto.cantidad}) para evitar autocompletes`);
-            setRecolectados(0);
-          }
-          } else {
-            // Inicializa con la cantidad ya recolectada o con 0, NUNCA con la cantidad total requerida
-            const primerProducto = productos[0];
-            if (primerProducto && primerProducto.recolectado !== null && primerProducto.recolectado !== undefined) {
-              setRecolectados(primerProducto.recolectado);
-            } else {
-              setRecolectados(0); // Inicializamos con 0, nunca con la cantidad total
-            }
-          }
-          setMotivo("");
-        } else {
-          // Era el último producto, verificar si todos han sido procesados
-          try {
-            const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido!.id}`);
-            const productosActualizados = await res.json();
-            
-            // Usar la función centralizada del proceso para verificar
-            // si todos los productos están completamente procesados
-            const todosProductosProcesados = proceso.estanTodosProductosProcesados(productosActualizados);
-            
-            // Si todos los productos están procesados, finalizar el pedido automáticamente
-            if (todosProductosProcesados) {
-              console.log("Último producto procesado y todos tienen estado completo. Finalizando pedido automáticamente...");
-              
-              // Mostrar mensaje de éxito
-              toast({
-                title: "¡Pedido completado!",
-                description: "Todos los productos han sido procesados correctamente",
-                className: "bg-green-100 border-green-500",
-              });
-              
-              // Mostrar modal de éxito
-              setMostrarModalExito(true);
-              
-              // Finalizar el pedido con un pequeño retraso para mostrar la notificación
-              setTimeout(() => {
-                finalizarPedidoMutation.mutate({ pedidoId: currentPedido!.id });
-              }, 800);
-            }
-          } catch (error) {
-            console.error("Error al verificar productos procesados:", error);
-          }
-          
-          // Resetear los valores para mantener la interfaz limpia
-          setRecolectados(null);
-          setMotivo("");
+        console.log("⚠️ No se puede finalizar automáticamente. Algunos productos no están procesados");
+        
+        // Verificar si ya se procesó el último producto
+        if (productos && currentProductoIndex >= productos.length - 1) {
+          // Si estamos en el último producto pero no se puede finalizar, mostrar mensaje explicativo
+          toast({
+            title: "Pedido incompleto",
+            description: "Hay productos sin procesar correctamente. Verifica que todos los productos tengan cantidad o motivo de faltante.",
+            variant: "destructive"
+          });
         }
+      }
+    } catch (error) {
+      console.error("Error al verificar finalización:", error);
+    }
+  };
+  
+  // Actualizar producto mutation
+  const actualizarProductoMutation = useMutation({
+    mutationFn: async (params: { 
+      id: number, 
+      recolectado: number, 
+      motivo?: string, 
+      prevenAutocompletar?: boolean,
+      preservarFaltante?: boolean,
+      proteccionDoble?: boolean
+    }) => {
+      console.log(`📌 ENVIANDO ACTUALIZACIÓN: Producto ${params.id}, Recolectado=${params.recolectado}, Motivo=${params.motivo || 'ninguno'}, Triple Protección Activa`);
+      
+      // Crear el cuerpo de la solicitud con todos los campos necesarios para proteger las cantidades parciales
+      const requestBody: any = {
+        recolectado: params.recolectado,
+        motivo: params.motivo,
+        prevenAutocompletar: true, // Siempre enviamos esto
+        preservarFaltante: params.preservarFaltante === true,
+        proteccionDoble: params.proteccionDoble === true
+      };
+      
+      const res = await apiRequest("PATCH", `/api/productos/${params.id}`, requestBody);
+      return await res.json();
+    },
+    onSuccess: async (data) => {
+      console.log(`✅ PRODUCTO ACTUALIZADO CORRECTAMENTE: ID=${data.id}, Código=${data.codigo}`);
+      console.log(`📊 VALORES FINALES: recolectado=${data.recolectado}/${data.cantidad}, motivo="${data.motivo || 'ninguno'}"`);
+      
+      // PUNTO CRÍTICO: Verificar que los datos devueltos sean correctos
+      // Si el backend devuelve un valor de recolectado diferente al enviado, lanzar alarma
+      const cantidadEsperada = cantidad;
+      const cantidadRecibida = data.recolectado;
+      
+      if (cantidadEsperada !== cantidadRecibida) {
+        console.error(`⛔ ERROR CRÍTICO DETECTADO: Cantidad enviada (${cantidadEsperada}) ≠ Cantidad recibida (${cantidadRecibida})`);
+        toast({
+          title: "Error de sincronización",
+          description: `Las cantidades no coinciden (enviada: ${cantidadEsperada}, recibida: ${cantidadRecibida})`,
+          variant: "destructive"
+        });
+      } else {
+        console.log(`✅ VERIFICACIÓN DE INTEGRIDAD: Cantidad enviada (${cantidadEsperada}) = Cantidad recibida (${cantidadRecibida})`);
+      }
+      
+      // Actualizar queries para refrescar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
+      
+      // MANTENER LA CANTIDAD ACTUAL INTRODUCIDA
+      // Esto es crítico para prevenir que la cantidad se resetee a 0
+      // cuando se presiona "CONTINUAR"
+      console.log(`⚠️ Manteniendo cantidad recolectada en: ${data.recolectado}`);
+      setCantidad(data.recolectado);
+      
+      // Verificar finalización automática
+      await verificarFinalizacionAutomatica();
+      
+      // Avanzar al siguiente producto
+      if (productos && currentProductoIndex < productos.length - 1) {
+        console.log(`⏭️ AVANZANDO AL SIGUIENTE PRODUCTO: ${currentProductoIndex+1}/${productos.length}`);
+        setCurrentProductoIndex(currentProductoIndex + 1);
+      } else {
+        console.log(`🏁 LLEGAMOS AL ÚLTIMO PRODUCTO: ${currentProductoIndex+1}/${productos.length}`);
+        toast({
+          title: "Último producto procesado",
+          description: "Has procesado todos los productos del pedido."
+        });
       }
     },
     onError: (error: Error) => {
@@ -496,2448 +333,507 @@ export default function ArmadoPage() {
     }
   });
   
-  // Crear pausa mutation
-  const crearPausaMutation = useMutation({
-    mutationFn: async (data: InsertPausa & { ultimoProductoId?: number | null }) => {
-      try {
-        // Si hay un producto actual, guardamos su ID para continuar desde allí al reanudar
-        const currentProductoData = productos[currentProductoIndex];
-        const ultimoProductoId = data.ultimoProductoId || (currentProductoData ? currentProductoData.id : null);
-        
-        if (ultimoProductoId) {
-          console.log(`Guardando último producto ID ${ultimoProductoId} en la pausa`);
-        }
-        
-        const res = await apiRequest("POST", "/api/pausas", {
-          ...data,
-          tipo: "armado", // Especificar que es una pausa de armado
-          ultimoProductoId // Incluir el ID del último producto procesado
-        });
-        
-        // Verificar que la respuesta es JSON antes de procesarla
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error(`Error: La respuesta no es JSON al crear pausa`, res.status, res.statusText);
-          throw new Error(`Error al crear pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
-        }
-        
-        return await res.json();
-      } catch (err: any) {
-        console.error("Error al crear pausa:", err);
-        throw new Error(err.message || "No se pudo crear la pausa");
-      }
-    },
-    onSuccess: (data: Pausa) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      setPausaActiva(true);
-      setPausaActualId(data.id);
-      setMostrarModalPausa(false);
-      setMotivoPausa("");
-      setMotivoPausaDetalle("");
+  // Determinar el producto actual basado en el algoritmo de selección
+  useEffect(() => {
+    if (productos && productos.length > 0) {
+      // Buscar el primer producto sin recolectar (null)
+      const primerNoRecolectado = productos.findIndex((p: any) => p.recolectado === null);
       
-      toast({
-        title: "Pausa iniciada",
-        description: "Has pausado el armado del pedido correctamente",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error al crear pausa",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-  
-  // Finalizar pausa mutation con manejo de estado mejorado
-  const finalizarPausaMutation = useMutation({
-    mutationFn: async (pausaId: number) => {
-      try {
-        console.log(`API - Finalizando pausa ID: ${pausaId}`);
-        const res = await apiRequest("PUT", `/api/pausas/${pausaId}/fin`, {});
+      if (primerNoRecolectado !== -1) {
+        // Encontramos un producto sin recolectar
+        setCurrentProductoIndex(primerNoRecolectado);
+      } else {
+        // Si no hay productos sin recolectar, buscar el primero incompleto
+        const primerIncompleto = productos.findIndex(
+          (p: any) => p.recolectado !== null && p.recolectado < p.cantidad
+        );
         
-        // Verificar que la respuesta es JSON antes de procesarla
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error(`Error: La respuesta no es JSON al finalizar pausa ${pausaId}`, res.status, res.statusText);
-          throw new Error(`Error al finalizar pausa: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
-        }
-        
-        const data = await res.json();
-        console.log(`API - Pausa ${pausaId} finalizada correctamente`);
-        
-        // Registrar información sobre ultimoProductoId si está disponible
-        if (data.ultimoProductoId) {
-          console.log(`API - La pausa finalizada tiene ultimoProductoId: ${data.ultimoProductoId}`);
-        }
-        
-        return data;
-      } catch (err: any) {
-        console.error("Error en API al finalizar pausa:", err);
-        throw new Error(err.message || "No se pudo finalizar la pausa");
-      }
-    },
-    // La lógica principal de onSuccess está ahora en los callbacks
-    // de las llamadas individuales para permitir diferentes comportamientos
-    // según el contexto de la UI
-    onSuccess: (data) => {
-      console.log("Pausa finalizada en la base de datos con éxito");
-      
-      // Actualizar estado local inmediatamente
-      setPausaActiva(false);
-      setPausaActualId(null);
-      
-      // Actualizar los datos del pedido actual
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/pedido-para-armador"],
-        exact: true
-      });
-      
-      // Actualizar productos con un pequeño retraso para asegurar sincronización
-      if (currentPedido?.id) {
-        setTimeout(() => {
-          queryClient.invalidateQueries({ 
-            queryKey: [`/api/productos/pedido/${currentPedido.id}`],
-            refetchType: 'all'
-          });
-          
-          console.log(`Solicitando actualización explícita de productos para pedido ${currentPedido.id}`);
-          apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
-            .then(res => res.json())
-            .then(productosActualizados => {
-              console.log(`Productos recargados después de finalizar pausa: ${productosActualizados.length}`);
-              setProductos(productosActualizados);
-            })
-            .catch(err => console.error("Error al recargar productos:", err));
-        }, 500);
-      }
-      
-      // Mostrar notificación de éxito
-      toast({
-        title: "Pedido reanudado",
-        description: "Has reanudado el armado del pedido correctamente",
-      });
-    },
-    onError: (error: Error) => {
-      console.error("Error en mutation al finalizar pausa:", error);
-      
-      // Mostrar un mensaje de error más descriptivo
-      toast({
-        title: "Error al finalizar pausa",
-        description: `No se pudo reanudar la pausa: ${error.message}. Intente nuevamente.`,
-        variant: "destructive",
-      });
-      
-      // En caso de error, refrescar datos para asegurar consistencia
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-    }
-  });
-  
-  // Finalizar pedido mutation
-  const finalizarPedidoMutation = useMutation({
-    mutationFn: async ({ pedidoId, forzar = false }: { pedidoId: number, forzar?: boolean }) => {
-      try {
-        let endpoint = '';
-        let method = '';
-        let body = {};
-        
-        if (forzar) {
-          // Usar el nuevo endpoint de finalización forzada
-          endpoint = `/api/pedidos/${pedidoId}/finalizar?forzar=true`;
-          method = "POST";
-          body = {}; // No necesitamos enviar el estado, lo determina el servidor
+        if (primerIncompleto !== -1) {
+          setCurrentProductoIndex(primerIncompleto);
         } else {
-          // Usar el endpoint estándar de cambio de estado
-          endpoint = `/api/pedidos/${pedidoId}/estado`;
-          method = "PUT";
-          body = { estado: "armado" };
+          // Si todo está completo, usar el primero
+          setCurrentProductoIndex(0);
         }
-          
-        console.log(`Finalizando pedido ${pedidoId} usando ${forzar ? 'finalización forzada' : 'método estándar'}`);
-        
-        const res = await apiRequest(method, endpoint, body);
-        
-        // Verificar que la respuesta es JSON antes de procesarla
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error(`Error: La respuesta no es JSON al finalizar pedido ${pedidoId}`, res.status, res.statusText);
-          throw new Error(`Error al finalizar pedido: Respuesta no válida del servidor (${res.status} ${res.statusText})`);
-        }
-        
-        const data = await res.json();
-        
-        // Si la respuesta incluye un mensaje de error
-        if (data.error || data.message && !data.success) {
-          // Si hay pausas activas, sugerir usar forzar finalización
-          if (data.pausasActivas && data.pausasActivas.length > 0) {
-            throw new Error(`No se puede finalizar el pedido porque tiene ${data.pausasActivas.length} pausas activas. Use la opción 'Forzar finalización'.`);
-          }
-          
-          // Si hay productos incompletos, mostrar detalle
-          if (data.productosIncompletos && data.productosIncompletos.length > 0) {
-            throw new Error(`No se puede finalizar el pedido porque tiene ${data.productosIncompletos.length} productos sin completar.`);
-          }
-          
-          // Error genérico
-          throw new Error(data.message || "Error al finalizar el pedido");
-        }
-        
-        return data;
-      } catch (err: any) {
-        console.error("Error al finalizar pedido:", err);
-        throw new Error(err.message || "No se pudo finalizar el pedido");
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      
-      // Mostrar mensaje de éxito antes de resetear el estado
-      toast({
-        title: "Pedido armado con éxito",
-        description: "El pedido ha sido armado y está listo para la etapa de Control",
-        variant: "default",
-      });
-      
-      // Configurar un delay para que el usuario pueda ver el mensaje antes de resetear
-      setTimeout(() => {
-        setUsingSimpleInterface(true);
-        setCurrentPedido(null);
-        setProductos([]);
-        setMostrarAlertaFinal(false);
-        setCurrentProductoIndex(0);
-        
-        // Consultar siguiente pedido pendiente para mostrar automáticamente
-        queryClient.refetchQueries({ queryKey: ["/api/pedido-para-armador"] })
-          .then(() => {
-            console.log("Se ha consultado el siguiente pedido pendiente tras finalizar armado");
-          })
-          .catch(err => {
-            console.error("Error al consultar siguiente pedido:", err);
-          });
-      }, 1000);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error al finalizar pedido",
-        description: error.message,
-        variant: "destructive",
-      });
     }
-  });
+  }, [productos]);
   
-  // Fetch productos de pedido cuando cambia el pedido actual
+  // Actualizar el producto actual cuando cambia el índice
   useEffect(() => {
-    if (currentPedido?.id) {
-      const fetchProductos = async () => {
-        try {
-          const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
-          const data = await res.json();
-          setProductos(data);
-          
-          console.log(`INICIO DE CARGA: Pedido ${currentPedido.pedidoId} - Total productos: ${data.length}`);
-          
-          // SOLUCIÓN FORZADA: SIEMPRE MOSTRAR EL PRIMER PRODUCTO SIN RECOLECTAR
-          console.log("🔍 PRIORIDAD ABSOLUTA: Buscando productos pendientes (no procesados)");
-          
-          // NUEVA LÓGICA MEJORADA: 
-          // Considera como pendientes solo los productos que:
-          // 1. No tienen recolectado (recolectado === null)
-          // 2. No tienen motivo a pesar de ser parciales (recolectado < cantidad y !motivo)
-          
-          // CORREGIDO: Reutilizar la función esProductoCompletado
-          const estaRealmendePendiente = (p) => {
-            // Un producto está pendiente si NO está completado
-            return !esProductoCompletado(p);
-          };
-          
-          console.log("🚀 NUEVA LÓGICA: Verificando productos realmente pendientes");
-          
-          // Obtener productos realmente pendientes según la nueva lógica
-          const productosRealmendePendientes = data.filter(estaRealmendePendiente);
-          
-          console.log(`📊 Productos realmente pendientes: ${productosRealmendePendientes.length} (de ${data.length} totales)`);
-          
-          // Diagnóstico detallado
-          if (productosRealmendePendientes.length > 0) {
-            console.log("📋 Listado de productos pendientes:");
-            productosRealmendePendientes.forEach(p => {
-              console.log(`   - SKU ${p.codigo}: Cantidad ${p.cantidad}, Recolectado ${p.recolectado}, Motivo: "${p.motivo || 'Sin motivo'}"`);
-            });
-          } else {
-            // Si no hay productos pendientes, verificar si hay parciales sin motivo
-            const productosParciales = data.filter(p => p.recolectado !== null && p.recolectado < p.cantidad);
-            if (productosParciales.length > 0) {
-              console.log("📋 Productos parciales (ya procesados porque tienen motivo):");
-              productosParciales.forEach(p => {
-                console.log(`   - SKU ${p.codigo}: ${p.recolectado}/${p.cantidad}, Motivo: "${p.motivo || 'SIN MOTIVO ⚠️'}"`);
-              });
-            }
-          }
-          
-          // Si hay productos realmente pendientes, seleccionar el primero
-          if (productosRealmendePendientes.length > 0) {
-            // Ordenar por ID para respetar FIFO
-            productosRealmendePendientes.sort((a, b) => a.id - b.id);
-            
-            const primerProductoPendiente = productosRealmendePendientes[0];
-            const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
-            
-            console.log(`✅ SELECCIONANDO PRODUCTO PENDIENTE: ${primerProductoPendiente.codigo} (ID: ${primerProductoPendiente.id})`);
-            
-            setCurrentProductoIndex(primerProductoPendienteIndex);
-            
-            // CORRECCIÓN: Inicializar el campo con la cantidad total solicitada como valor predeterminado
-            const valorInicial = primerProductoPendiente.cantidad;
-            console.log(`🔧 Estableciendo cantidad inicial a ${valorInicial} (cantidad total solicitada)`);
-            // Es muy importante que este valor sea la cantidad total solicitada
-            setRecolectados(valorInicial);
-            
-            // Preservar motivo si existe
-            if (primerProductoPendiente.motivo) {
-              console.log(`🔧 Preservando motivo: "${primerProductoPendiente.motivo}"`);
-              setMotivo(primerProductoPendiente.motivo);
-            }
-            
-            return;
-          }
-          
-          // Si no hay productos realmente pendientes, avisamos
-          console.log("✅ TODOS LOS PRODUCTOS ESTÁN PROCESADOS CORRECTAMENTE!");
-          
-          // No hay productos pendientes (todos tienen recolectado y motivo si es necesario)
-          
-          console.log("ADVERTENCIA: No se encontraron productos sin procesar");
-          
-          // Si llegamos aquí, todos los productos ya han sido procesados
-          // Por lo tanto, verificamos si hay algún producto parcialmente procesado
-          // (donde recolectado < cantidad)
-          
-          const parcialmenteProcesadoIndex = data.findIndex(p => 
-            p.recolectado !== null && p.recolectado < p.cantidad
-          );
-          
-          if (parcialmenteProcesadoIndex !== -1) {
-            const parcialProducto = data[parcialmenteProcesadoIndex];
-            console.log(`Encontrado producto parcialmente procesado: ${parcialProducto.codigo}`);
-            console.log(`Recolectado: ${parcialProducto.recolectado}/${parcialProducto.cantidad}`);
-            
-            setCurrentProductoIndex(parcialmenteProcesadoIndex);
-            setRecolectados(parcialProducto.recolectado);
-            
-            // También preservar el motivo si existe
-            if (parcialProducto.motivo) {
-              console.log(`Preservando motivo existente: "${parcialProducto.motivo}"`);
-              setMotivo(parcialProducto.motivo);
-            } else {
-              // Limpiar motivo si no tiene
-              setMotivo("");
-            }
-            
-            return;
-          }
-          
-          // Sólo si no hay productos sin procesar ni parcialmente procesados,
-          // verificamos el ultimoProductoId por compatibilidad
-          if (currentPedido.ultimoProductoId) {
-            console.log(`Verificando último producto usado: ${currentPedido.ultimoProductoId}`);
-            
-            const ultimoProductoIndex = data.findIndex((p: any) => p.id === currentPedido.ultimoProductoId);
-            
-            if (ultimoProductoIndex !== -1) {
-              const ultimoProducto = data[ultimoProductoIndex];
-              
-              // Si el producto ya está completamente procesado, buscar otro
-              if (ultimoProducto.recolectado !== null && ultimoProducto.recolectado >= ultimoProducto.cantidad) {
-                console.log(`Último producto ${ultimoProducto.codigo} ya procesado completamente`);
-                
-                // Usar el primer producto como fallback
-                console.log("Usando el primer producto como fallback");
-                setCurrentProductoIndex(0);
-                setRecolectados(data[0].recolectado !== null ? data[0].recolectado : data[0].cantidad);
-              } else {
-                // Si no está procesado, quedarse en él
-                console.log(`Usando último producto ${ultimoProducto.codigo}`);
-                setCurrentProductoIndex(ultimoProductoIndex);
-                
-                // Solamente posicionar en este producto sin modificar sus valores
-                console.log(`Posicionando en el producto ${ultimoProducto.codigo} sin cambiar sus valores`);
-                
-                // Si el producto tiene un valor de recolectado, usamos ese
-                if (ultimoProducto.recolectado !== null) {
-                  console.log(`El producto tiene ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} unidades recolectadas`);
-                  setRecolectados(ultimoProducto.recolectado);
-                } else {
-                  // Si no tiene valor de recolectado, inicializamos en 0
-                  console.log(`El producto no tiene unidades recolectadas, inicializando en 0`);
-                  setRecolectados(0);
-                }
-                
-                // Si tiene motivo de faltante, lo preservamos
-                if (ultimoProducto.motivo) {
-                  console.log(`Preservando motivo de faltante: "${ultimoProducto.motivo}"`);
-                  setMotivo(ultimoProducto.motivo);
-                } else {
-                  setMotivo("");
-                }
-                
-                // No realizamos ninguna actualización automática, solo posicionamos el cursor en este producto
-              }
-            } else {
-              console.warn(`No se encontró el último producto ID ${currentPedido.ultimoProductoId} en la lista de productos`);
-              // Usar lógica de selección por defecto
-              seleccionarProductoDefault(data);
-            }
-          } else {
-            // Sin último producto, usar lógica de selección por defecto
-            seleccionarProductoDefault(data);
-          }
-          
-          // Verificar si hay una pausa activa
-          if (currentPedido.pausas && currentPedido.pausas.length > 0) {
-            const pausaActiva = currentPedido.pausas.find((p: any) => !p.fin);
-            if (pausaActiva) {
-              setPausaActiva(true);
-              setPausaActualId(pausaActiva.id);
-            }
-          }
-        } catch (error) {
-          console.error("Error al cargar productos:", error);
-          toast({
-            title: "Error al cargar productos",
-            description: "No se pudieron cargar los productos del pedido",
-            variant: "destructive",
-          });
-        }
-      };
+    if (productos && productos[currentProductoIndex]) {
+      setCurrentProducto(productos[currentProductoIndex]);
+      // CORRECCIÓN CRÍTICA: Inicializar cantidad con lo que ya esté recolectado o con CERO
+      // NUNCA inicializar con la cantidad solicitada para evitar autocompletado
+      const productoActual = productos[currentProductoIndex];
       
-      // Función auxiliar para seleccionar el producto por defecto - MEJORADA CON LA NUEVA LÓGICA
-      const seleccionarProductoDefault = (data: any[]) => {
-        // CORREGIDO: Usar esProductoCompletado para determinar productos pendientes
-        const productosRealmendePendientes = data.filter(p => !esProductoCompletado(p));
+      // Log detallado para debugging
+      console.log(`🔍 CAMBIO DE PRODUCTO → ${productoActual.codigo}`);
+      console.log(`📊 DATOS ACTUALES: recolectado=${productoActual.recolectado}, cantidad requerida=${productoActual.cantidad}, motivo="${productoActual.motivo || 'ninguno'}"`);
+      
+      // Punto crítico: Inicialización de cantidades
+      // Este es un punto crítico donde debemos asegurarnos de preservar cantidades parciales
+      
+      if (productoActual.recolectado !== null && productoActual.recolectado !== undefined) {
+        // Si ya tiene una cantidad recolectada, usarla EXACTAMENTE cómo está
+        console.log(`✅ PRESERVAR: Usando cantidad recolectada existente: ${productoActual.recolectado}/${productoActual.cantidad}`);
         
-        if (productosRealmendePendientes.length > 0) {
-          // Ordenar por ID para respetar FIFO
-          productosRealmendePendientes.sort((a, b) => a.id - b.id);
-          
-          const primerProductoPendiente = productosRealmendePendientes[0];
-          const primerProductoPendienteIndex = data.findIndex(p => p.id === primerProductoPendiente.id);
-          
-          console.log(`SELECCIÓN DEFAULT: Producto pendiente encontrado: ${primerProductoPendiente.codigo}`);
-          console.log(`Iniciando cantidad recolectada con: ${primerProductoPendiente.cantidad} unidades (cantidad solicitada)`);
-          
-          setCurrentProductoIndex(primerProductoPendienteIndex);
-          setRecolectados(primerProductoPendiente.cantidad); // Inicializar con la cantidad solicitada
-          return;
-        }
+        // ASEGURANDO cantidad exacta (no redondeada ni modificada)
+        const cantidadExacta = productoActual.recolectado;
+        setCantidad(cantidadExacta);
         
-        // Si todos los productos están completados, seleccionar el primero
-        console.log("SELECCIÓN DEFAULT: Todos los productos están completos. Seleccionando el primero.");
-        setCurrentProductoIndex(0);
-        // También establecer recolectados para el primer producto
-        if (data.length > 0) {
-          console.log(`Iniciando cantidad recolectada del primer producto con: ${data[0].cantidad} unidades`);
-          setRecolectados(data[0].cantidad);
-        }
-      };
-      
-      fetchProductos();
-    }
-  }, [currentPedido, toast]);
-  
-  // Actualizar pedido actual cuando cambia el pedido del armador
-  useEffect(() => {
-    if (pedidoArmador && pedidoArmador.estado === 'en-proceso') {
-      console.log("Pedido del armador actualizado:", pedidoArmador);
-      setCurrentPedido(pedidoArmador);
-      
-      // Verificar si hay pausas activas y actualizar el estado local
-      // Enfoque más consistente para detectar pausas activas
-      const tienePausaActiva = Boolean(pedidoArmador.pausaActiva);
-      const tienePausaSinFinalizar = pedidoArmador.pausas && 
-        Array.isArray(pedidoArmador.pausas) && 
-        pedidoArmador.pausas.some(p => !p.fin);
-      
-      console.log(`Diagnóstico de pausas - pausaActiva prop: ${tienePausaActiva}, pausaSinFinalizar: ${tienePausaSinFinalizar}`);
-      
-      if (tienePausaActiva || tienePausaSinFinalizar) {
-        console.log("⚠️ Pedido tiene pausa activa - Actualizando estado local");
-        setPausaActiva(true);
-        
-        // Buscar el ID de la pausa para finalización
-        if (pedidoArmador.pausaActiva?.id) {
-          console.log(`Usando ID de pausa desde pausaActiva: ${pedidoArmador.pausaActiva.id}`);
-          setPausaActualId(pedidoArmador.pausaActiva.id);
-        } else if (tienePausaSinFinalizar) {
-          // Buscar la pausa sin finalizar más reciente
-          const pausasSinFinalizar = pedidoArmador.pausas.filter(p => !p.fin);
-          const pausaMasReciente = pausasSinFinalizar.sort((a, b) => 
-            new Date(b.inicio).getTime() - new Date(a.inicio).getTime()
-          )[0];
-          
-          if (pausaMasReciente?.id) {
-            console.log(`Usando ID de pausa desde pausas[]: ${pausaMasReciente.id}`);
-            setPausaActualId(pausaMasReciente.id);
-          }
+        // Si tiene motivo de faltante, mostrar advertencia
+        if (productoActual.motivo && productoActual.motivo.trim() !== '') {
+          console.log(`⚠️ ATENCIÓN: Producto con motivo de faltante: "${productoActual.motivo}"`);
+          setMotivo(productoActual.motivo);
+        } else {
+          setMotivo("");
         }
       } else {
-        console.log("✅ Pedido sin pausas activas");
-        setPausaActiva(false);
-        setPausaActualId(null);
+        // IMPORTANTE: Inicializar con 0, NUNCA con la cantidad total
+        console.log(`✅ NUEVO: Inicializando con 0 en lugar de ${productoActual.cantidad} para evitar autocompletado`);
+        setCantidad(0);
+        setMotivo("");
       }
-      
-      // Cargar productos para establecer la cantidad por defecto
-      setTimeout(async () => {
-        try {
-          const res = await apiRequest("GET", `/api/productos/pedido/${pedidoArmador.id}`);
-          const productos = await res.json();
-          
-          console.log(`Cargando productos para pedido de armador ${pedidoArmador.pedidoId} - Total: ${productos.length}`);
-          
-          if (productos.length > 0) {
-            // NUEVA LÓGICA MEJORADA: Usar esProductoCompletado para mostrar SOLO productos incompletos 
-            // independientemente del ultimoProductoId
-            
-            // NUEVO ENFOQUE: Procesar siempre productos en orden FIFO estricto
-            // Si hay productos sin procesar, comenzar desde el primero (índice más bajo)
-            const productosOrdenados = [...productos].sort((a, b) => a.id - b.id);
-            console.log("Productos ordenados por ID (FIFO):", productosOrdenados.map(p => p.codigo));
-            
-            // Encontrar el primer producto sin procesar
-            const primerSinProcesar = productosOrdenados.find(p => p.recolectado === null);
-            
-            if (primerSinProcesar) {
-              const primerSinProcesarIndex = productos.findIndex(p => p.id === primerSinProcesar.id);
-              console.log(`FIFO ESTRICTO: Primer producto sin procesar: ${primerSinProcesar.codigo} (ID: ${primerSinProcesar.id})`);
-              
-              setCurrentProductoIndex(primerSinProcesarIndex);
-              // Inicializar con la cantidad solicitada, siempre
-              setRecolectados(primerSinProcesar.cantidad);
-              console.log(`Inicializando cantidad: ${primerSinProcesar.cantidad} para ${primerSinProcesar.codigo}`);
-              return;
-            }
-            
-            // Si todos tienen algún proceso, buscar los que tienen recolección parcial sin motivo
-            const parcialSinMotivo = productosOrdenados.find(p => 
-              p.recolectado !== null && 
-              p.recolectado < p.cantidad && 
-              !p.motivo
-            );
-            
-            if (parcialSinMotivo) {
-              const parcialSinMotivoIndex = productos.findIndex(p => p.id === parcialSinMotivo.id);
-              console.log(`FIFO - PARCIALES: Producto parcial sin motivo: ${parcialSinMotivo.codigo} (${parcialSinMotivo.recolectado}/${parcialSinMotivo.cantidad})`);
-              
-              setCurrentProductoIndex(parcialSinMotivoIndex);
-              setRecolectados(parcialSinMotivo.recolectado);
-              return;
-            }
-            
-            // 2. Como respaldo, buscar cualquier producto parcialmente completado
-            // aunque no debería ser necesario con la lógica mejorada
-            const productoParcialIndex = productos.findIndex(p => 
-              p.recolectado !== null && p.recolectado < p.cantidad
-            );
-            
-            if (productoParcialIndex !== -1) {
-              const productoParcial = productos[productoParcialIndex];
-              console.log(`PRIORIDAD 2: Encontrado producto parcialmente procesado: ${productoParcial.codigo}`);
-              console.log(`Recolectado: ${productoParcial.recolectado}/${productoParcial.cantidad}`);
-              setCurrentProductoIndex(productoParcialIndex);
-              setRecolectados(productoParcial.recolectado);
-              
-              // Preservar también el motivo si existe
-              if (productoParcial.motivo) {
-                console.log(`Preservando motivo existente: "${productoParcial.motivo}"`);
-                setMotivo(productoParcial.motivo);
-              } else {
-                setMotivo("");
-              }
-              
-              return;
-            }
-            
-            // 3. Sólo como respaldo, verificar el ultimoProductoId
-            if (pedidoArmador.ultimoProductoId) {
-              console.log(`FALLBACK: Verificando último producto registrado: ${pedidoArmador.ultimoProductoId}`);
-              const ultimoProducto = productos.find((p: any) => p.id === pedidoArmador.ultimoProductoId);
-              
-              if (ultimoProducto && ultimoProducto.recolectado < ultimoProducto.cantidad) {
-                console.log(`Usando último producto ${ultimoProducto.codigo}`);
-                const index = productos.findIndex(p => p.id === ultimoProducto.id);
-                setCurrentProductoIndex(index);
-                setRecolectados(ultimoProducto.recolectado || 0);
-                return;
-              }
-            }
-            
-            // 4. Si todo lo anterior falla, usar el primer producto
-            console.log("ULTIMO RECURSO: Usando el primer producto de la lista");
-            setCurrentProductoIndex(0);
-            // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
-            setRecolectados(productos[0].recolectado !== null ? productos[0].recolectado : 0);
-          }
-        } catch (error) {
-          console.error("Error al cargar productos para cantidad predeterminada:", error);
-        }
-      }, 500);
     }
-  }, [pedidoArmador]);
+  }, [productos, currentProductoIndex]);
   
-  // Función para manejar el submit del formulario
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!productos[currentProductoIndex]) return;
+  // Estado para mostrar controles
+  const [showMotivoInput, setShowMotivoInput] = useState(false);
+  
+  // Lista de motivos predefinidos para faltantes
+  const motivosFaltante = [
+    "Faltante de stock",
+    "No se encontró el artículo",
+    "Producto defectuoso",
+    "Otro motivo"
+  ];
+  
+  // Lista de motivos para pausas
+  const motivosDePausa = [
+    "Motivos sanitarios",
+    "Almuerzo",
+    "Fin de turno",
+    "Otro: especificar"
+  ];
+
+  // Función para verificar si todos los productos están procesados (recolectados o con motivo)
+  const todosProductosProcesados = (productos: any[]): boolean => {
+    if (!productos || productos.length === 0) return false;
     
-    const producto = productos[currentProductoIndex];
-    const cantidadRequerida = producto.cantidad;
-    
-    // Si recolectados es null, establecerlo como la cantidad requerida
-    if (recolectados === null) {
-      console.log("Estableciendo recolectados a cantidad total:", cantidadRequerida);
-      setRecolectados(cantidadRequerida);
-      return;
-    }
-    
-    // Validar cantidad
-    if (recolectados > cantidadRequerida) {
-      toast({
-        title: "Cantidad inválida",
-        description: `No puedes recolectar más de ${cantidadRequerida} unidades`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Si hay faltantes (cantidad menor que la requerida), pedir motivo
-    if (recolectados < cantidadRequerida && !motivo) {
-      console.log(`Pidiendo motivo porque recolectados (${recolectados}) < cantidad requerida (${cantidadRequerida})`);
+    return productos.every(producto => 
+      // Un producto está procesado si:
+      (producto.recolectado !== null && producto.recolectado > 0) || // Tiene cantidad recolectada
+      (producto.motivo && producto.motivo.trim() !== "") // O tiene un motivo de faltante
+    );
+  };
+
+  // Función para pausar el armado
+  const handlePausarArmado = () => {
+    if (!motivoPausa) {
       toast({
         title: "Motivo requerido",
-        description: "Debe indicar un motivo para los faltantes",
+        description: "Por favor, seleccione un motivo para pausar el armado",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Si se seleccionó "Otro" pero no se especificó el detalle
+    if (motivoPausa === "Otro: especificar" && !detallePausa) {
+      toast({
+        title: "Detalle requerido",
+        description: "Por favor, especifique el detalle del motivo",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Construir el motivo completo
+    const motivoCompleto = motivoPausa === "Otro: especificar"
+      ? `${motivoPausa}: ${detallePausa}`
+      : motivoPausa;
+    
+    // Llamar a la API para pausar el pedido
+    pausarPedidoMutation.mutate({
+      pedidoId: pedido?.id,
+      motivo: motivoCompleto
+    });
+  };
+
+  // Función para reanudar el armado
+  const handleReanudarArmado = () => {
+    reanudarPedidoMutation.mutate({
+      pedidoId: pedido?.id
+    });
+  };
+
+  // Función para finalizar el armado manualmente
+  const handleFinalizarArmado = () => {
+    // Validar que todos los productos tengan al menos un motivo si no están completos
+    const productosIncompletos = productos?.filter(p => 
+      p.recolectado === null || 
+      (p.recolectado < p.cantidad && (!p.motivo || p.motivo.trim() === ""))
+    );
+    
+    if (productosIncompletos && productosIncompletos.length > 0) {
+      toast({
+        title: "Productos incompletos",
+        description: "Hay productos que no han sido procesados. Procese todos los productos antes de finalizar.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Finalizar pedido
+    finalizarPedidoMutation.mutate({ pedidoId: pedido?.id });
+  };
+
+  // Manejar continuar/guardar y avanzar
+  const handleContinuar = () => {
+    if (!currentProducto) return;
+    
+    // Validar cantidad
+    if (cantidad > currentProducto.cantidad) {
+      toast({
+        title: "Cantidad inválida",
+        description: `No puedes recolectar más de ${currentProducto.cantidad} unidades`,
         variant: "destructive",
       });
       return;
     }
     
-    // Si la cantidad es exactamente igual a la requerida, no pedir motivo
-    if (recolectados === cantidadRequerida) {
-      console.log("Cantidad exacta, no se requiere motivo");
+    // Si la cantidad es menor a la solicitada, debe proporcionar un motivo
+    if (cantidad < currentProducto.cantidad && !motivo) {
+      toast({
+        title: "Motivo requerido",
+        description: "Por favor, especifique el motivo del faltante",
+        variant: "destructive",
+      });
+      return;
     }
     
-    // Determinar si necesitamos enviar el motivo
-    const motivoParaEnviar = recolectados < cantidadRequerida ? motivo : undefined;
+    // Log detallado del proceso
+    console.log(`⚠️ GUARDANDO: Producto ${currentProducto.codigo} - ${cantidad}/${currentProducto.cantidad}`);
+    if (cantidad < currentProducto.cantidad) {
+      console.log(`⚠️ FALTANTE: Motivo "${motivo}"`);
+    }
     
-    // Actualizar producto
+    // Actualizar el producto con la cantidad recolectada y motivo si es necesario
     actualizarProductoMutation.mutate({
-      id: producto.id,
-      recolectado: recolectados,
-      motivo: motivoParaEnviar
+      id: currentProducto.id,
+      recolectado: cantidad,
+      motivo: cantidad < currentProducto.cantidad ? motivo : undefined,
+      prevenAutocompletar: true,  // Obligatorio
+      preservarFaltante: true,    // Doble protección
+      proteccionDoble: true       // Triple protección
     });
   };
   
-  // Si no hay pedido en proceso, mostrar mensaje
-  if (isLoadingPedido) {
+  // Vista de carga
+  if (isLoadingPedido || isLoadingProductos || !currentProducto) {
     return (
-      <MainLayout>
-        <div className="container py-6">
-          <h1 className="text-2xl font-bold mb-4">Armado de Pedidos</h1>
-          <div className="flex justify-center py-8">
-            <p>Cargando...</p>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-  
-  if (!currentPedido) {
-    return (
-      <MainLayout>
-        <div className="container py-6">
-          <h1 className="text-2xl font-bold mb-4">Armado de Pedidos</h1>
-          
-          {pedidoArmador ? (
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-1 text-blue-500">
-                  <AlertTriangle size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-blue-800">Pedido asignado</h3>
-                  <p className="text-blue-800 mt-1">
-                    Tienes un pedido asignado. Puedes comenzar a armarlo cuando estés listo.
-                  </p>
-                  
-                  {/* Mostrar mensaje de error si existe */}
-                  {errorInicioPedido && (
-                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                      <div className="flex items-center gap-2 mb-1">
-                        <XCircle size={16} className="text-red-500" />
-                        <span className="font-medium text-red-800">Error:</span>
-                      </div>
-                      <p>{errorInicioPedido}</p>
-                      <Button
-                        className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => {
-                          // Limpiar el error y refrescar los datos
-                          setErrorInicioPedido(null);
-                          queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                        }}
-                      >
-                        <RefreshCw size={16} className="mr-2" />
-                        Actualizar estado
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {/* Solo mostrar el botón si no hay error */}
-                  {!errorInicioPedido && (
-                    <div className="mt-3">
-                      <Button 
-                        onClick={() => setMostrarAlertaInicio(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Play size={16} className="mr-2" />
-                        {/* Cambiar el texto del botón si hay una pausa activa */}
-                        {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar armado'}
-                      </Button>
-                      
-                      <AlertDialog open={mostrarAlertaInicio} onOpenChange={setMostrarAlertaInicio}>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar armado'}
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {pedidoArmador.pausaActiva ? (
-                                <>
-                                  ¿Estás seguro de que deseas continuar el armado del pedido?
-                                  {pedidoArmador.pausaActiva.motivo && (
-                                    <div className="mt-2 text-sm bg-blue-50 p-2 rounded">
-                                      <span className="font-semibold">Motivo de la pausa: </span> 
-                                      {pedidoArmador.pausaActiva.motivo}
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                <>
-                                  ¿Estás seguro de que deseas iniciar el armado del pedido? 
-                                  Se iniciará el cronómetro y no podrás cancelarlo.
-                                </>
-                              )}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction 
-                              onClick={() => iniciarPedidoMutation.mutate(pedidoArmador.id)}
-                            >
-                              {pedidoArmador.pausaActiva ? 'Continuar' : 'Iniciar'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 p-6 rounded text-center">
-              <p className="text-gray-600 mb-2">No tienes pedidos asignados</p>
-              <p className="text-sm text-gray-500">
-                Cuando se te asigne un pedido, aparecerá aquí para que puedas comenzar a armarlo.
-              </p>
-            </div>
-          )}
-        </div>
-      </MainLayout>
-    );
-  }
-
-  // INICIALIZAR CANTIDAD RECOLECTADA AL PRINCIPIO - VERSIÓN MEJORADA
-  const asegurarCantidadInicial = (producto) => {
-    // CORRECCIÓN: Para productos sin procesar, mostrar la cantidad total solicitada como valor inicial
-    // Para productos ya procesados parcialmente (con recolectados > 0 o con motivo), preservar ese valor
-    
-    let valorInicial;
-    
-    if (producto.recolectado === null) {
-      // Si nunca fue procesado, usar la cantidad solicitada como valor inicial
-      valorInicial = producto.cantidad;
-      console.log(`INICIALIZACIÓN: Producto sin procesar, estableciendo valor inicial a cantidad solicitada: ${valorInicial}`);
-    } else {
-      // Si ya fue procesado parcialmente, preservar ese valor
-      valorInicial = producto.recolectado;
-      console.log(`INICIALIZACIÓN: Producto ya procesado, preservando valor recolectado: ${valorInicial}`);
-    }
-    
-    // Siempre actualizar el estado para garantizar la consistencia
-    if (recolectados === null || recolectados !== valorInicial) {
-      console.log(`Estado actual: ${recolectados} -> Estableciendo a: ${valorInicial}`);
-      setRecolectados(valorInicial);
-    }
-    
-    // Si hay un motivo de faltante, preservarlo siempre
-    if (producto.motivo && producto.motivo.trim() !== '') {
-      console.log(`Preservando motivo de faltante: "${producto.motivo}"`);
-      setMotivo(producto.motivo);
-    }
-    
-    // Retornar el valor inicial establecido
-    return valorInicial;
-  };
-
-  // Renderizar la interfaz simplificada
-  if (usingSimpleInterface && currentPedido && productos.length > 0) {
-    const producto = productos[currentProductoIndex];
-    if (!producto) return <div>Cargando productos...</div>;
-    
-    // FORZAR INICIALIZACIÓN INMEDIATA
-    // Usar la cantidad del producto directamente como valor inicial
-    console.log("Configurando valor inicial para el producto", producto);
-    const cantidadMostrada = producto.cantidad;
-    
-    return (
-      <div className="min-h-screen flex flex-col items-center bg-blue-950 text-white">
-        <div className="pt-8 pb-4 w-full text-center">
-          <h1 className="text-4xl font-bold">KONECTA</h1>
-        </div>
-        
-        {/* Información del pedido */}
-        <div className="w-full max-w-md bg-blue-800 text-white rounded-md p-3 mx-4 mb-3">
-          <p className="text-center font-medium">
-            Usted está armando el pedido <span className="font-bold">{currentPedido.pedidoId}</span>
-            {currentPedido.clienteId && (
-              <>, del cliente <span className="font-bold">{currentPedido.clienteId}</span></>
-            )}
-          </p>
-          
-          {/* Indicador de pedido pausado */}
-          {pausaActiva && (
-            <div className="mt-2 text-center">
-              <span className="bg-amber-300 text-blue-900 px-3 py-1 rounded-full text-sm font-semibold animate-pulse">
-                ARMADO PAUSADO - PENDIENTE DE REANUDAR
-              </span>
-            </div>
-          )}
-        </div>
-        
-        <div className="w-full max-w-md rounded-md p-6 mx-4 bg-white text-gray-900 border border-gray-300">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Código SKU: {producto.codigo}</h2>
-            
-            {/* Indicador de producto ya recolectado */}
-            {producto.recolectado !== null && producto.recolectado >= producto.cantidad && (
-              <div className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                RECOLECTADO
-              </div>
-            )}
-            
-            {producto.recolectado !== null && producto.recolectado < producto.cantidad && (
-              <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                INCOMPLETO ({producto.recolectado}/{producto.cantidad})
-              </div>
-            )}
-          </div>
-          
-          <p className="text-lg mb-3">
-            <span className="font-medium">Cantidad:</span> {producto.cantidad}
-            {producto.recolectado !== null && (
-              <span className={`ml-2 font-bold ${
-                producto.recolectado === producto.cantidad 
-                  ? 'text-green-700' 
-                  : 'text-red-700'
-              }`}>
-                (Recolectado: {producto.recolectado}/{producto.cantidad})
-              </span>
-            )}
-          </p>
-          
-          <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {producto.ubicacion || 'Sin ubicación'}</p>
-          <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {producto.descripcion || 'Sin descripción'}</p>
-          
-          {/* NUEVO COMPONENTE DE CONTROLES SIMPLIFICADOS CON MOTIVO */}
-          <div className="mb-4">
-            <ArmadoSimpleControls 
-              cantidadSolicitada={producto.cantidad}
-              cantidadInicial={cantidadMostrada}
-              onCantidadChange={(nuevaCantidad) => {
-                console.log(`COMPONENTE - Cantidad cambiada a: ${nuevaCantidad}`);
-                setRecolectados(nuevaCantidad);
-              }}
-              necesitaMotivo={true}
-              motivo={motivo}
-              onMotivoChange={(nuevoMotivo) => {
-                console.log(`COMPONENTE - Motivo cambiado a: ${nuevoMotivo}`);
-                setMotivo(nuevoMotivo);
-              }}
-            />
-          </div>
-          
-          {/* El selector de motivo ahora está integrado en el componente ArmadoSimpleControls */}
-          
-          <button 
-            className={`w-full py-3 rounded-md text-lg font-medium mb-4 ${
-              pausaActiva 
-                ? 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer' 
-                : 'bg-blue-950 hover:bg-blue-900 text-white'
-            }`}
-            onClick={() => {
-              // Si hay pausa activa, reanudarla en lugar de continuar con procesamiento normal
-              if (pausaActiva && pausaActualId) {
-                console.log(`⚠️ REANUDANDO PAUSA: ID=${pausaActualId}`);
-                
-                // Mostrar mensaje de procesamiento
-                toast({
-                  title: "Reanudando...",
-                  description: "Finalizando pausa, espere un momento",
-                });
-                
-                // Optimista: actualizar estado local inmediatamente
-                setPausaActiva(false);
-                setPausaActualId(null);
-                
-                // Ejecutar la finalización de pausa
-                finalizarPausaMutation.mutate(pausaActualId, {
-                  onSuccess: (data) => {
-                    console.log("✅ Pausa finalizada con éxito");
-                    
-                    // Extraer el ID del último producto
-                    const ultimoProductoId = data.ultimoProductoId;
-                    console.log(`PAUSA FINALIZADA: ultimoProductoId=${ultimoProductoId}`);
-                    
-                    // Actualizar los datos del pedido y productos
-                    queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                    
-                    if (currentPedido?.id) {
-                      queryClient.invalidateQueries({ 
-                        queryKey: [`/api/productos/pedido/${currentPedido.id}`]
-                      });
-                    }
-                    
-                    // Mensaje de éxito
-                    toast({
-                      title: "Pausa finalizada",
-                      description: "El pedido ha sido reanudado correctamente",
-                    });
-                  },
-                  onError: (error) => {
-                    console.error("❌ Error al finalizar pausa:", error);
-                    
-                    // Restaurar estado en caso de error
-                    setPausaActiva(true);
-                    setPausaActualId(pausaActualId);
-                    
-                    toast({
-                      title: "Error",
-                      description: "No se pudo finalizar la pausa. Intente nuevamente.",
-                      variant: "destructive",
-                    });
-                  }
-                });
-                
-                return; // Salir de la función para no continuar con el proceso normal
-              }
-              
-              if (!producto) return;
-              
-              // Usar siempre la cantidad del producto como cantidad inicial
-              // No importa si recolectados es null
-              if (recolectados === null) {
-                console.log("Recolectados es null, estableciendo a la cantidad requerida:", producto.cantidad);
-                setRecolectados(producto.cantidad);
-                // No retornamos - seguimos con el proceso
-              }
-              
-              // Validación para productos no recolectados o con faltantes parciales
-              // Solo pedir motivo cuando hay diferencia entre lo solicitado y lo recolectado
-              if (cantidadMostrada < producto.cantidad && !motivo) {
-                toast({
-                  title: "Motivo requerido",
-                  description: cantidadMostrada === 0 
-                    ? "Debe seleccionar un motivo para productos no recolectados" 
-                    : "Debe seleccionar un motivo para el faltante parcial",
-                  variant: "destructive",
-                });
-                return;
-              }
-              
-              // Si la cantidad recolectada es igual a la solicitada, no necesita motivo
-              if (cantidadMostrada === producto.cantidad) {
-                console.log("Cantidad completa, no se requiere motivo");
-              }
-              
-              // Verificar si este es el último producto
-              const esUltimoProducto = currentProductoIndex >= productos.length - 1;
-              console.log("¿Es último producto?", esUltimoProducto ? "SÍ" : "NO");
-              
-              // Usar la cantidad visualizada en la interfaz (ya tiene la lógica correcta)
-              const cantidadRecolectada = cantidadMostrada;
-              
-              actualizarProductoMutation.mutate({
-                id: producto.id,
-                recolectado: cantidadRecolectada,
-                motivo: cantidadRecolectada < producto.cantidad ? motivo : ""
-              }, {
-                onSuccess: async () => {
-                  // Si es el último producto, verificar si todos están procesados y finalizar automáticamente
-                  if (esUltimoProducto) {
-                    console.log("ÚLTIMO PRODUCTO PROCESADO - Verificando finalización automática...");
-                    try {
-                      const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
-                      const productosActualizados = await res.json();
-                      const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
-                      
-                      if (todosProductosProcesados) {
-                        console.log("Todos los productos están procesados. Finalizando automáticamente.");
-                        finalizarPedidoMutation.mutate({ 
-                          pedidoId: currentPedido.id 
-                        }, {
-                          onSuccess: () => {
-                            // Mostrar diálogo de finalización exitosa
-                            setMostrarDialogoCompletado(true);
-                          }
-                        });
-                      } else {
-                        console.log("Aún hay productos sin procesar. No se puede finalizar automáticamente.");
-                        toast({
-                          title: "Algunos productos sin procesar",
-                          description: "El pedido no puede finalizarse porque aún hay productos sin procesar",
-                          variant: "destructive",
-                        });
-                      }
-                    } catch (error) {
-                      console.error("Error al verificar productos procesados:", error);
-                    }
-                  }
-                }
-              });
-            }}
-            disabled={actualizarProductoMutation.isPending && !pausaActiva}
-          >
-            {pausaActiva 
-              ? 'PAUSADO - REANUDAR PRIMERO' 
-              : currentProductoIndex >= productos.length - 1 
-                ? 'FINALIZAR ARMADO' 
-                : 'GUARDAR Y CONTINUAR'
-            }
-          </button>
-        </div>
-        
-        <div className="mt-6 flex flex-col gap-3 pb-6">
-          <button 
-            onClick={() => setUsingSimpleInterface(false)}
-            className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium w-[300px]"
-          >
-            Ver todo el pedido
-          </button>
-          
-          {pausaActiva ? (
-            <button
-              onClick={() => {
-                if (pausaActualId) {
-                  // Mostrar mensaje de procesamiento
-                  toast({
-                    title: "Procesando...",
-                    description: "Finalizando pausa, espere un momento",
-                  });
-                  
-                  console.log(`Finalizando pausa con ID: ${pausaActualId}`);
-                  
-                  // Optimista: actualizar estado local inmediatamente para evitar el bucle
-                  const prevPausaActiva = pausaActiva;
-                  const prevPausaId = pausaActualId;
-                  
-                  // Cambiar estado local inmediatamente para mejorar respuesta UI
-                  setPausaActiva(false);
-                  setPausaActualId(null);
-                  
-                  // Ejecutar la finalización de pausa
-                  finalizarPausaMutation.mutate(pausaActualId, {
-                    onSuccess: (data) => {
-                      console.log("Pausa finalizada con éxito, refrescando datos");
-                      
-                      // Extraer el ID del último producto si está disponible
-                      const ultimoProductoId = data.ultimoProductoId;
-                      console.log(`PAUSA FINALIZADA: ultimoProductoId=${ultimoProductoId}`);
-                      
-                      // Primero actualizamos los datos del pedido
-                      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                      
-                      // Luego, tras un breve retraso, actualizamos los productos 
-                      setTimeout(() => {
-                        if (currentPedido?.id) {
-                          console.log(`Refrescando productos del pedido ${currentPedido.id}`);
-                          
-                          // Intentar 2 veces para garantizar actualización
-                          queryClient.invalidateQueries({ 
-                            queryKey: [`/api/productos/pedido/${currentPedido.id}`],
-                            refetchType: 'all' 
-                          });
-                          
-                          // Recargar explícitamente 
-                          apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
-                            .then(res => res.json())
-                            .then(data => {
-                              console.log(`Productos recargados (${data.length})`);
-                              
-                              // IMPORTANTE: Priorizar el último producto procesado
-                              if (ultimoProductoId) {
-                                // Si tenemos un ID de último producto, intentar encontrarlo primero
-                                const ultimoProductoIndex = data.findIndex(p => p.id === ultimoProductoId);
-                                
-                                if (ultimoProductoIndex !== -1) {
-                                  const ultimoProducto = data[ultimoProductoIndex];
-                                  console.log(`REANUDAR: Continuando desde producto ${ultimoProducto.codigo} (ID: ${ultimoProductoId})`);
-                                  
-                                  setCurrentProductoIndex(ultimoProductoIndex);
-                                  // ⚠️ CORRECCIÓN CRÍTICA: Preservar siempre el valor original para productos con faltantes
-                                  // Si el producto tiene un motivo registrado, significa que es un faltante parcial
-                                  // y debemos preservar su cantidad original sin completarla
-                                  if (ultimoProducto.motivo && ultimoProducto.motivo.trim() !== '') {
-                                    console.log(`⚠️ PRODUCTO CON FALTANTE: ${ultimoProducto.codigo} - Recolectado: ${ultimoProducto.recolectado}/${ultimoProducto.cantidad} - Motivo: "${ultimoProducto.motivo}"`);
-                                    
-                                    // Preservar SIEMPRE los valores originales
-                                    setRecolectados(ultimoProducto.recolectado);
-                                    setMotivo(ultimoProducto.motivo);
-                                    
-                                    // IMPORTANTE: No usar timeouts ni actualizaciones automáticas 
-                                    // que puedan sobrescribir los valores correctos
-                                    console.log(`🛡️ Preservando estado del producto ${ultimoProducto.id} sin actualizaciones automáticas`);
-                                    
-                                    // NO HACER NINGUNA ACTUALIZACIÓN AUTOMÁTICA AQUÍ
-                                    // Los datos ya están correctos en el servidor
-                                  } 
-                                  else {
-                                    // Caso normal: producto sin motivo de faltante
-                                    setRecolectados(ultimoProducto.recolectado !== null ? ultimoProducto.recolectado : 0);
-                                    setMotivo("");
-                                  }
-                                  
-                                  return; // Salir temprano si encontramos el último producto
-                                } else {
-                                  console.log(`⚠️ No se encontró el producto con ID ${ultimoProductoId}, buscando alternativas...`);
-                                }
-                              }
-                              
-                              // Si no hay último producto o no se encontró, usar la lógica FIFO
-                              console.log("REANUDAR: Usando lógica FIFO para encontrar próximo producto");
-                              
-                              // Buscar el primer producto sin procesar (null)
-                              const primerSinProcesar = data.find(p => p.recolectado === null);
-                              
-                              if (primerSinProcesar) {
-                                const primerSinProcesarIndex = data.findIndex(p => p.id === primerSinProcesar.id);
-                                
-                                console.log(`REANUDAR FIFO: Primer producto sin procesar: ${primerSinProcesar.codigo} (Índice ${primerSinProcesarIndex})`);
-                                setCurrentProductoIndex(primerSinProcesarIndex);
-                                setRecolectados(0);
-                                setMotivo("");  // Restablecer el motivo
-                                return;
-                              }
-                              
-                              // Si todos los productos están procesados, buscar los parciales sin motivo
-                              const parcialSinMotivo = data.find(p => 
-                                p.recolectado !== null && 
-                                p.recolectado < p.cantidad && 
-                                !p.motivo
-                              );
-                              
-                              if (parcialSinMotivo) {
-                                const parcialSinMotivoIndex = data.findIndex(p => p.id === parcialSinMotivo.id);
-                                console.log(`REANUDAR PARCIAL: Producto con faltante sin motivo: ${parcialSinMotivo.codigo} (Índice ${parcialSinMotivoIndex})`);
-                                
-                                setCurrentProductoIndex(parcialSinMotivoIndex);
-                                setRecolectados(parcialSinMotivo.recolectado);
-                                setMotivo(""); // Limpiar motivo ya que este producto no tiene
-                                return;
-                              }
-                              
-                              // Si todos están procesados con motivo, quedamos en el primero que esté incompleto
-                              const productoIncompleto = data.find(p => 
-                                p.recolectado !== null && p.recolectado < p.cantidad
-                              );
-                              
-                              if (productoIncompleto) {
-                                const incompletoIndex = data.findIndex(p => p.id === productoIncompleto.id);
-                                console.log(`REANUDAR: Encontrado producto incompleto: ${productoIncompleto.codigo} (Índice ${incompletoIndex})`);
-                                
-                                setCurrentProductoIndex(incompletoIndex);
-                                setRecolectados(productoIncompleto.recolectado);
-                                
-                                // Preservar el motivo del producto si existe
-                                if (productoIncompleto.motivo) {
-                                  console.log(`REANUDAR: Producto incompleto con motivo: "${productoIncompleto.motivo}"`);
-                                  setMotivo(productoIncompleto.motivo);
-                                } else {
-                                  setMotivo("");
-                                }
-                              } else {
-                                console.log("REANUDAR: Todos los productos ya están procesados correctamente");
-                              }
-                              
-                              setProductos(data);
-                              
-                              // Notificación de éxito tras garantizar que los datos se han actualizado
-                              toast({
-                                title: "Pausa finalizada",
-                                description: "El armado se ha reanudado correctamente en el último producto pendiente",
-                              });
-                            });
-                        }
-                      }, 500);
-                    },
-                    onError: (error) => {
-                      console.error("Error al finalizar pausa:", error);
-                      
-                      // Restaurar estado anterior si hay error
-                      setPausaActiva(prevPausaActiva);
-                      setPausaActualId(prevPausaId);
-                      
-                      // Notificar error
-                      toast({
-                        title: "Error al reanudar",
-                        description: "No se pudo finalizar la pausa. Intente nuevamente.",
-                        variant: "destructive"
-                      });
-                      
-                      // Intentar refrescar datos para recuperar el estado correcto
-                      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                    }
-                  });
-                } else {
-                  console.error("No se pudo encontrar la pausa activa para finalizar");
-                  
-                  // Intentar recuperar el ID de la pausa desde el pedido actual 
-                  toast({
-                    title: "Intentando recuperar datos...",
-                    description: "Buscando información de la pausa activa.",
-                  });
-                  
-                  // Refrescar todos los datos para intentar recuperar el ID de pausa
-                  queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] })
-                    .then(() => {
-                      // Verificar si ahora tenemos los datos de la pausa
-                      if (pedidoArmador?.pausas && pedidoArmador.pausas.length > 0) {
-                        const pausaActiva = pedidoArmador.pausas.find(p => !p.fin);
-                        if (pausaActiva) {
-                          setPausaActualId(pausaActiva.id);
-                          toast({
-                            title: "Información recuperada",
-                            description: "Por favor, intente reanudar nuevamente.",
-                          });
-                        } else {
-                          // Forzar reinicio del estado de pausa si no hay pausa activa
-                          setPausaActiva(false);
-                          toast({
-                            title: "No hay pausas activas",
-                            description: "Se ha restablecido el estado de la aplicación.",
-                          });
-                        }
-                      } else {
-                        toast({
-                          title: "Error al reanudar",
-                          description: "No se encontró información de la pausa activa. Por favor, actualice la página.",
-                          variant: "destructive",
-                        });
-                      }
-                    });
-                }
-              }}
-              disabled={finalizarPausaMutation.isPending}
-              className="bg-amber-400 hover:bg-amber-500 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
-            >
-              {finalizarPausaMutation.isPending ? (
-                <>
-                  <Loader2 size={16} className="mr-2 animate-spin" />
-                  Procesando...
-                </>
-              ) : (
-                <>
-                  <Play size={16} className="mr-2" />
-                  Reanudar armado
-                </>
-              )}
-            </button>
-          ) : (
-            <>
-              {mostrarModalPausa ? (
-                <div className="bg-blue-900 border border-blue-800 p-4 rounded-md mb-4 w-[300px]">
-                  <h3 className="text-white text-lg mb-3">Motivo de pausa</h3>
-                  <select 
-                    className="w-full p-3 mb-2 border border-blue-800 rounded-md bg-blue-950 text-white"
-                    value={motivoPausa}
-                    onChange={(e) => setMotivoPausa(e.target.value)}
-                  >
-                    <option value="">Seleccione un motivo</option>
-                    {motivosPausa.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  
-                  {motivoPausa === "Otro: especificar" && (
-                    <Input
-                      placeholder="Detalles del motivo"
-                      value={motivoPausaDetalle}
-                      onChange={(e) => setMotivoPausaDetalle(e.target.value)}
-                      className="w-full mb-3 bg-blue-950 border-blue-800 text-white placeholder:text-blue-300"
-                    />
-                  )}
-                  
-                  <div className="flex justify-between gap-2 mt-3">
-                    <Button 
-                      variant="default"
-                      onClick={() => setMostrarModalPausa(false)}
-                      className="bg-white text-blue-950 hover:bg-gray-100"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        // Validación
-                        if (!motivoPausa) {
-                          toast({
-                            title: "Motivo requerido",
-                            description: "Debes seleccionar un motivo para la pausa",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-                        
-                        if (motivoPausa === "Otro: especificar" && motivoPausaDetalle.trim() === "") {
-                          toast({
-                            title: "Detalle requerido",
-                            description: "Debes especificar el motivo de la pausa",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-                        
-                        // Usar el detalle si el motivo es "Otro: especificar"
-                        const motivoFinal = motivoPausa === "Otro: especificar" 
-                          ? motivoPausaDetalle 
-                          : motivoPausa;
-                          
-                        // Obtener el ID del producto actual que se está procesando
-                        const currentProducto = productos[currentProductoIndex];
-                        
-                        console.log("Creando pausa con motivo:", motivoFinal);
-                        console.log("Producto actual:", currentProducto?.codigo);
-                        
-                        crearPausaMutation.mutate({
-                          pedidoId: currentPedido.id,
-                          motivo: motivoFinal,
-                          tipo: "armado", // Especificar que es una pausa de armado
-                          ultimoProductoId: currentProducto?.id || null // Guardar el ID del último producto procesado
-                        });
-                      }}
-                      disabled={crearPausaMutation.isPending}
-                      className="bg-white text-blue-950 hover:bg-gray-100"
-                    >
-                      {crearPausaMutation.isPending ? 'Procesando...' : 'Pausar'}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log("Mostrando interfaz de pausa");
-                    setMostrarModalPausa(true);
-                    setMotivoPausa("");
-                    setMotivoPausaDetalle("");
-                  }}
-                  className="bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium flex items-center justify-center w-[300px]"
-                >
-                  <Pause size={16} className="mr-2" />
-                  Pausar armado
-                </button>
-              )}
-            </>
-          )}
-          
-          <div className="mt-4 text-sm text-gray-300 text-center">
-            Usuario: {user?.username}
-            <button 
-              onClick={handleLogout} 
-              className="block mx-auto mt-2 text-sm text-gray-300 hover:text-white"
-            >
-              Cerrar sesión
-            </button>
-          </div>
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center">
+        <h1 className="text-5xl font-bold mb-8">KONECTA</h1>
+        <div className="text-center">
+          <p>Cargando...</p>
         </div>
       </div>
     );
   }
   
-  // El siguiente bloque se encarga de mostrar el resumen completo de productos
-  // cuando no estamos en modo de interfaz simplificada
-  if (!usingSimpleInterface && currentPedido && productos.length > 0) {
-    // Verificar si todos los productos tienen un estado de recolección definido
-    // Esta variable no debe ser declarada como estado mediante hook para evitar errores
-    // con las reglas de hooks de React
-    const todosProductosProcesados = productos.every(p => p.recolectado !== null);
-    
+  // Si no hay pedido asignado
+  if (!pedido) {
     return (
-      <div className="min-h-screen flex flex-col bg-blue-950 text-white">
-        <div className="p-6 text-center">
-          <h1 className="text-4xl font-bold mb-6">KONECTA</h1>
-          <h2 className="text-xl font-medium mb-4">Resumen de Productos</h2>
-        </div>
-        
-        {/* Diálogo de finalización exitosa */}
-        <Dialog open={mostrarModalExito} onOpenChange={setMostrarModalExito}>
-          <DialogContent className="bg-white text-center">
-            <div className="py-10 px-4">
-              <div className="flex justify-center mb-4">
-                <CheckCircle2 className="h-16 w-16 text-green-500" />
-              </div>
-              <DialogTitle className="text-xl mb-4">
-                Ha finalizado el armado con éxito
-              </DialogTitle>
-              <p className="text-gray-600 mb-6">
-                Todos los productos han sido procesados correctamente.
-              </p>
-              <DialogFooter className="flex justify-center mt-6">
-                <Button 
-                  onClick={() => {
-                    setMostrarModalExito(false);
-                    window.location.href = "/"; // Redirigir a la página de inicio
-                  }}
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                >
-                  Continuar
-                </Button>
-              </DialogFooter>
-            </div>
-          </DialogContent>
-        </Dialog>
-        
-        <div className="flex-1 overflow-auto p-4 mx-auto max-w-3xl w-full">
-          {productos.map((producto) => (
-            <div key={producto.id} className="mb-4 border border-blue-800 bg-blue-900 rounded-md overflow-hidden">
-              <div className="p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-mono text-base font-semibold">{producto.codigo}</p>
-                    <p className="text-sm text-gray-200">{producto.descripcion || 'Sin descripción'}</p>
-                    <p className="text-xs text-gray-300 mt-1">Solicitado: {producto.cantidad}</p>
-                  </div>
-                  
-                  <div className="text-right">
-                    <p className="text-xs text-gray-300">Ubicación: {producto.ubicacion || 'N/A'}</p>
-                    {producto.recolectado !== null ? (
-                      <p className={`text-sm font-medium ${
-                        producto.recolectado === producto.cantidad 
-                          ? 'text-green-400' 
-                          : producto.motivo && producto.motivo.trim() !== ''
-                            ? 'text-green-400' // Con motivo = completado aunque sea parcial
-                            : producto.recolectado === 0 
-                              ? 'text-red-400' 
-                              : 'text-yellow-400'
-                      }`}>
-                        Recolectado: {producto.recolectado}/{producto.cantidad}
-                        {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
-                          <span className="ml-1 bg-green-800 text-green-200 text-xs px-1 py-0.5 rounded-sm">Justificado</span>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-400">Pendiente</p>
-                    )}
-                    
-                    {producto.motivo && (
-                      <p className="text-xs text-red-300 italic">
-                        Motivo: {producto.motivo}
-                      </p>
-                    )}
-
-                    {/* Botón para editar cantidades */}
-                    <Button 
-                      size="sm" 
-                      variant="default"
-                      className="mt-2 bg-white text-blue-950 hover:bg-gray-100"
-                      onClick={() => {
-                        setEditingProductId(producto.id);
-                        setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
-                        setEditMotivo(producto.motivo || "");
-                      }}
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Modificar
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              {
-                // Mostrar selector de motivo solo para productos con 0 recolectados y sin motivo
-                producto.recolectado === 0 && !producto.motivo && (
-                  <div className="bg-blue-800 py-3 px-4 border-t border-blue-700">
-                    <div className="space-y-2">
-                      <select
-                        className="w-full text-xs p-2 border border-blue-700 rounded-md bg-blue-900 text-white"
-                        value={producto.id === editingProductId ? editMotivo : ""}
-                        onChange={(e) => {
-                          if (producto.id === editingProductId) {
-                            setEditMotivo(e.target.value);
-                          } else {
-                            setEditingProductId(producto.id);
-                            setEditMotivo(e.target.value);
-                            setEditRecolectado(0);
-                          }
-                        }}
-                      >
-                        <option value="">Seleccione un motivo</option>
-                        {motivosPreestablecidos.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                      
-                      {editMotivo === "Otro motivo" && (
-                        <Input
-                          type="text"
-                          placeholder="Especifique el motivo"
-                          className="text-xs h-8 w-full mt-1 bg-blue-900 border-blue-700 text-white placeholder:text-blue-300"
-                          value={
-                            motivosPreestablecidos.includes(editMotivo) && editMotivo !== "Otro motivo" 
-                              ? "" 
-                              : editMotivo
-                          }
-                          onChange={(e) => setEditMotivo(e.target.value)}
-                        />
-                      )}
-                      
-                      <div className="flex justify-end">
-                        <Button 
-                          size="sm" 
-                          variant="default"
-                          className="h-8 bg-white text-blue-950 hover:bg-gray-100"
-                          onClick={() => {
-                            if (editMotivo.trim()) {
-                              actualizarProductoMutation.mutate({
-                                id: producto.id,
-                                recolectado: 0,
-                                motivo: editMotivo
-                              });
-                            } else {
-                              toast({
-                                title: "Motivo requerido",
-                                description: "Debe seleccionar un motivo para productos no recolectados",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          Guardar
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
-              
-              {/* Panel de edición de cantidad */}
-              {editingProductId === producto.id && (
-                <div className="bg-blue-800 py-3 px-4 border-t border-blue-700">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-white">
-                      Modificar cantidad:
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={editRecolectado}
-                        onChange={(e) => setEditRecolectado(parseInt(e.target.value) || 0)}
-                        min={0}
-                        max={producto.cantidad}
-                        className="w-20 h-8 text-sm bg-blue-900 border-blue-700 text-white"
-                      />
-                      <span className="text-sm text-blue-200">/ {producto.cantidad}</span>
-                    </div>
-                    
-                    {editRecolectado === 0 && (
-                      <select
-                        className="w-full text-sm p-2 border border-blue-700 rounded-md bg-blue-900 text-white mt-2"
-                        value={editMotivo}
-                        onChange={(e) => setEditMotivo(e.target.value)}
-                        required
-                      >
-                        <option value="">Seleccione un motivo</option>
-                        {motivosPreestablecidos.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    )}
-                    
-                    {editRecolectado === 0 && editMotivo === "Otro motivo" && (
-                      <Input
-                        type="text"
-                        placeholder="Especifique el motivo"
-                        className="text-sm h-8 w-full mt-2 bg-blue-900 border-blue-700 text-white placeholder:text-blue-300"
-                        value={
-                          motivosPreestablecidos.includes(editMotivo) && editMotivo !== "Otro motivo" 
-                            ? "" 
-                            : editMotivo
-                        }
-                        onChange={(e) => setEditMotivo(e.target.value)}
-                      />
-                    )}
-                    
-                    {editRecolectado > 0 && editRecolectado < producto.cantidad && (
-                      <Input
-                        type="text"
-                        value={editMotivo}
-                        onChange={(e) => setEditMotivo(e.target.value)}
-                        placeholder="Motivo del faltante parcial"
-                        className="w-full text-sm h-8 mt-2 bg-blue-900 border-blue-700 text-white placeholder:text-blue-300"
-                      />
-                    )}
-                    
-                    <div className="flex justify-end gap-2 mt-3">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-8 text-white border-white hover:bg-blue-700"
-                        onClick={() => {
-                          setEditingProductId(null);
-                          setEditRecolectado(0);
-                          setEditMotivo("");
-                        }}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="default"
-                        className="h-8 bg-white text-blue-900 hover:bg-gray-100"
-                        onClick={() => {
-                          // Validación
-                          if (editRecolectado === 0 && !editMotivo) {
-                            toast({
-                              title: "Motivo requerido",
-                              description: "Debe seleccionar un motivo para productos no recolectados",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          
-                          actualizarProductoMutation.mutate({
-                            id: producto.id,
-                            recolectado: editRecolectado,
-                            motivo: editRecolectado < producto.cantidad ? editMotivo : undefined
-                          });
-                        }}
-                      >
-                        Guardar
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-blue-900 text-white border-t border-blue-800">
-          <div className="max-w-md mx-auto">
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={() => setUsingSimpleInterface(true)}
-                className="w-full bg-white hover:bg-gray-100 text-blue-950 py-3 px-6 rounded-md text-lg font-medium"
-              >
-                Volver a la recolección
-              </Button>
-              
-              {/* Mostrar botón de finalizar solo si todos los productos están procesados */}
-              {todosProductosProcesados && (
-                <Button 
-                  onClick={() => {
-                    finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id }, {
-                      onSuccess: () => {
-                        // Mostrar el diálogo de finalización exitosa
-                        setMostrarModalExito(true);
-                      }
-                    });
-                  }}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-md text-lg font-medium"
-                >
-                  Finalizar armado
-                </Button>
-              )}
-            </div>
-            
-            <div className="mt-4 text-sm text-gray-300 text-center">
-              Usuario: {user?.username}
-              <button 
-                onClick={handleLogout} 
-                className="block mx-auto mt-2 text-sm text-gray-300 hover:text-white"
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Modal de confirmación para finalizar pedido */}
-        <AlertDialog open={mostrarAlertaFinal} onOpenChange={setMostrarAlertaFinal}>
-          <AlertDialogContent className="bg-white text-gray-900">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl">Finalizar armado del pedido</AlertDialogTitle>
-              <AlertDialogDescription className="text-gray-600">
-                {productos.every(p => p.recolectado === p.cantidad) 
-                  ? "Todos los productos fueron recolectados correctamente." 
-                  : "Algunos productos no fueron recolectados completamente, pero sus motivos están justificados."}
-                <br/><br/>
-                ¿Confirmas que deseas finalizar el armado del pedido? El pedido pasará a estado "armado" y estará disponible para Control.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="border-blue-950 text-blue-950">
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={() => finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id })}
-                disabled={finalizarPedidoMutation.isPending}
-                className="bg-blue-950 text-white hover:bg-blue-900"
-              >
-                {finalizarPedidoMutation.isPending ? "Procesando..." : "Finalizar"}
-              </AlertDialogAction>
-              <AlertDialogAction 
-                onClick={() => finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id, forzar: true })}
-                disabled={finalizarPedidoMutation.isPending}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                {finalizarPedidoMutation.isPending ? "Procesando..." : "Finalizar forzado"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-  }
-  
-  // Si hay pedido activo pero estamos mostrando el estado completo (Modo legacy)
-  if (mostrarEstadoPedido) {
-    return (
-      <MainLayout>
-        <div className="container py-6">
-          <h1 className="text-2xl font-bold mb-4">Estado del Pedido</h1>
-          <div className="bg-gray-100 p-4 rounded-md mb-4">
-            <p>Cliente: {currentPedido?.clienteId}</p>
-            <p>Pedido: {currentPedido?.pedidoId}</p>
-          </div>
-          
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-2">Productos</h2>
-            {productos.map((producto) => (
-              <div key={producto.id} className="mb-4 border rounded-md p-4 relative">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{producto.descripcion || producto.codigo}</p>
-                    <p className="text-sm text-gray-600 font-mono mb-1">{producto.codigo}</p>
-                    <p className="text-sm">Cantidad: {producto.cantidad}</p>
-                    <p className="text-sm">Ubicación: {producto.ubicacion || 'No especificada'}</p>
-                  </div>
-                  
-                  <div className="text-right">
-                    {editingProductId === producto.id ? (
-                      // MODO EDICIÓN
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            value={editRecolectado}
-                            onChange={(e) => setEditRecolectado(parseInt(e.target.value) || 0)}
-                            min={0}
-                            max={producto.cantidad}
-                            className="w-20"
-                          />
-                          <span className="text-sm text-gray-500">/ {producto.cantidad}</span>
-                        </div>
-                        
-                        {editRecolectado === 0 && (
-                          <select
-                            className="w-full p-2 border border-gray-300 rounded-md"
-                            value={editMotivo}
-                            onChange={(e) => setEditMotivo(e.target.value)}
-                            required
-                          >
-                            <option value="">Seleccione un motivo</option>
-                            {motivosPreestablecidos.map((m) => (
-                              <option key={m} value={m}>{m}</option>
-                            ))}
-                          </select>
-                        )}
-                        
-                        {editRecolectado > 0 && editRecolectado < producto.cantidad && (
-                          <Input
-                            type="text"
-                            value={editMotivo}
-                            onChange={(e) => setEditMotivo(e.target.value)}
-                            placeholder="Motivo del faltante"
-                            className="w-full"
-                          />
-                        )}
-                        
-                        <div className="flex justify-end gap-2 mt-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => {
-                              setEditingProductId(null);
-                              setEditRecolectado(0);
-                              setEditMotivo("");
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="default"
-                            onClick={() => {
-                              actualizarProductoMutation.mutate({
-                                id: producto.id,
-                                recolectado: editRecolectado,
-                                motivo: editRecolectado < producto.cantidad ? editMotivo : undefined
-                              });
-                            }}
-                          >
-                            Guardar
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      // MODO VISUALIZACIÓN
-                      <>
-                        <div className="flex flex-col items-end">
-                          {producto.recolectado !== null ? (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              producto.recolectado === producto.cantidad 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              {producto.recolectado}/{producto.cantidad}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 text-sm">No procesado</span>
-                          )}
-                          
-                          {producto.motivo && (
-                            <span className="text-xs text-red-600 mt-1">{producto.motivo}</span>
-                          )}
-                        </div>
-                        
-                        {/* Botón de edición siempre visible */}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="mt-2"
-                          onClick={() => {
-                            setEditingProductId(producto.id);
-                            setEditRecolectado(producto.recolectado !== null ? producto.recolectado : 0);
-                            setEditMotivo(producto.motivo || "");
-                          }}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Editar
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <Button onClick={() => setMostrarEstadoPedido(false)} className="w-full">
-            Volver a la recolección
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center">
+        <h1 className="text-5xl font-bold mb-8">KONECTA</h1>
+        <div className="text-center">
+          <p className="text-lg mb-4">No hay pedidos pendientes de armado asignados.</p>
+          <Button 
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] })}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            Buscar pedidos
           </Button>
-          
-          <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
-            Está controlando el pedido {currentPedido?.pedidoId} del cliente {currentPedido?.clienteId}
-          </div>
         </div>
-      </MainLayout>
+      </div>
     );
   }
   
-  // Si hay pedido activo y estamos en la interfaz de armado
   return (
-    <MainLayout>
-      <div className="container py-6">
-        <div className="flex justify-between mb-6">
-          <h1 className="text-2xl font-bold">Armado de Pedidos</h1>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={() => setMostrarEstadoPedido(true)}
-            >
-              Ver Estado del Pedido
-            </Button>
-            
-            {pausaActiva ? (
-              <Button
-                onClick={() => {
-                  if (pausaActualId) {
-                    finalizarPausaMutation.mutate(pausaActualId);
-                  }
-                }}
-                disabled={finalizarPausaMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+      {/* Header con logo y botones principales */}
+      <div className="bg-blue-950 p-4 shadow-md">
+        <div className="container mx-auto flex justify-between items-center">
+          <h1 className="text-3xl font-bold">KONECTA</h1>
+          <div className="flex space-x-2">
+            {!pausaActiva ? (
+              <Button 
+                variant="outline" 
+                className="bg-amber-500 hover:bg-amber-600 text-white border-amber-700"
+                onClick={() => setMostrarPausaModal(true)}
               >
-                <Play size={16} className="mr-2" />
-                Reanudar
+                <PauseCircle className="h-4 w-4 mr-2" /> Pausar armado
               </Button>
             ) : (
-              <Button
-                onClick={() => setMostrarModalPausa(true)}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              <Button 
+                variant="outline" 
+                className="bg-green-500 hover:bg-green-600 text-white border-green-700"
+                onClick={handleReanudarArmado}
               >
-                <Pause size={16} className="mr-2" />
-                Pausar
+                <CheckCircle className="h-4 w-4 mr-2" /> Reanudar armado
               </Button>
             )}
-            
-            <Button
-              onClick={async () => {
-                try {
-                  const res = await apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`);
-                  const productosActualizados = await res.json();
-                  const todosProductosProcesados = productosActualizados.every((p: any) => p.recolectado !== null);
-                  
-                  if (todosProductosProcesados) {
-                    finalizarPedidoMutation.mutate({ pedidoId: currentPedido.id });
-                  } else {
-                    toast({
-                      title: "Productos sin procesar",
-                      description: "El pedido no puede finalizarse porque aún hay productos sin procesar",
-                      variant: "destructive",
-                    });
-                  }
-                } catch (error) {
-                  console.error("Error al verificar productos procesados:", error);
-                }
-              }}
-              disabled={pausaActiva || finalizarPedidoMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 text-white"
+            <Button 
+              variant="outline" 
+              className="bg-red-600 hover:bg-red-700 text-white border-red-800"
+              onClick={handleFinalizarArmado}
             >
-              <Flag size={16} className="mr-2" />
-              {finalizarPedidoMutation.isPending ? "Finalizando..." : "Finalizar"}
+              Finalizar armado
             </Button>
           </div>
         </div>
-        
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded mb-6">
-          <div className="flex justify-between">
-            <div>
-              <p className="font-medium">Pedido: <span className="font-semibold">{currentPedido.pedidoId}</span></p>
-              <p className="font-medium">Cliente: <span className="font-semibold">{currentPedido.clienteId}</span></p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Estado: 
-                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                  pausaActiva 
-                    ? 'bg-amber-100 text-amber-800' 
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {pausaActiva ? 'Pausado' : 'En proceso'}
-                </span>
-              </p>
-              {productos.length > 0 && (
-                <p className="text-sm text-gray-600">
-                  Producto: {currentProductoIndex + 1} de {productos.length}
-                </p>
-              )}
-            </div>
-          </div>
-          
-          {/* Mostrar mensaje de pausa */}
-          {pausaActiva && (
-            <div className="mt-4 border-t border-blue-200 pt-4">
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-md">
-                <div className="flex items-center text-amber-800 mb-2">
-                  <AlertTriangle className="h-5 w-5 mr-2 text-amber-600" />
-                  <h3 className="font-medium">Armado pausado</h3>
-                </div>
-                <p className="text-sm text-amber-700 mb-3">
-                  No puedes continuar con el armado hasta que reanudes la pausa actual.
-                </p>
-                <Button
-                  onClick={() => {
-                    if (pausaActualId) {
-                      // Mostrar mensaje de procesamiento
-                      toast({
-                        title: "Procesando...",
-                        description: "Finalizando pausa, espere un momento",
-                      });
-                      
-                      console.log(`Finalizando pausa con ID: ${pausaActualId}`);
-                      
-                      // Optimista: actualizar estado local inmediatamente para evitar el bucle
-                      const prevPausaActiva = pausaActiva;
-                      const prevPausaId = pausaActualId;
-                      
-                      // Cambiar estado local inmediatamente para mejorar respuesta UI
-                      setPausaActiva(false);
-                      setPausaActualId(null);
-                      
-                      // Ejecutar la finalización de pausa
-                      finalizarPausaMutation.mutate(pausaActualId, {
-                        onSuccess: (data) => {
-                          console.log("Pausa finalizada con éxito, refrescando datos");
-                          
-                          // Primero actualizamos los datos del pedido
-                          queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                          
-                          // Luego, tras un breve retraso, actualizamos los productos 
-                          setTimeout(() => {
-                            if (currentPedido?.id) {
-                              console.log(`Refrescando productos del pedido ${currentPedido.id}`);
-                              
-                              // Intentar 2 veces para garantizar actualización
-                              queryClient.invalidateQueries({ 
-                                queryKey: [`/api/productos/pedido/${currentPedido.id}`],
-                                refetchType: 'all' 
-                              });
-                              
-                              // Recargar explícitamente 
-                              apiRequest("GET", `/api/productos/pedido/${currentPedido.id}`)
-                                .then(res => res.json())
-                                .then(data => {
-                                  console.log(`Productos recargados (${data.length})`);
-                                  setProductos(data);
-                                  
-                                  // Notificación de éxito tras garantizar que los datos se han actualizado
-                                  toast({
-                                    title: "Pausa finalizada",
-                                    description: "El armado se ha reanudado correctamente",
-                                  });
-                                });
-                            }
-                          }, 500);
-                        },
-                        onError: (error) => {
-                          console.error("Error al finalizar pausa:", error);
-                          
-                          // Restaurar estado anterior si hay error
-                          setPausaActiva(prevPausaActiva);
-                          setPausaActualId(prevPausaId);
-                          
-                          // Notificar error
-                          toast({
-                            title: "Error al reanudar",
-                            description: "No se pudo finalizar la pausa. Intente nuevamente.",
-                            variant: "destructive"
-                          });
-                          
-                          // Intentar refrescar datos para recuperar el estado correcto
-                          queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                        }
-                      });
-                    } else {
-                      // Intentar recuperar el ID de la pausa
-                      toast({
-                        title: "Recuperando información...",
-                        description: "Intentando identificar la pausa activa",
-                      });
-                      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-                    }
-                  }}
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
-                  disabled={finalizarPausaMutation.isPending}
-                >
-                  {finalizarPausaMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Procesando...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-2 h-4 w-4" />
-                      Reanudar armado
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Producto actual */}
-        {productos[currentProductoIndex] && !pausaActiva && (
-          <div className="bg-white border p-6 rounded-lg shadow-sm mb-6">
-            <h2 className="text-xl font-semibold mb-4">Producto Actual</h2>
-            <div className="mb-4">
-              <p className="text-xl font-mono">{productos[currentProductoIndex].codigo}</p>
-              <p className="text-lg">{productos[currentProductoIndex].descripcion || 'Sin descripción'}</p>
-              <div className="mt-2 grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Ubicación</p>
-                  <p className="font-medium">{productos[currentProductoIndex].ubicacion || 'No especificada'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Cantidad Requerida</p>
-                  <p className="font-medium">{productos[currentProductoIndex].cantidad}</p>
-                </div>
-              </div>
+      </div>
+      
+      <div className="container mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Columna izquierda: Lista de productos (visible en móvil con toggle) */}
+        <div className={`${mostrarResumen ? "block" : "hidden md:block"} md:col-span-1`}>
+          <div className="bg-white rounded-lg shadow-md p-4 text-black">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Productos del pedido</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="md:hidden text-blue-600" 
+                onClick={() => setMostrarResumen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="recolectados" className="block mb-1 font-medium">
-                  Cantidad Recolectada
-                </label>
-                <Input
-                  id="recolectados"
-                  type="number"
-                  value={recolectados}
-                  onChange={(e) => setRecolectados(parseInt(e.target.value) || 0)}
-                  min={0}
-                  max={productos[currentProductoIndex].cantidad}
-                  className="w-full"
-                />
-              </div>
-              
-              {recolectados === 0 && (
-                <div>
-                  <label htmlFor="motivo" className="block mb-1 font-medium">
-                    Motivo del Faltante
-                  </label>
-                  <select
-                    id="motivo"
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    required
-                  >
-                    <option value="">Seleccione un motivo</option>
-                    {motivosPreestablecidos.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                  
-                  {motivo === "Otro motivo" && (
-                    <Input
-                      type="text"
-                      placeholder="Especifique el motivo"
-                      className="w-full mt-2"
-                      value={
-                        motivosPreestablecidos.includes(motivo) && motivo !== "Otro motivo" 
-                          ? "" 
-                          : motivo
-                      }
-                      onChange={(e) => setMotivo(e.target.value)}
-                    />
-                  )}
-                </div>
-              )}
-              
-              {/* Solo mostrar motivo cuando es menor a la cantidad solicitada */}
-              {recolectados < productos[currentProductoIndex].cantidad && (
-                <div>
-                  <label htmlFor="motivo-parcial" className="block mb-1 font-medium">
-                    Motivo del Faltante
-                  </label>
-                  <Input
-                    id="motivo-parcial"
-                    type="text"
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    placeholder="Indicar motivo del faltante"
-                    className="w-full"
-                  />
-                </div>
-              )}
-              
-              <div className="flex justify-end">
-                <Button 
-                  type="submit" 
-                  disabled={actualizarProductoMutation.isPending || pausaActiva}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {actualizarProductoMutation.isPending ? 'Guardando...' : 'Guardar y Continuar'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        )}
-        
-        {pausaActiva && (
-          <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-lg text-center mb-6">
-            <h2 className="text-xl font-semibold mb-2">Pedido en Pausa</h2>
-            <p className="mb-4">El cronómetro está detenido. Cuando estés listo para continuar, presiona el botón "Reanudar".</p>
-          </div>
-        )}
-        
-        {/* Lista de productos */}
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">Resumen de Productos</h2>
-          <div className="bg-white border rounded-lg overflow-hidden">
-            <div className="max-h-64 overflow-y-auto">
-              {productos.map((producto, index) => (
-                <ProductoArmadoItem
+            <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
+              {productos?.map((producto: any, index: number) => (
+                <ProductoResumen
                   key={producto.id}
                   producto={producto}
-                  isActive={index === currentProductoIndex && !pausaActiva}
-                  isCompleted={producto.recolectado !== null && producto.recolectado > 0}
-                  isPending={producto.recolectado === null}
+                  isActive={index === currentProductoIndex}
+                  onSelect={() => setCurrentProductoIndex(index)}
                 />
               ))}
             </div>
           </div>
         </div>
         
-        {/* Modal para Pausas */}
-        <Dialog open={mostrarModalPausa} onOpenChange={setMostrarModalPausa}>
-          <DialogContent className="bg-blue-950 text-white border-blue-800">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Pausar armado</DialogTitle>
-              <DialogDescription className="text-gray-300">
-                Selecciona el motivo por el cual estás pausando el armado del pedido.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="py-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-white">Motivo:</label>
-                <select
-                  className="w-full p-3 border border-blue-800 rounded-md bg-blue-900 text-white"
-                  value={motivoPausa}
-                  onChange={(e) => setMotivoPausa(e.target.value)}
-                >
-                  <option value="">Seleccione un motivo</option>
-                  {motivosPausa.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {motivoPausa === "Otro: especificar" && (
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-white">Especifique:</label>
-                  <Input
-                    placeholder="Detalles del motivo"
-                    value={motivoPausa !== "Otro: especificar" ? motivoPausa : ""}
-                    onChange={(e) => setMotivoPausa(e.target.value)}
-                    className="bg-blue-900 border-blue-800 text-white placeholder:text-blue-300"
-                  />
-                </div>
-              )}
-            </div>
-            
-            <div className="flex justify-end gap-2 mt-2">
+        {/* Columna derecha: Detalles del producto actual y controles */}
+        <div className={`${mostrarResumen ? "hidden md:block" : "block"} md:col-span-2`}>
+          <div className="bg-white rounded-lg shadow-md p-6 text-black">
+            {/* Botón para mostrar resumen en móvil */}
+            <div className="flex justify-between items-center mb-4 md:hidden">
+              <h2 className="text-lg font-bold">Producto {currentProductoIndex + 1} de {productos?.length}</h2>
               <Button 
                 variant="outline" 
-                onClick={() => setMostrarModalPausa(false)}
-                className="border-white text-white hover:bg-blue-800"
+                size="sm" 
+                className="text-blue-600" 
+                onClick={() => setMostrarResumen(true)}
               >
-                Cancelar
-              </Button>
-              <Button
-                onClick={() => {
-                  // Validación
-                  if (!motivoPausa) {
-                    toast({
-                      title: "Motivo requerido",
-                      description: "Debes seleccionar un motivo para la pausa",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  
-                  // Si es "Otro: especificar" pero no hay detalle
-                  if (motivoPausa === "Otro: especificar") {
-                    toast({
-                      title: "Detalle requerido",
-                      description: "Debes especificar el motivo de la pausa",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  
-                  const now = new Date();
-                  
-                  // Obtener el ID del producto actual para guardarlo en la pausa
-                  const currentProductoData = productos[currentProductoIndex];
-                  const ultimoProductoId = currentProductoData ? currentProductoData.id : null;
-                  
-                  crearPausaMutation.mutate({
-                    pedidoId: currentPedido.id,
-                    motivo: motivoPausa,
-                    tipo: "armado", // Especificar que es una pausa de armado
-                    inicio: now,
-                    ultimoProductoId // Incluir el ID del último producto procesado
-                  });
-                }}
-                disabled={crearPausaMutation.isPending}
-                className="bg-white text-blue-950 hover:bg-gray-100"
-              >
-                {crearPausaMutation.isPending ? 'Procesando...' : 'Pausar'}
+                Ver todos
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Modal para Finalizar Armado */}
-        <AlertDialog open={mostrarAlertaFinal} onOpenChange={setMostrarAlertaFinal}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Finalizar armado</AlertDialogTitle>
-              <AlertDialogDescription>
-                ¿Estás seguro de que deseas finalizar el armado del pedido?
-                Verifica que todos los productos estén procesados.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
             
-            <div className="py-4">
-              {/* LÓGICA MEJORADA: Verificar productos realmente pendientes usando esProductoCompletado */}
-              {productos.some(p => !esProductoCompletado(p)) && (
-                <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-sm mb-4">
-                  <div className="flex items-center gap-2">
-                    <XCircle size={16} />
-                    <span className="font-medium">Advertencia:</span>
-                  </div>
-                  <p className="ml-6">Hay productos pendientes por completar o con faltantes sin motivo registrado.</p>
-                  
-                  {/* Mostramos un detalle de los productos pendientes */}
-                  <ul className="ml-6 mt-2 text-xs">
-                    {productos.filter(p => !esProductoCompletado(p)).map(p => (
-                      <li key={p.id} className="mb-1">
-                        • SKU {p.codigo}: {p.recolectado === null ? 'Sin procesar' : `Recolectado ${p.recolectado}/${p.cantidad} sin motivo`}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              {/* Si todos los productos están completados */}
-              {!productos.some(p => !esProductoCompletado(p)) && (
-                <div className="bg-green-50 border border-green-200 p-3 rounded text-green-800 text-sm">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={16} />
-                    <span className="font-medium">Correcto:</span>
-                  </div>
-                  <p className="ml-6">Todos los productos están procesados correctamente y puedes finalizar el armado.</p>
-                </div>
-              )}
-            </div>
-            
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              
-              {/* Botón de finalización estándar */}
-              <AlertDialogAction
-                onClick={() => {
-                  // LÓGICA MEJORADA: Verificar productos usando la misma función esProductoCompletado
-                  const todosProductosCompletados = !productos.some(p => !esProductoCompletado(p));
-                  
-                  if (!todosProductosCompletados) {
-                    toast({
-                      title: "No se puede finalizar",
-                      description: "Debes procesar todos los productos y asignar motivos a los faltantes",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  
-                  finalizarPedidoMutation.mutate({ 
-                    pedidoId: currentPedido.id 
-                  }, {
-                    onSuccess: () => {
-                      // Mostrar diálogo de finalización exitosa
-                      setMostrarDialogoCompletado(true);
-                    }
-                  });
-                }}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                Finalizar
-              </AlertDialogAction>
-              
-              {/* Botón de finalización forzada (solo visible cuando hay pausa activa) */}
-              {pausaActiva && (
-                <AlertDialogAction
-                  onClick={() => {
-                    // LÓGICA MEJORADA: Verificar productos usando la misma función esProductoCompletado
-                    const todosProductosCompletados = !productos.some(p => !esProductoCompletado(p));
-                    
-                    if (!todosProductosCompletados) {
-                      toast({
-                        title: "No se puede finalizar",
-                        description: "Debes procesar todos los productos y asignar motivos a los faltantes",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    
-                    // Mostrar confirmación adicional
-                    if (confirm("⚠️ ADVERTENCIA: Estás a punto de finalizar un pedido con pausas activas. Esta acción finalizará automáticamente todas las pausas activas. ¿Estás seguro?")) {
-                      finalizarPedidoMutation.mutate({ 
-                        pedidoId: currentPedido.id,
-                        forzar: true
-                      }, {
-                        onSuccess: () => {
-                          // Mostrar diálogo de finalización exitosa
-                          setMostrarDialogoCompletado(true);
-                        }
-                      });
-                    }
-                  }}
-                  className="bg-orange-600 hover:bg-orange-700"
+            {pausaActiva ? (
+              <div className="text-center py-10">
+                <PauseCircle className="h-16 w-16 mx-auto mb-4 text-amber-500" />
+                <h2 className="text-xl font-bold mb-2">Armado en pausa</h2>
+                <p className="mb-4">El pedido está actualmente pausado.</p>
+                <Button 
+                  onClick={handleReanudarArmado}
+                  className="bg-green-500 hover:bg-green-600 text-white"
                 >
-                  Forzar finalización
-                </AlertDialogAction>
-              )}
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 text-center">
-          Está procesando el pedido {currentPedido.pedidoId} del cliente {currentPedido.clienteId}
+                  Reanudar armado
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-1">
+                    <h2 className="text-xl font-bold">Código: {currentProducto.codigo}</h2>
+                  </div>
+                  <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {currentProducto.ubicacion || 'Sin ubicación'}</p>
+                  <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {currentProducto.descripcion || 'Sin descripción'}</p>
+                  
+                  <div className="bg-gray-100 p-4 rounded-md mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium">Cantidad solicitada:</span>
+                      <span className="text-lg font-bold">{currentProducto.cantidad}</span>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label htmlFor="cantidad-input" className="block text-sm font-medium mb-1">
+                        Cantidad recolectada:
+                      </label>
+                      <div className="flex items-center">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-10 w-10"
+                          onClick={() => cantidad > 0 && setCantidad(cantidad - 1)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          id="cantidad-input"
+                          type="number"
+                          className="mx-2 text-center"
+                          value={cantidad}
+                          min={0}
+                          max={currentProducto.cantidad}
+                          onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-10 w-10"
+                          onClick={() => cantidad < currentProducto.cantidad && setCantidad(cantidad + 1)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Motivo de faltante - obligatorio si cantidad < solicitada */}
+                    {cantidad < currentProducto.cantidad && (
+                      <div className="mb-4">
+                        <label htmlFor="motivo-select" className="block text-sm font-medium mb-1">
+                          Motivo del faltante:
+                        </label>
+                        <Select 
+                          value={motivo} 
+                          onValueChange={setMotivo}
+                        >
+                          <SelectTrigger id="motivo-select" className="w-full">
+                            <SelectValue placeholder="Seleccione un motivo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {motivosFaltante.map((m) => (
+                              <SelectItem key={m} value={m}>{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        {motivo === "Otro motivo" && (
+                          <Input
+                            className="mt-2"
+                            placeholder="Especifique el motivo"
+                            value={motivo === "Otro motivo" ? "" : motivo}
+                            onChange={(e) => setMotivo(e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    onClick={handleContinuar}
+                    className="w-full py-6 text-lg bg-green-600 hover:bg-green-700 text-white"
+                    disabled={actualizarProductoMutation.isPending}
+                  >
+                    {actualizarProductoMutation.isPending ? (
+                      <span className="flex items-center justify-center">
+                        <span className="animate-spin mr-2">⟳</span> Procesando...
+                      </span>
+                    ) : (
+                      <span>GUARDAR Y CONTINUAR</span>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        
-        {/* Modal de pedido completado con éxito */}
-        <Dialog 
-          open={mostrarDialogoCompletado} 
-          onOpenChange={(open) => {
-            // Si se cierra manualmente, redirigir al usuario a la lista de pedidos
-            if (!open) {
-              setMostrarDialogoCompletado(false);
-              // Refrescar los datos
-              queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-              queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
-            }
-          }}
-        >
-          <DialogContent className="bg-green-50 border-green-500">
-            <DialogHeader>
-              <DialogTitle className="text-center text-2xl font-bold text-green-800">
-                ¡Armado Exitoso!
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="flex justify-center mb-4">
-              <CheckCircle2 className="h-16 w-16 text-green-600" />
+      </div>
+      
+      {/* Modal de Éxito */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="bg-white text-center">
+          <div className="flex flex-col items-center justify-center py-4">
+            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            <DialogTitle className="text-xl font-bold mb-2">¡Armado finalizado!</DialogTitle>
+            <DialogDescription className="text-gray-600 mb-4">
+              Ha finalizado el armado del pedido de manera exitosa
+            </DialogDescription>
+            <Button 
+              onClick={() => {
+                setShowSuccessDialog(false);
+                // Redireccionar al inicio después de cerrar el modal
+                window.location.reload();
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de Pausa */}
+      <Dialog open={mostrarPausaModal} onOpenChange={setMostrarPausaModal}>
+        <DialogContent className="bg-white">
+          <DialogTitle className="text-xl font-bold">Pausar armado</DialogTitle>
+          <DialogDescription className="text-gray-600 mb-4">
+            Seleccione el motivo por el cual está pausando el armado.
+          </DialogDescription>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="pausa-select" className="block text-sm font-medium mb-1">
+                Motivo de la pausa:
+              </label>
+              <Select 
+                value={motivoPausa} 
+                onValueChange={setMotivoPausa}
+              >
+                <SelectTrigger id="pausa-select" className="w-full">
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motivosDePausa.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
-            <p className="text-center text-lg mb-2">
-              Ha finalizado el armado con éxito
-            </p>
-            
-            <p className="text-center text-gray-600 mb-4">
-              Pedido: <span className="font-bold">{currentPedido?.pedidoId}</span>
-            </p>
-            
-            <DialogFooter className="justify-center">
-              <Button 
-                className="bg-green-600 hover:bg-green-700 px-8 py-2 text-lg" 
-                onClick={() => setMostrarDialogoCompletado(false)}
-              >
-                ACEPTAR
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </MainLayout>
+            {motivoPausa === "Otro: especificar" && (
+              <div>
+                <label htmlFor="detalle-pausa" className="block text-sm font-medium mb-1">
+                  Especifique el motivo:
+                </label>
+                <Input
+                  id="detalle-pausa"
+                  placeholder="Detalle del motivo de pausa"
+                  value={detallePausa}
+                  onChange={(e) => setDetallePausa(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setMostrarPausaModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handlePausarArmado}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              disabled={!motivoPausa || (motivoPausa === "Otro: especificar" && !detallePausa)}
+            >
+              Pausar armado
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
