@@ -3008,10 +3008,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
       const hasFaltantes = productosFaltantes.length > 0;
       
-      // Determinar el estado final
-      const estadoFinal = hasFaltantes ? 'armado-pendiente-stock' : 'armado';
+      // IMPORTANTE: CAMBIO DE COMPORTAMIENTO - Siempre marcar como "armado" en lugar de "armado-pendiente-stock"
+      // incluso cuando hay faltantes, siempre que tengan motivo
+      const estadoFinal = 'armado';
       
-      // Actualizar el pedido
+      // Actualizar el pedido siempre como armado
       const pedidoActualizado = await storage.updatePedido(pedidoId, { 
         estado: estadoFinal,
         finalizado: new Date(), // Registrar la fecha/hora de finalización
@@ -3019,9 +3020,9 @@ export async function registerRoutes(app: Application): Promise<Server> {
         tiempoNeto: await calcularTiempoNeto(pedidoId)
       });
       
-      console.log(`🏁 FINALIZACIÓN ${forzar ? 'FORZADA' : 'NORMAL'}: Pedido ${pedidoId} marcado como "${estadoFinal}"`);
+      console.log(`🏁 FINALIZACIÓN ${forzar ? 'FORZADA' : 'NORMAL'}: Pedido ${pedidoId} marcado como "${estadoFinal}" ${hasFaltantes ? ' a pesar de tener faltantes' : ''}`);
       
-      // Si hay faltantes, crear solicitudes de transferencia
+      // Si hay faltantes, crear solicitudes de transferencia (aunque el pedido esté en estado 'armado')
       if (hasFaltantes) {
         for (const producto of productosFaltantes) {
           try {
@@ -3990,21 +3991,24 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
             const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
             
+            // IMPORTANTE: CAMBIO DE COMPORTAMIENTO - Marcar como "armado" en lugar de "armado-pendiente-stock"
+            // incluso cuando hay faltantes, siempre que tengan motivo
+            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, pero se marcará como "armado" ya que todos tienen motivo registrado`);
+            
+            // Actualizar estado directamente a "armado" independientemente de si hay faltantes o no
+            await storage.updatePedido(pedidoId, { 
+              estado: 'armado',
+              finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
+              tiempoBruto: await calcularTiempoBruto(pedidoId),
+              tiempoNeto: await calcularTiempoNeto(pedidoId)
+            });
+            
+            // Notificar finalización (armado completo)
+            console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} marcado como "armado" aunque tiene ${productosFaltantes.length} productos con faltantes registrados`);
+            
+            // Si hay faltantes, crear solicitudes de transferencia para cada uno
+            // aunque el pedido esté marcado como armado
             if (productosFaltantes.length > 0) {
-              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes`);
-              
-              // Actualizar estado a "armado-pendiente-stock"
-              await storage.updatePedido(pedidoId, { 
-                estado: 'armado-pendiente-stock',
-                finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
-                tiempoBruto: await calcularTiempoBruto(pedidoId),
-                tiempoNeto: await calcularTiempoNeto(pedidoId)
-              });
-              
-              // Notificar finalización (armado pendiente de stock)
-              console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} marcado como "armado-pendiente-stock" porque tiene ${productosFaltantes.length} productos con faltantes registrados`);
-              
-              // Crear solicitudes de transferencia para cada producto faltante
               for (const producto of productosFaltantes) {
                 try {
                   // Crear solicitud de stock
@@ -4012,7 +4016,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
                     fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
                     horario: new Date(),
                     codigo: producto.codigo,
-                    cantidad: producto.cantidad,
+                    cantidad: producto.cantidad - (producto.recolectado || 0),
                     motivo: `Faltante en pedido ${pedidoId} - ${producto.motivo || 'Sin stock'}`,
                     estado: 'pendiente',
                     solicitadoPor: req.user?.id,
@@ -4025,16 +4029,6 @@ export async function registerRoutes(app: Application): Promise<Server> {
                   console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
                 }
               }
-            } else {
-              console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} completado correctamente sin faltantes`);
-              
-              // Si no hay faltantes, marcar como armado normal con la fecha y cálculo de tiempos
-              await storage.updatePedido(pedidoId, {
-                estado: 'armado',
-                finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
-                tiempoBruto: await calcularTiempoBruto(pedidoId),
-                tiempoNeto: await calcularTiempoNeto(pedidoId)
-              });
             }
             
             // Actualizar la lista de productos después de finalizar el pedido
