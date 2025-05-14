@@ -374,7 +374,25 @@ export default function ArmadoSimplePage() {
               <h2>Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}</h2>
             </div>
             
-            <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
+            {pausaActiva ? (
+              /* Mensaje de pedido pausado */
+              <div className="bg-amber-50 text-amber-800 border-2 border-amber-400 rounded-md shadow-lg p-6 w-full text-center">
+                <h3 className="text-xl font-bold mb-4">El pedido se encuentra pausado</h3>
+                <p className="mb-4">{mensajePausa}</p>
+                <p className="text-sm mb-6">Motivo: {pedido.pausaActiva?.motivo || "No especificado"}</p>
+                
+                <div className="flex justify-center">
+                  <Button 
+                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={() => window.location.href = "/armador"}
+                  >
+                    Volver al tablero
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Interfaz normal de armado */
+              <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
               <div className="mb-2">
                 <div className="font-bold">Código SKU: {productoActual.codigo}</div>
               </div>
