@@ -739,21 +739,47 @@ export default function ArmadoSimplePage() {
       
       {/* Modal de éxito */}
       <Dialog open={successModal} onOpenChange={setSuccessModal}>
-        <DialogContent className="bg-white">
-          <DialogTitle className="text-green-600 text-center">✅ Armado Finalizado</DialogTitle>
-          <DialogDescription className="text-center text-lg font-medium">
-            Ha finalizado el armado del pedido con éxito!
+        <DialogContent className="bg-white p-6">
+          <div className="flex justify-end">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => {
+                setSuccessModal(false);
+                handleVolverTablero();
+              }}
+              className="h-6 w-6"
+            >
+              ✕
+            </Button>
+          </div>
+          
+          <DialogTitle className="text-black font-semibold text-xl text-center mb-2">
+            Armado finalizado correctamente
+          </DialogTitle>
+          
+          <DialogDescription className="text-center text-gray-600">
+            Todos los productos han sido recolectados correctamente.
           </DialogDescription>
           
-          <div className="flex justify-center mt-4">
+          <div className="flex justify-center my-6">
+            <div className="rounded-full bg-green-100 p-5">
+              <svg width="50" height="50" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="#22c55e" strokeWidth="2" fill="none"/>
+                <path d="M8 12L11 15L16 9" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          
+          <div className="flex justify-end mt-4">
             <Button 
               onClick={() => {
                 setSuccessModal(false);
                 handleVolverTablero();
               }}
-              className="bg-blue-900 hover:bg-blue-700 text-white"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2"
             >
-              Continuar
+              Volver a la lista
             </Button>
           </div>
         </DialogContent>
