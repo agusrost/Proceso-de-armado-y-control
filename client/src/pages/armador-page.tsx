@@ -182,17 +182,23 @@ export default function ArmadorPage() {
           <p className="text-xl mb-10">Cargando...</p>
         ) : pedido ? (
           <>
-            <Button 
-              onClick={handleStartArmado}
-              className={`text-xl px-12 py-6 h-auto rounded-lg mb-4 ${
-                pedidoPausado 
-                  ? 'bg-amber-200 text-amber-800 hover:bg-amber-200 cursor-not-allowed' 
-                  : 'bg-white hover:bg-gray-200 text-slate-900'
-              }`}
-              disabled={startPedidoMutation.isPending || pedidoPausado}
-            >
-              {buttonText}
-            </Button>
+            {pedidoPausado ? (
+              // Botón de pedido pausado (no clickeable)
+              <div className="bg-amber-700 text-white px-12 py-6 rounded-lg mb-4 text-center">
+                <p className="text-xl font-medium">NO DISPONIBLE - PAUSADO</p>
+                <p className="text-sm mt-1">Este pedido está actualmente pausado</p>
+                <p className="text-sm mt-1">Debe ser reanudado desde la pantalla de armado.</p>
+              </div>
+            ) : (
+              // Botón normal para comenzar armado
+              <Button
+                onClick={handleStartArmado}
+                className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-white hover:bg-gray-200 text-slate-900"
+                disabled={startPedidoMutation.isPending}
+              >
+                {buttonText}
+              </Button>
+            )}
             
             {/* Mensaje informativo cuando el pedido está pausado */}
             {pedidoPausado && (
