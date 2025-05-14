@@ -426,13 +426,10 @@ export default function ArmadoSimplePage() {
   
   // Lista de motivos de pausa
   const motivosPausa = [
+    "Pausa sanitaria",
     "Almuerzo",
-    "Descanso",
-    "Reunión",
-    "Capacitación",
-    "Imprevisto",
-    "Cambio de turno",
-    "Otro"
+    "Fin de turno",
+    "Otro (especificar)"
   ];
   
   // Si no hay pedido o productos, mostrar mensaje
