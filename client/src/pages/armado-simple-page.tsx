@@ -273,26 +273,32 @@ export default function ArmadoSimplePage() {
         return;
       }
       
-      // CORRECCIÓN CRÍTICA: Actualizar producto con motivo del faltante y flag para prevenir autocompletar
-      console.log(`⚠️ Enviando cantidad ${cantidad}/${currentProducto.cantidad} con motivo "${motivo}" y flag prevenAutocompletar=true`);
+      // CORRECCIÓN CRÍTICA v2.0: Actualizar producto con motivo del faltante y flag para prevenir autocompletar
+      // Enviando FORZOSAMENTE el flag para prevenir autocompletado
+      console.log(`⚠️ FIJO-PARCIAL: Enviando cantidad EXACTA ${cantidad}/${currentProducto.cantidad} con motivo "${motivo}"`);
       actualizarProductoMutation.mutate({
         id: currentProducto.id,
         recolectado: cantidad,
         motivo: motivo,
-        prevenAutocompletar: true
+        prevenAutocompletar: true,  // Obligatorio
+        preservarFaltante: true,    // Doble protección
+        proteccionDoble: true       // Triple protección
       });
       
       // Resetear estados
       setShowMotivoInput(false);
       setMotivo("");
     } else {
-      // Si la cantidad es completa, enviar sin motivo (pero con el flag preventivo)
-      console.log(`Enviando cantidad exacta ${cantidad}/${currentProducto.cantidad} sin motivo, con flag prevenAutocompletar=true`);
+      // Si la cantidad es completa, enviar sin motivo
+      // CORRECCIÓN CRÍTICA v2.0: Enviar siempre los flags de protección
+      console.log(`⚠️ FIJO-COMPLETO: Enviando cantidad EXACTA ${cantidad}/${currentProducto.cantidad} sin motivo`);
       actualizarProductoMutation.mutate({
         id: currentProducto.id,
         recolectado: cantidad,
         motivo: undefined,
-        prevenAutocompletar: true
+        prevenAutocompletar: true,  // Obligatorio para prevenir autocompletado
+        preservarFaltante: true,    // Doble protección
+        proteccionDoble: true       // Triple protección
       });
     }
   };

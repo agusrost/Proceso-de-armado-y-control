@@ -27,8 +27,18 @@ export default function ProductoArmadoItem({
     return <Circle className="h-5 w-5 text-gray-300" />;
   };
 
-  // Mostrar la cantidad recolectada vs la solicitada
-  const cantidadDisplay = `${producto.recolectado || 0}/${producto.cantidad}`;
+  // CORRECCIÓN CRÍTICA v2.0: Mostrar siempre la cantidad real y el indicador INCOMPLETO si aplica
+  const tieneMotivo = producto.motivo && producto.motivo.trim() !== '';
+  const estaIncompleto = producto.recolectado !== null && producto.recolectado < producto.cantidad;
+  
+  // Mostrar la cantidad recolectada vs la solicitada, con indicador INCOMPLETO si aplica
+  // Garantizamos que la cantidad sea número para prevenir errores
+  const cantidadRecolectada = producto.recolectado !== null ? producto.recolectado : 0;
+  const cantidadDisplay = `${cantidadRecolectada}/${producto.cantidad}`;
+  
+  // Texto adicional para productos incompletos
+  const textoIncompleto = estaIncompleto ? 
+    (tieneMotivo ? " (INCOMPLETO ✓)" : " (INCOMPLETO)") : "";
 
   return (
     <div
@@ -43,10 +53,23 @@ export default function ProductoArmadoItem({
           </div>
         </div>
         <div className="text-right">
-          <p className="font-bold">{cantidadDisplay}</p>
-          {producto.ubicacion && (
-            <p className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-1 rounded-md mt-1">{producto.ubicacion}</p>
-          )}
+          <div className="flex flex-col">
+            <p className="font-bold">
+              {cantidadDisplay}
+              <span className={`ml-1 text-xs ${tieneMotivo ? 'text-blue-500' : estaIncompleto ? 'text-orange-500' : ''}`}>
+                {textoIncompleto}
+              </span>
+            </p>
+            {producto.ubicacion && (
+              <p className="text-xs text-blue-700 font-medium bg-blue-50 px-2 py-1 rounded-md mt-1">{producto.ubicacion}</p>
+            )}
+            {/* Mostrar motivo de faltante si existe */}
+            {tieneMotivo && estaIncompleto && (
+              <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md mt-1 border border-amber-200">
+                {producto.motivo}
+              </p>
+            )}
+          </div>
         </div>
       </div>
       {isCompleted && producto.recolectado < producto.cantidad && (

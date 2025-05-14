@@ -657,14 +657,14 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                         // Si no está completo y sin motivo: naranja (FALTANTE SIN JUSTIFICAR)
                                         : 'bg-orange-500 text-white'
                                   }`}>
-                                    {/* CORRECCIÓN CRÍTICA: Mostrar siempre la cantidad real recolectada, NUNCA autocompletar visualmente */}
+                                    {/* CORRECCIÓN CRÍTICA v2.0: Mostrar siempre la cantidad real recolectada, NUNCA autocompletar */}
                                     {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} 
-                                    {/* Si tiene motivo: texto JUSTIFICADO */}
-                                    {producto.motivo && producto.motivo.trim() !== '' 
-                                      ? " (✓ Justificado)" 
+                                    {/* Si tiene motivo: mostrar INCOMPLETO */}
+                                    {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad
+                                      ? " (INCOMPLETO ✓)" 
                                       // Si no completo y sin motivo: texto FALTANTE
                                       : producto.recolectado !== null && producto.recolectado < producto.cantidad 
-                                        ? " (Faltante)" 
+                                        ? " (INCOMPLETO)" 
                                         : ""}
                                   </span>
                                   
@@ -672,9 +672,10 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
                                     <div className="mt-1 px-2 py-1 text-xs rounded bg-amber-100 border border-amber-300 text-amber-800 flex items-center">
                                       <span className="mr-1">⚠️</span>
-                                      {producto.motivo.toLowerCase().includes('stock') 
-                                        ? `Faltante: Faltante de stock (${producto.cantidad - producto.recolectado} unidades no recolectadas)`
-                                        : `Faltante: ${producto.motivo} (${producto.cantidad - producto.recolectado} unidades no recolectadas)`}
+                                      {/* CORRECCIÓN v2.0: Mensaje claro y sin ambigüedades sobre el faltante */}
+                                    {producto.motivo.toLowerCase().includes('stock') 
+                                      ? `Faltante: Faltante de stock - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}`
+                                      : `Motivo: ${producto.motivo} - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}`}
                                     </div>
                                   )}
                                   
