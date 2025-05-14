@@ -137,6 +137,50 @@ export default function ArmadoSimplePage() {
     }
   });
   
+  // Reanudar pedido mutation
+  const reanudarPedidoMutation = useMutation({
+    mutationFn: async (pausaId: number) => {
+      try {
+        console.log("Intentando reanudar pedido, pausaId:", pausaId);
+        // Usar el endpoint /api/pausas/:id/finalizar para cerrar la pausa
+        const res = await apiRequest("POST", `/api/pausas/${pausaId}/finalizar`, {});
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || `Error al reanudar pedido: ${res.status} ${res.statusText}`);
+        }
+        return await res.json();
+      } catch (error) {
+        console.error("Error en reanudarPedidoMutation:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pedido reanudado",
+        description: "El pedido ha sido reanudado correctamente"
+      });
+      
+      // Actualizar el estado local
+      setPausaActiva(false);
+      setPausaActualId(null);
+      setMensajePausa("");
+      
+      // Recargar datos del pedido
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+      if (pedido?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido.id}`] });
+      }
+    },
+    onError: (error: Error) => {
+      console.error("Error al reanudar pedido:", error);
+      toast({
+        title: "Error al reanudar",
+        description: error.message || "No se pudo reanudar el pedido",
+        variant: "destructive"
+      });
+    }
+  });
+  
   // Finalizar pedido mutation
   const finalizarPedidoMutation = useMutation({
     mutationFn: async (params: { pedidoId: number }) => {
@@ -300,6 +344,20 @@ export default function ArmadoSimplePage() {
     }
   };
   
+  // Manejar reanudar pedido
+  const handleReanudarPedido = () => {
+    if (!pausaActualId) {
+      toast({
+        title: "Error al reanudar",
+        description: "No se encontró información de la pausa actual",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    reanudarPedidoMutation.mutate(pausaActualId);
+  };
+  
   // Cerrar sesión
   const handleCerrarSesion = () => {
     logoutMutation.mutate();
@@ -383,7 +441,15 @@ export default function ArmadoSimplePage() {
                 <p className="mb-4">{mensajePausa}</p>
                 <p className="text-sm mb-6">Motivo: {pedido.pausaActiva?.motivo || "No especificado"}</p>
                 
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-3">
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={handleReanudarPedido}
+                    disabled={reanudarPedidoMutation.isPending}
+                  >
+                    {reanudarPedidoMutation.isPending ? "Reanudando..." : "Reanudar pedido"}
+                  </Button>
+                  
                   <Button 
                     className="bg-amber-500 hover:bg-amber-600 text-white"
                     onClick={() => window.location.href = "/armador"}

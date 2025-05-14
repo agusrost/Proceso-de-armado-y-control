@@ -76,6 +76,15 @@ export default function ArmadorPage() {
   });
   
   const handleStartArmado = () => {
+    // Verificar si el pedido está pausado antes de continuar
+    if (pedidoPausado) {
+      toast({
+        title: "Pedido pausado",
+        description: "No se puede continuar con un pedido que está pausado. Debe ser reanudado desde la administración.",
+        variant: "destructive"
+      });
+      return;
+    }
     startPedidoMutation.mutate();
   };
   
