@@ -56,9 +56,10 @@ function ProductoArmadoItem({ producto, isActive, isCompleted, isPending }: {
                     ? 'text-green-600' // Parcial con motivo (completado) - Verde
                     : 'text-orange-600' // Parcial sin motivo (incompleto) - Naranja
               }`}>
-                Recolectado: {producto.recolectado}/{producto.cantidad}
-                {realmenteCompletado && producto.recolectado < producto.cantidad && (
-                  <span className="ml-1 text-xs bg-green-100 px-1 py-0.5 rounded">✓ Completo</span>
+                Recolectado: {producto.recolectado || 0}/{producto.cantidad}
+                {/* Mostrar "Completo" si tiene motivo pero cantidad parcial */}
+                {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
+                  <span className="ml-1 text-xs bg-green-100 px-1 py-0.5 rounded">✓ Con faltante</span>
                 )}
               </p>
               {producto.motivo && (
@@ -1892,7 +1893,7 @@ export default function ArmadoPage() {
                 <CheckCircle2 className="h-16 w-16 text-green-500" />
               </div>
               <DialogTitle className="text-xl mb-4">
-                Ha finalizado el armado del pedido con éxito!
+                Ha finalizado el armado con éxito
               </DialogTitle>
               <p className="text-gray-600 mb-6">
                 Todos los productos han sido procesados correctamente.
@@ -2919,7 +2920,7 @@ export default function ArmadoPage() {
             </div>
             
             <p className="text-center text-lg mb-2">
-              Ha finalizado el armado de manera exitosa
+              Ha finalizado el armado con éxito
             </p>
             
             <p className="text-center text-gray-600 mb-4">
