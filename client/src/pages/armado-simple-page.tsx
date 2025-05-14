@@ -5,19 +5,80 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, CheckCircle } from "lucide-react";
+import { Plus, Minus, CheckCircle, PauseCircle, X, Check, AlertTriangle } from "lucide-react";
 import proceso from "@/utils/proceso";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Componente para mostrar el resumen de productos
+interface ProductoResumenProps {
+  producto: any;
+  isActive: boolean;
+  onSelect: () => void;
+}
+
+function ProductoResumen({ producto, isActive, onSelect }: ProductoResumenProps) {
+  // Determinar el estado del producto
+  let estadoColor = "bg-red-100 border-red-300 text-red-700"; // Por defecto: pendiente (rojo)
+  let estadoTexto = "Pendiente";
+  
+  if (producto.recolectado !== null) {
+    if (producto.recolectado === producto.cantidad) {
+      // Producto completamente recolectado
+      estadoColor = "bg-green-100 border-green-300 text-green-700";
+      estadoTexto = "Completo";
+    } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
+      // Producto parcialmente recolectado con motivo
+      estadoColor = "bg-amber-100 border-amber-300 text-amber-700";
+      estadoTexto = "Parcial";
+    }
+  }
+  
+  return (
+    <div 
+      className={`p-3 border rounded-md mb-2 cursor-pointer transition-all ${
+        isActive 
+        ? "border-blue-500 bg-blue-50" 
+        : `border ${estadoColor}`
+      }`}
+      onClick={onSelect}
+    >
+      <div className="flex justify-between items-center">
+        <span className="font-medium">{producto.codigo}</span>
+        <span className={`text-sm px-2 py-0.5 rounded-full ${estadoColor}`}>
+          {estadoTexto}
+        </span>
+      </div>
+      <div className="text-sm truncate">{producto.descripcion}</div>
+      <div className="text-sm mt-1">
+        Recolectado: {producto.recolectado === null ? "0" : producto.recolectado}/{producto.cantidad}
+        {producto.motivo && producto.motivo.trim() !== "" && (
+          <span className="ml-2 text-amber-600">
+            <AlertTriangle className="inline h-3 w-3 mr-1" />
+            {producto.motivo}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ArmadoSimplePage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [cantidad, setCantidad] = useState(0);
+  const [motivo, setMotivo] = useState("");
+  const [motivoPausa, setMotivoPausa] = useState("");
+  const [detallePausa, setDetallePausa] = useState("");
+  const [mostrarResumen, setMostrarResumen] = useState(false);
+  const [pausaActiva, setPausaActiva] = useState(false);
+  const [mostrarPausaModal, setMostrarPausaModal] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   
   // Fetch current pedido assigned to armador
@@ -65,7 +126,62 @@ export default function ArmadoSimplePage() {
     }
   });
   
-  // Utilidad de proceso importado al inicio del archivo
+  // Pausar pedido mutation
+  const pausarPedidoMutation = useMutation({
+    mutationFn: async (params: { pedidoId: number, motivo: string }) => {
+      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/pausar`, { motivo: params.motivo });
+      return await res.json();
+    },
+    onSuccess: () => {
+      setMostrarPausaModal(false);
+      setPausaActiva(true);
+      setMotivoPausa("");
+      setDetallePausa("");
+      
+      toast({
+        title: "Pedido pausado",
+        description: "El pedido ha sido pausado correctamente.",
+        variant: "default",
+      });
+      
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al pausar pedido",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Reanudar pedido mutation
+  const reanudarPedidoMutation = useMutation({
+    mutationFn: async (params: { pedidoId: number }) => {
+      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/reanudar`, {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      setPausaActiva(false);
+      
+      toast({
+        title: "Pedido reanudado",
+        description: "El pedido ha sido reanudado correctamente.",
+        variant: "default",
+      });
+      
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al reanudar pedido",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
   
   // Verificar finalización automática
   const verificarFinalizacionAutomatica = async () => {
@@ -130,7 +246,7 @@ export default function ArmadoSimplePage() {
           toast({
             title: "Pedido incompleto",
             description: "Hay productos sin procesar correctamente. Verifica que todos los productos tengan cantidad o motivo de faltante.",
-            variant: "warning"
+            variant: "destructive"
           });
         }
       }
@@ -149,7 +265,7 @@ export default function ArmadoSimplePage() {
       preservarFaltante?: boolean,
       proteccionDoble?: boolean
     }) => {
-      console.log(`📌 ENVIANDO ACTUALIZACIÓN v2.0: Producto ${params.id}, Recolectado=${params.recolectado}, Motivo=${params.motivo || 'ninguno'}, Triple Protección Activa`);
+      console.log(`📌 ENVIANDO ACTUALIZACIÓN: Producto ${params.id}, Recolectado=${params.recolectado}, Motivo=${params.motivo || 'ninguno'}, Triple Protección Activa`);
       
       // Crear el cuerpo de la solicitud con todos los campos necesarios para proteger las cantidades parciales
       const requestBody: any = {
@@ -246,7 +362,7 @@ export default function ArmadoSimplePage() {
   useEffect(() => {
     if (productos && productos[currentProductoIndex]) {
       setCurrentProducto(productos[currentProductoIndex]);
-      // CORRECCIÓN CRÍTICA v2.0: Inicializar cantidad con lo que ya esté recolectado o con CERO
+      // CORRECCIÓN CRÍTICA: Inicializar cantidad con lo que ya esté recolectado o con CERO
       // NUNCA inicializar con la cantidad solicitada para evitar autocompletado
       const productoActual = productos[currentProductoIndex];
       
@@ -254,7 +370,7 @@ export default function ArmadoSimplePage() {
       console.log(`🔍 CAMBIO DE PRODUCTO → ${productoActual.codigo}`);
       console.log(`📊 DATOS ACTUALES: recolectado=${productoActual.recolectado}, cantidad requerida=${productoActual.cantidad}, motivo="${productoActual.motivo || 'ninguno'}"`);
       
-      // ⚠️ PUNTO CRÍTICO: Inicialización de cantidades
+      // Punto crítico: Inicialización de cantidades
       // Este es un punto crítico donde debemos asegurarnos de preservar cantidades parciales
       
       if (productoActual.recolectado !== null && productoActual.recolectado !== undefined) {
@@ -268,20 +384,111 @@ export default function ArmadoSimplePage() {
         // Si tiene motivo de faltante, mostrar advertencia
         if (productoActual.motivo && productoActual.motivo.trim() !== '') {
           console.log(`⚠️ ATENCIÓN: Producto con motivo de faltante: "${productoActual.motivo}"`);
+          setMotivo(productoActual.motivo);
+        } else {
+          setMotivo("");
         }
       } else {
         // IMPORTANTE: Inicializar con 0, NUNCA con la cantidad total
         console.log(`✅ NUEVO: Inicializando con 0 en lugar de ${productoActual.cantidad} para evitar autocompletado`);
         setCantidad(0);
+        setMotivo("");
       }
     }
   }, [productos, currentProductoIndex]);
   
-  // Estado para gestionar motivo del faltante
+  // Estado para mostrar controles
   const [showMotivoInput, setShowMotivoInput] = useState(false);
-  const [motivo, setMotivo] = useState("");
   
-  // Manejar continuar
+  // Lista de motivos predefinidos para faltantes
+  const motivosFaltante = [
+    "Faltante de stock",
+    "No se encontró el artículo",
+    "Producto defectuoso",
+    "Otro motivo"
+  ];
+  
+  // Lista de motivos para pausas
+  const motivosDePausa = [
+    "Motivos sanitarios",
+    "Almuerzo",
+    "Fin de turno",
+    "Otro: especificar"
+  ];
+
+  // Función para verificar si todos los productos están procesados (recolectados o con motivo)
+  const todosProductosProcesados = (productos: any[]): boolean => {
+    if (!productos || productos.length === 0) return false;
+    
+    return productos.every(producto => 
+      // Un producto está procesado si:
+      (producto.recolectado !== null && producto.recolectado > 0) || // Tiene cantidad recolectada
+      (producto.motivo && producto.motivo.trim() !== "") // O tiene un motivo de faltante
+    );
+  };
+
+  // Función para pausar el armado
+  const handlePausarArmado = () => {
+    if (!motivoPausa) {
+      toast({
+        title: "Motivo requerido",
+        description: "Por favor, seleccione un motivo para pausar el armado",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Si se seleccionó "Otro" pero no se especificó el detalle
+    if (motivoPausa === "Otro: especificar" && !detallePausa) {
+      toast({
+        title: "Detalle requerido",
+        description: "Por favor, especifique el detalle del motivo",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Construir el motivo completo
+    const motivoCompleto = motivoPausa === "Otro: especificar"
+      ? `${motivoPausa}: ${detallePausa}`
+      : motivoPausa;
+    
+    // Llamar a la API para pausar el pedido
+    pausarPedidoMutation.mutate({
+      pedidoId: pedido?.id,
+      motivo: motivoCompleto
+    });
+  };
+
+  // Función para reanudar el armado
+  const handleReanudarArmado = () => {
+    reanudarPedidoMutation.mutate({
+      pedidoId: pedido?.id
+    });
+  };
+
+  // Función para finalizar el armado manualmente
+  const handleFinalizarArmado = () => {
+    // Validar que todos los productos tengan al menos un motivo si no están completos
+    const productosIncompletos = productos?.filter(p => 
+      p.recolectado === null || 
+      (p.recolectado < p.cantidad && (!p.motivo || p.motivo.trim() === ""))
+    );
+    
+    if (productosIncompletos && productosIncompletos.length > 0) {
+      toast({
+        title: "Productos incompletos",
+        description: "Hay productos que no han sido procesados. Procese todos los productos antes de finalizar.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Finalizar pedido
+    finalizarPedidoMutation.mutate({ pedidoId: pedido?.id });
+  };
+
+  // Manejar continuar/guardar y avanzar
   const handleContinuar = () => {
     if (!currentProducto) return;
     
@@ -295,52 +502,31 @@ export default function ArmadoSimplePage() {
       return;
     }
     
-    // Si hay menos cantidad de la solicitada y no estamos mostrando el input de motivo
-    if (cantidad < currentProducto.cantidad && !showMotivoInput) {
-      setShowMotivoInput(true);
+    // Si la cantidad es menor a la solicitada, debe proporcionar un motivo
+    if (cantidad < currentProducto.cantidad && !motivo) {
+      toast({
+        title: "Motivo requerido",
+        description: "Por favor, especifique el motivo del faltante",
+        variant: "destructive",
+      });
       return;
     }
     
-    // Si hay menos cantidad de la solicitada y estamos mostrando el input de motivo
-    if (cantidad < currentProducto.cantidad && showMotivoInput) {
-      // Verificar que se haya especificado un motivo solo si la cantidad es diferente de la completa
-      if (!motivo && cantidad !== currentProducto.cantidad) {
-        toast({
-          title: "Motivo requerido",
-          description: "Por favor, especifique el motivo del faltante",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // CORRECCIÓN CRÍTICA v2.0: Actualizar producto con motivo del faltante y flag para prevenir autocompletar
-      // Enviando FORZOSAMENTE el flag para prevenir autocompletado
-      console.log(`⚠️ FIJO-PARCIAL: Enviando cantidad EXACTA ${cantidad}/${currentProducto.cantidad} con motivo "${motivo}"`);
-      actualizarProductoMutation.mutate({
-        id: currentProducto.id,
-        recolectado: cantidad,
-        motivo: motivo,
-        prevenAutocompletar: true,  // Obligatorio
-        preservarFaltante: true,    // Doble protección
-        proteccionDoble: true       // Triple protección
-      });
-      
-      // Resetear estados
-      setShowMotivoInput(false);
-      setMotivo("");
-    } else {
-      // Si la cantidad es completa, enviar sin motivo
-      // CORRECCIÓN CRÍTICA v2.0: Enviar siempre los flags de protección
-      console.log(`⚠️ FIJO-COMPLETO: Enviando cantidad EXACTA ${cantidad}/${currentProducto.cantidad} sin motivo`);
-      actualizarProductoMutation.mutate({
-        id: currentProducto.id,
-        recolectado: cantidad,
-        motivo: undefined,
-        prevenAutocompletar: true,  // Obligatorio para prevenir autocompletado
-        preservarFaltante: true,    // Doble protección
-        proteccionDoble: true       // Triple protección
-      });
+    // Log detallado del proceso
+    console.log(`⚠️ GUARDANDO: Producto ${currentProducto.codigo} - ${cantidad}/${currentProducto.cantidad}`);
+    if (cantidad < currentProducto.cantidad) {
+      console.log(`⚠️ FALTANTE: Motivo "${motivo}"`);
     }
+    
+    // Actualizar el producto con la cantidad recolectada y motivo si es necesario
+    actualizarProductoMutation.mutate({
+      id: currentProducto.id,
+      recolectado: cantidad,
+      motivo: cantidad < currentProducto.cantidad ? motivo : undefined,
+      prevenAutocompletar: true,  // Obligatorio
+      preservarFaltante: true,    // Doble protección
+      proteccionDoble: true       // Triple protección
+    });
   };
   
   // Vista de carga
@@ -355,145 +541,297 @@ export default function ArmadoSimplePage() {
     );
   }
   
-  return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center">
-      <div className="w-full max-w-md px-4 py-10 flex flex-col items-center">
-        <h1 className="text-5xl font-bold mb-12">KONECTA</h1>
-        
-        <div className="bg-white text-black rounded-lg w-full p-6 mb-6">
-          <div className="flex justify-between items-start mb-4">
-            <p className="text-xl font-bold">Código SKU: {currentProducto.codigo}</p>
-            <span className={`inline-flex px-2 py-1 rounded-full text-sm font-semibold ${
-              currentProducto.recolectado !== null && (currentProducto.recolectado >= currentProducto.cantidad || currentProducto.motivo) 
-                ? 'bg-green-500 text-white' 
-                : 'bg-red-500 text-white'
-            }`}>
-              {currentProducto.recolectado !== null && (currentProducto.recolectado >= currentProducto.cantidad || currentProducto.motivo)
-                ? 'COMPLETO'
-                : `INCOMPLETO (${currentProducto.recolectado || 0}/${currentProducto.cantidad})`
-              }
-            </span>
-          </div>
-          <p className="text-lg mb-2">Cantidad: {currentProducto.cantidad} (Recolectado: {currentProducto.recolectado !== null ? currentProducto.recolectado : 0}/{currentProducto.cantidad})</p>
-          <p className="text-lg mb-2">Ubicación: {currentProducto.ubicacion || "No especificada"}</p>
-          <p className="text-lg mb-4">
-            Descripción: {currentProducto.descripcion || currentProducto.codigo}
-          </p>
-          
-          <div className="mb-4 flex items-center border rounded-md">
-            <button 
-              onClick={() => setCantidad(Math.max(0, cantidad - 1))}
-              className="px-4 py-2 text-2xl font-bold"
-              type="button"
-            >
-              <Minus size={20} />
-            </button>
-            
-            <Input
-              type="number"
-              value={cantidad}
-              onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
-              className="border-0 text-center text-xl"
-              min={0}
-              max={currentProducto.cantidad}
-            />
-            
-            <button 
-              onClick={() => setCantidad(Math.min(currentProducto.cantidad, cantidad + 1))}
-              className="px-4 py-2 text-2xl font-bold"
-              type="button"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
-          
-          {/* Mostrar campo de motivo si la cantidad es menor a la solicitada */}
-          {showMotivoInput && (
-            <div className="mb-4">
-              <p className="text-red-500 font-medium mb-2">
-                Seleccione motivo para producto incompleto:
-              </p>
-              <select
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md mb-2"
-              >
-                <option value="">Seleccione un motivo</option>
-                <option value="Faltante en Stock">Faltante en Stock</option>
-                <option value="Producto dañado">Producto dañado</option>
-                <option value="Ubicación incorrecta">Ubicación incorrecta</option>
-                <option value="Producto no encontrado">Producto no encontrado</option>
-                <option value="Otro">Otro</option>
-              </select>
-              {motivo === "Otro" && (
-                <Input
-                  type="text"
-                  placeholder="Especifique el motivo"
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                  onChange={(e) => setMotivo(e.target.value)}
-                />
-              )}
-            </div>
-          )}
-          
+  // Si no hay pedido asignado
+  if (!pedido) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center">
+        <h1 className="text-5xl font-bold mb-8">KONECTA</h1>
+        <div className="text-center">
+          <p className="text-lg mb-4">No hay pedidos pendientes de armado asignados.</p>
           <Button 
-            onClick={handleContinuar}
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6"
-            disabled={actualizarProductoMutation.isPending}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] })}
+            className="bg-blue-600 hover:bg-blue-700"
           >
-            {actualizarProductoMutation.isPending ? (
-              <span className="flex items-center justify-center">
-                <span className="animate-spin mr-2">⟳</span> Procesando...
-              </span>
-            ) : (
-              <span className="flex flex-col items-center">
-                <span className="text-lg font-bold">
-                  {showMotivoInput ? "GUARDAR CANTIDAD PARCIAL" : "GUARDAR Y CONTINUAR"}
-                </span>
-                <span className="text-xs mt-1">
-                  {showMotivoInput 
-                    ? `Se guardará exactamente: ${cantidad}/${currentProducto?.cantidad} unidades` 
-                    : `Se guardará exactamente: ${cantidad}/${currentProducto?.cantidad} unidades`}
-                </span>
-              </span>
-            )}
+            Buscar pedidos
           </Button>
         </div>
-        
-        <Button 
-          variant="outline" 
-          className="border-white text-white hover:bg-slate-800 w-full py-6 text-lg"
-          onClick={() => window.location.href = "/armador"}
-        >
-          Volver a inicio
-        </Button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+      {/* Header con logo y botones principales */}
+      <div className="bg-blue-950 p-4 shadow-md">
+        <div className="container mx-auto flex justify-between items-center">
+          <h1 className="text-3xl font-bold">KONECTA</h1>
+          <div className="flex space-x-2">
+            {!pausaActiva ? (
+              <Button 
+                variant="outline" 
+                className="bg-amber-500 hover:bg-amber-600 text-white border-amber-700"
+                onClick={() => setMostrarPausaModal(true)}
+              >
+                <PauseCircle className="h-4 w-4 mr-2" /> Pausar armado
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                className="bg-green-500 hover:bg-green-600 text-white border-green-700"
+                onClick={handleReanudarArmado}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" /> Reanudar armado
+              </Button>
+            )}
+            <Button 
+              variant="outline" 
+              className="bg-red-600 hover:bg-red-700 text-white border-red-800"
+              onClick={handleFinalizarArmado}
+            >
+              Finalizar armado
+            </Button>
+          </div>
+        </div>
       </div>
       
-      {/* Diálogo de finalización exitosa */}
+      <div className="container mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Columna izquierda: Lista de productos (visible en móvil con toggle) */}
+        <div className={`${mostrarResumen ? "block" : "hidden md:block"} md:col-span-1`}>
+          <div className="bg-white rounded-lg shadow-md p-4 text-black">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Productos del pedido</h2>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="md:hidden text-blue-600" 
+                onClick={() => setMostrarResumen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
+              {productos?.map((producto: any, index: number) => (
+                <ProductoResumen
+                  key={producto.id}
+                  producto={producto}
+                  isActive={index === currentProductoIndex}
+                  onSelect={() => setCurrentProductoIndex(index)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Columna derecha: Detalles del producto actual y controles */}
+        <div className={`${mostrarResumen ? "hidden md:block" : "block"} md:col-span-2`}>
+          <div className="bg-white rounded-lg shadow-md p-6 text-black">
+            {/* Botón para mostrar resumen en móvil */}
+            <div className="flex justify-between items-center mb-4 md:hidden">
+              <h2 className="text-lg font-bold">Producto {currentProductoIndex + 1} de {productos?.length}</h2>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-blue-600" 
+                onClick={() => setMostrarResumen(true)}
+              >
+                Ver todos
+              </Button>
+            </div>
+            
+            {pausaActiva ? (
+              <div className="text-center py-10">
+                <PauseCircle className="h-16 w-16 mx-auto mb-4 text-amber-500" />
+                <h2 className="text-xl font-bold mb-2">Armado en pausa</h2>
+                <p className="mb-4">El pedido está actualmente pausado.</p>
+                <Button 
+                  onClick={handleReanudarArmado}
+                  className="bg-green-500 hover:bg-green-600 text-white"
+                >
+                  Reanudar armado
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-1">
+                    <h2 className="text-xl font-bold">Código: {currentProducto.codigo}</h2>
+                  </div>
+                  <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {currentProducto.ubicacion || 'Sin ubicación'}</p>
+                  <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {currentProducto.descripcion || 'Sin descripción'}</p>
+                  
+                  <div className="bg-gray-100 p-4 rounded-md mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium">Cantidad solicitada:</span>
+                      <span className="text-lg font-bold">{currentProducto.cantidad}</span>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <label htmlFor="cantidad-input" className="block text-sm font-medium mb-1">
+                        Cantidad recolectada:
+                      </label>
+                      <div className="flex items-center">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-10 w-10"
+                          onClick={() => cantidad > 0 && setCantidad(cantidad - 1)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          id="cantidad-input"
+                          type="number"
+                          className="mx-2 text-center"
+                          value={cantidad}
+                          min={0}
+                          max={currentProducto.cantidad}
+                          onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-10 w-10"
+                          onClick={() => cantidad < currentProducto.cantidad && setCantidad(cantidad + 1)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Motivo de faltante - obligatorio si cantidad < solicitada */}
+                    {cantidad < currentProducto.cantidad && (
+                      <div className="mb-4">
+                        <label htmlFor="motivo-select" className="block text-sm font-medium mb-1">
+                          Motivo del faltante:
+                        </label>
+                        <Select 
+                          value={motivo} 
+                          onValueChange={setMotivo}
+                        >
+                          <SelectTrigger id="motivo-select" className="w-full">
+                            <SelectValue placeholder="Seleccione un motivo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {motivosFaltante.map((m) => (
+                              <SelectItem key={m} value={m}>{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        {motivo === "Otro motivo" && (
+                          <Input
+                            className="mt-2"
+                            placeholder="Especifique el motivo"
+                            value={motivo === "Otro motivo" ? "" : motivo}
+                            onChange={(e) => setMotivo(e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    onClick={handleContinuar}
+                    className="w-full py-6 text-lg bg-green-600 hover:bg-green-700 text-white"
+                    disabled={actualizarProductoMutation.isPending}
+                  >
+                    {actualizarProductoMutation.isPending ? (
+                      <span className="flex items-center justify-center">
+                        <span className="animate-spin mr-2">⟳</span> Procesando...
+                      </span>
+                    ) : (
+                      <span>GUARDAR Y CONTINUAR</span>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Modal de Éxito */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="bg-white text-center">
-          <div className="py-10 px-4">
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-16 w-16 text-green-500" />
-            </div>
-            <DialogTitle className="text-xl mb-4">
-              Ha finalizado el armado con éxito
-            </DialogTitle>
-            <p className="text-gray-600 mb-6">
-              Todos los productos han sido procesados correctamente.
-            </p>
-            <DialogFooter className="mt-6 flex justify-center">
-              <Button 
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2" 
-                onClick={() => {
-                  setShowSuccessDialog(false);
-                  window.location.href = "/"; // Redirigir a la página de inicio
-                }}
-              >
-                Continuar
-              </Button>
-            </DialogFooter>
+          <div className="flex flex-col items-center justify-center py-4">
+            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+            <DialogTitle className="text-xl font-bold mb-2">¡Armado finalizado!</DialogTitle>
+            <DialogDescription className="text-gray-600 mb-4">
+              Ha finalizado el armado del pedido de manera exitosa
+            </DialogDescription>
+            <Button 
+              onClick={() => {
+                setShowSuccessDialog(false);
+                // Redireccionar al inicio después de cerrar el modal
+                window.location.reload();
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Cerrar
+            </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de Pausa */}
+      <Dialog open={mostrarPausaModal} onOpenChange={setMostrarPausaModal}>
+        <DialogContent className="bg-white">
+          <DialogTitle className="text-xl font-bold">Pausar armado</DialogTitle>
+          <DialogDescription className="text-gray-600 mb-4">
+            Seleccione el motivo por el cual está pausando el armado.
+          </DialogDescription>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="pausa-select" className="block text-sm font-medium mb-1">
+                Motivo de la pausa:
+              </label>
+              <Select 
+                value={motivoPausa} 
+                onValueChange={setMotivoPausa}
+              >
+                <SelectTrigger id="pausa-select" className="w-full">
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motivosDePausa.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {motivoPausa === "Otro: especificar" && (
+              <div>
+                <label htmlFor="detalle-pausa" className="block text-sm font-medium mb-1">
+                  Especifique el motivo:
+                </label>
+                <Input
+                  id="detalle-pausa"
+                  placeholder="Detalle del motivo de pausa"
+                  value={detallePausa}
+                  onChange={(e) => setDetallePausa(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="flex justify-end space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setMostrarPausaModal(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handlePausarArmado}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              disabled={!motivoPausa || (motivoPausa === "Otro: especificar" && !detallePausa)}
+            >
+              Pausar armado
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
