@@ -34,7 +34,7 @@ export default function ArmadoSimplePage() {
   const [mensajePausa, setMensajePausa] = useState("");
   
   // Obtener el pedido asignado al armador
-  const { data: pedido } = useQuery({
+  const { data: pedido = {} } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
     enabled: !!user,
   });
@@ -105,33 +105,38 @@ export default function ArmadoSimplePage() {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.message || `Error al pausar pedido: ${res.status} ${res.statusText}`);
         }
-        return await res.json();
+        
+        const data = await res.json();
+        return data;
       } catch (error) {
-        console.error("Error en pausarPedidoMutation:", error);
+        console.error("Error pausando pedido:", error);
         throw error;
       }
     },
     onSuccess: (data) => {
-      toast({
-        title: "Pedido pausado",
-        description: "El pedido ha sido pausado correctamente"
-      });
+      // Establecer el ID de pausa actual para poder reanudarla después
+      setPausaActualId(data.id);
+      setPausaActiva(true);
+      
+      // Cerrar el modal de pausa
       setShowPausaModal(false);
       
-      // En lugar de redirigir, mostrar un mensaje indicando que el pedido está pausado
-      setPausaActiva(true);
-      if (data && data.id) {
-        setPausaActualId(data.id);
-      }
+      // Mostrar mensaje de éxito
+      toast({
+        title: "Pedido pausado",
+        description: "El pedido ha sido pausado exitosamente.",
+      });
       
-      // Mostrar mensaje en pantalla que indique que el pedido está pausado
-      setMensajePausa("El pedido se encuentra pausado");
+      // Mostrar el mensaje de pausa
+      setMensajePausa(`El armado del pedido se encuentra pausado (${data.motivo})`);
+      
+      // Recargar datos del pedido
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     },
     onError: (error: Error) => {
-      console.error("Error al pausar pedido:", error);
       toast({
         title: "Error al pausar",
-        description: error.message || "No se pudo pausar el pedido",
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -141,171 +146,172 @@ export default function ArmadoSimplePage() {
   const reanudarPedidoMutation = useMutation({
     mutationFn: async (pausaId: number) => {
       try {
-        console.log("Intentando reanudar pedido, pausaId:", pausaId);
-        // Usar el endpoint /api/pausas/:id/finalizar para cerrar la pausa
-        const res = await apiRequest("POST", `/api/pausas/${pausaId}/finalizar`, {});
+        console.log("Intentando reanudar pausa ID:", pausaId);
+        const res = await apiRequest("POST", `/api/pausas/${pausaId}/reanudar`, {});
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.message || `Error al reanudar pedido: ${res.status} ${res.statusText}`);
         }
-        return await res.json();
+        
+        const data = await res.json();
+        return data;
       } catch (error) {
-        console.error("Error en reanudarPedidoMutation:", error);
+        console.error("Error reanudando pedido:", error);
         throw error;
       }
     },
     onSuccess: () => {
-      toast({
-        title: "Pedido reanudado",
-        description: "El pedido ha sido reanudado correctamente"
-      });
-      
-      // Actualizar el estado local
+      // Actualizar estados
       setPausaActiva(false);
       setPausaActualId(null);
-      setMensajePausa("");
+      
+      // Mostrar mensaje de éxito
+      toast({
+        title: "Pedido reanudado",
+        description: "El pedido ha sido reanudado exitosamente.",
+      });
       
       // Recargar datos del pedido
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      if (pedido?.id) {
-        queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido.id}`] });
-      }
     },
     onError: (error: Error) => {
-      console.error("Error al reanudar pedido:", error);
       toast({
         title: "Error al reanudar",
-        description: error.message || "No se pudo reanudar el pedido",
+        description: error.message,
         variant: "destructive"
       });
     }
   });
   
-  // Finalizar pedido mutation
-  const finalizarPedidoMutation = useMutation({
-    mutationFn: async (params: { pedidoId: number }) => {
-      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/finalizar`, {});
+  // Finalizar armado mutation
+  const finalizarArmadoMutation = useMutation({
+    mutationFn: async (pedidoId: number) => {
+      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar-armado`, {});
       return await res.json();
     },
     onSuccess: () => {
+      // Mostrar modal de éxito
       setSuccessModal(true);
+      
+      // Recargar datos
+      queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al finalizar",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   });
   
-  // Verificar si todos los productos están procesados para habilitar la finalización
+  // Lista de motivos de faltante
+  const motivosFaltante = [
+    "Faltante de stock",
+    "Producto dañado",
+    "Ubicación incorrecta",
+    "Producto no encontrado",
+    "Otro"
+  ];
+  
+  // Verificar si todas las cantidades están asignadas
   const verificarFinalizacion = async () => {
-    try {
-      // Obtener los datos más recientes
-      const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
-      const productosActualizados = await res.json();
-      
-      const todosProcesados = proceso.debeFinalizar(productosActualizados);
-      
-      if (todosProcesados) {
-        console.log("Todos los productos procesados, permitir finalización");
-        setSuccessModal(true);
-        // Automáticamente finalizar el pedido
-        if (pedido?.id) {
-          finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
-        }
-      }
-    } catch (error) {
-      console.error("Error al verificar finalización:", error);
+    // Recargar datos para asegurarse que tenemos la información más reciente
+    await queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
+    
+    // Comprobar si hay productos sin procesar
+    const productosActualizados = queryClient.getQueryData([`/api/productos/pedido/${pedido?.id}`]) as any[] || [];
+    
+    const todosProcesados = productosActualizados.every(producto => {
+      // Un producto está procesado si:
+      // - Ha sido recolectado completamente, O
+      // - Tiene una cantidad recolectada menor y un motivo de faltante
+      return (
+        producto.recolectado === producto.cantidad || 
+        (producto.recolectado < producto.cantidad && producto.motivo && producto.motivo.trim() !== "")
+      );
+    });
+    
+    if (todosProcesados && !pausaActiva) {
+      // Si no hay productos pendientes de procesar, mostrar modal para finalizar armado
+      setShowFinalizarModal(true);
     }
   };
+  
+  // Producto actual basado en el índice
+  const productoActual = productos[currentProductoIndex] || { 
+    codigo: '',
+    cantidad: 0,
+    recolectado: 0,
+    ubicacion: '',
+    descripcion: ''
+  };
+  
+  // Establecer cantidad inicial al cargar un nuevo producto
+  useEffect(() => {
+    if (productoActual && productoActual.recolectado !== undefined) {
+      setCantidad(productoActual.recolectado || productoActual.cantidad || 0);
+    } else {
+      setCantidad(0);
+    }
+  }, [currentProductoIndex, productoActual]);
+  
+  // Verificar si el pedido tiene pausas activas
+  useEffect(() => {
+    if (pedido && pedido.pausaActiva) {
+      setPausaActiva(true);
+      setPausaActualId(pedido.pausaActiva.id);
+      setMensajePausa(`El armado del pedido se encuentra pausado (${pedido.pausaActiva.motivo})`);
+    } else {
+      setPausaActiva(false);
+      setPausaActualId(null);
+    }
+  }, [pedido]);
+  
+  // Verificar si se requiere motivo para continuar
+  const motivoRequerido = cantidad < productoActual.cantidad && motivo === "";
   
   // Manejar cambio de cantidad
-  const handleCantidadChange = (newValue: number) => {
-    const productoActual = productos[currentProductoIndex];
-    if (!productoActual) return;
-    
-    const cantidadActualizada = Math.max(0, Math.min(newValue, productoActual.cantidad || 0));
-    setCantidad(cantidadActualizada);
-    
-    // Si la cantidad es menor que la requerida, mostrar modal de faltante
-    if (cantidadActualizada < productoActual.cantidad) {
-      setShowFaltanteModal(true);
-    } else {
-      // Si ahora es igual a la cantidad requerida, cerrar modal y limpiar motivo
-      setShowFaltanteModal(false);
-      setMotivo("");
+  const handleCantidadChange = (nuevaCantidad: number) => {
+    // Validar que la cantidad esté en el rango permitido
+    if (nuevaCantidad >= 0 && nuevaCantidad <= productoActual.cantidad) {
+      setCantidad(nuevaCantidad);
     }
   };
   
-  // Manejar guardar motivo faltante
-  const handleGuardarMotivo = () => {
-    if (!motivo) {
-      toast({
-        title: "Motivo requerido",
-        description: "Debe seleccionar un motivo de faltante cuando la cantidad es menor a la solicitada.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setShowFaltanteModal(false);
-  };
-  
-  // Manejar continuar
+  // Manejar clic en continuar
   const handleContinuar = () => {
-    const productoActual = productos[currentProductoIndex];
-    if (!productoActual) return;
-    
-    // Validar que si cantidad < solicitada, tenga motivo
-    if (cantidad < productoActual.cantidad && !motivo) {
-      toast({
-        title: "Motivo requerido",
-        description: "Debe seleccionar un motivo de faltante cuando la cantidad es menor a la solicitada.",
-        variant: "destructive"
-      });
+    // Validar que tengamos un motivo si es necesario
+    if (cantidad < productoActual.cantidad && motivo === "") {
+      // Mostrar modal de selección de motivo
       setShowFaltanteModal(true);
       return;
     }
     
-    // Actualizar el producto
+    // Actualizar producto
     actualizarProductoMutation.mutate({
       id: productoActual.id,
       recolectado: cantidad,
-      motivo: cantidad < productoActual.cantidad ? motivo : undefined,
-      prevenAutocompletar: true
+      motivo: cantidad < productoActual.cantidad ? motivo : undefined
     });
   };
   
-  // Manejar finalizar pedido
-  const handleFinalizarPedido = async () => {
-    // Verificar que todos los productos estén procesados
-    try {
-      const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
-      const productosActualizados = await res.json();
-      
-      const todosProcesados = productosActualizados.every((p: any) => 
-        (p.recolectado !== null && p.recolectado === p.cantidad) || // Completo
-        (p.recolectado !== null && p.recolectado < p.cantidad && p.motivo) // Parcial con motivo
-      );
-      
-      if (!todosProcesados) {
-        toast({
-          title: "No se puede finalizar",
-          description: "Hay productos sin procesar o con cantidades parciales sin motivo.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Finalizar el pedido
-      if (pedido?.id) {
-        finalizarPedidoMutation.mutate({ pedidoId: pedido.id });
-      }
-    } catch (error) {
-      console.error("Error al finalizar pedido:", error);
+  // Manejar clic en mostrar finalizar
+  const handleMostrarFinalizar = () => {
+    setShowFinalizarModal(true);
+  };
+  
+  // Manejar clic en finalizar
+  const handleFinalizar = () => {
+    if (pedido?.id) {
+      finalizarArmadoMutation.mutate(pedido.id);
     }
   };
   
-  // Manejar pausar pedido
+  // Manejar clic en pausar
   const handlePausarPedido = () => {
-    console.log("Intentando pausar con motivo:", pausaMotivo);
-    
-    if (!pausaMotivo) {
+    // Validar que tengamos un motivo
+    if (pausaMotivo === "") {
       toast({
         title: "Motivo requerido",
         description: "Debe seleccionar un motivo para pausar el pedido.",
@@ -314,48 +320,20 @@ export default function ArmadoSimplePage() {
       return;
     }
     
-    // Si es "Otro motivo" y no hay detalles
-    if (pausaMotivo === "Otro motivo" && !pausaDetalles.trim()) {
-      toast({
-        title: "Detalle requerido",
-        description: "Debe especificar el detalle del motivo.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const motivoCompleto = pausaMotivo === "Otro motivo" 
-      ? pausaDetalles 
-      : pausaMotivo;
-    
-    console.log("Motivo completo a enviar:", motivoCompleto);
-    
+    // Pausar pedido
     if (pedido?.id) {
-      try {
-        pausarPedidoMutation.mutate({
-          pedidoId: pedido.id,
-          motivo: motivoCompleto
-        });
-      } catch (error) {
-        console.error("Error al intentar pausar:", error);
-      }
-    } else {
-      console.error("No hay pedido ID para pausar");
+      pausarPedidoMutation.mutate({
+        pedidoId: pedido.id,
+        motivo: pausaMotivo
+      });
     }
   };
   
-  // Manejar reanudar pedido
+  // Manejar clic en reanudar
   const handleReanudarPedido = () => {
-    if (!pausaActualId) {
-      toast({
-        title: "Error al reanudar",
-        description: "No se encontró información de la pausa actual",
-        variant: "destructive"
-      });
-      return;
+    if (pausaActualId) {
+      reanudarPedidoMutation.mutate(pausaActualId);
     }
-    
-    reanudarPedidoMutation.mutate(pausaActualId);
   };
   
   // Cerrar sesión
@@ -363,65 +341,48 @@ export default function ArmadoSimplePage() {
     logoutMutation.mutate();
   };
   
-  // Inicializar datos del producto actual
-  useEffect(() => {
-    if (productos && productos[currentProductoIndex]) {
-      const producto = productos[currentProductoIndex];
-      // Inicializar con la cantidad requerida (en lugar de la recolectada)
-      setCantidad(producto.cantidad || 0);
-      setMotivo(producto.motivo || "");
-    }
-  }, [productos, currentProductoIndex]);
+  // Volver al tablero
+  const handleVolverTablero = () => {
+    window.location.href = "/armador";
+  };
   
-  // Verificar si el pedido está pausado al cargar la página
-  useEffect(() => {
-    if (pedido && pedido.pausaActiva) {
-      setPausaActiva(true);
-      if (pedido.pausaActiva.id) {
-        setPausaActualId(pedido.pausaActiva.id);
-      }
-      setMensajePausa("El pedido se encuentra pausado");
-    }
-  }, [pedido]);
+  // Lista de motivos de pausa
+  const motivosPausa = [
+    "Almuerzo",
+    "Descanso",
+    "Reunión",
+    "Capacitación",
+    "Imprevisto",
+    "Cambio de turno",
+    "Otro"
+  ];
   
-  // Si no hay datos, mostrar cargando
-  if (!pedido || !productos.length) {
+  // Si no hay pedido o productos, mostrar mensaje
+  if (!pedido || !pedido.id || productos.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+      <div className="flex items-center justify-center min-h-screen bg-blue-950 text-white">
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">KONECTA</h1>
-          <p>Cargando datos del pedido...</p>
+          <h2 className="text-xl font-bold mb-4">No hay pedido asignado</h2>
+          <Button onClick={handleVolverTablero}>
+            Volver al tablero
+          </Button>
         </div>
       </div>
     );
   }
   
-  // Lista de motivos para faltantes
-  const motivosFaltante = [
-    "Faltante de stock",
-    "No se encontró el artículo",
-    "Producto defectuoso",
-    "Otro motivo"
-  ];
-  
-  // Lista de motivos para pausa
-  const motivosPausa = [
-    "Motivos sanitarios",
-    "Almuerzo",
-    "Fin de turno",
-    "Otro motivo"
-  ];
-  
-  // Obtener el producto actual
-  const productoActual = productos[currentProductoIndex];
-  
   return (
     <>
-      <div className="min-h-screen bg-slate-900 flex flex-col">
-        {/* Header */}
-        <div className="bg-blue-950 py-2 shadow">
-          <div className="container mx-auto text-center">
-            <h1 className="text-3xl font-bold text-white">KONECTA</h1>
+      <div className="min-h-screen bg-blue-950 flex flex-col">
+        {/* Encabezado */}
+        <div className="bg-white text-blue-900 p-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold">Armado Simple - Konecta</h1>
+          </div>
+          <div>
+            <Button onClick={handleVolverTablero}>
+              Volver al tablero
+            </Button>
           </div>
         </div>
         
@@ -433,127 +394,123 @@ export default function ArmadoSimplePage() {
               <h2>Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}</h2>
             </div>
             
-            {/* Contenido condicional basado en el estado de pausa */}
-            {pausaActiva ? (
-              // Mensaje de pedido pausado
-              <div className="bg-amber-50 text-amber-800 border-2 border-amber-400 rounded-md shadow-lg p-6 w-full text-center">
-                <h3 className="text-xl font-bold mb-4">El pedido se encuentra pausado</h3>
-                <p className="mb-4">{mensajePausa}</p>
-                <p className="text-sm mb-6">Motivo: {pedido.pausaActiva?.motivo || "No especificado"}</p>
+            {/* Contenido principal de armado */}
+            <div>
+              {/* Tarjeta de producto */}
+              <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
+                <div className="mb-2">
+                  <div className="font-bold">Código SKU: {productoActual.codigo}</div>
+                </div>
                 
-                <div className="flex justify-center gap-3">
+                <div className="mb-2">
+                  <div className="flex">
+                    <div className="font-semibold">Cantidad:</div> 
+                    <div className="ml-1">{productoActual.cantidad}</div>
+                    <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
+                  </div>
+                </div>
+                
+                <div className="mb-2">
+                  <div>
+                    <div className="font-semibold">Ubicación:</div> 
+                    <div>{productoActual.ubicacion}</div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <div>
+                    <div className="font-semibold">Descripción:</div> 
+                    <div>{productoActual.descripcion}</div>
+                  </div>
+                </div>
+                
+                {/* Control de cantidad */}
+                <div className="flex items-center justify-center my-4">
                   <Button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-semibold"
+                    onClick={() => handleCantidadChange(cantidad - 1)}
+                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    disabled={cantidad <= 0}
+                  >
+                    -
+                  </Button>
+                  <Input 
+                    type="number" 
+                    value={cantidad} 
+                    onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
+                    className="mx-2 w-20 text-center"
+                    min={0}
+                    max={productoActual.cantidad}
+                  />
+                  <Button 
+                    onClick={() => handleCantidadChange(cantidad + 1)}
+                    className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    disabled={cantidad >= productoActual.cantidad}
+                  >
+                    +
+                  </Button>
+                </div>
+                
+                {/* Campo de motivo si hay faltante */}
+                {motivoRequerido && (
+                  <div className="mb-4">
+                    <div className="text-sm mb-1 text-red-600">
+                      Se requiere un motivo para el faltante
+                    </div>
+                    <div>
+                      <Select 
+                        value={motivo} 
+                        onValueChange={(value) => setMotivo(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione un motivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {motivosFaltante.map((m) => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Botón para continuar */}
+                <Button 
+                  onClick={handleContinuar}
+                  className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2"
+                >
+                  CONTINUAR
+                </Button>
+              </div>
+              
+              {/* Botones de acción */}
+              <div className="flex flex-col space-y-2 mt-4 w-full">
+                <Button 
+                  onClick={handleMostrarFinalizar}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2"
+                >
+                  FINALIZAR ARMADO
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="w-full bg-white text-blue-900 hover:bg-gray-100"
+                  onClick={() => setShowTodosModal(true)}
+                >
+                  Ver todo el pedido
+                </Button>
+                
+                {pausaActiva ? (
+                  // Botón de reanudar cuando está pausado
+                  <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 flex items-center justify-center gap-2"
                     onClick={handleReanudarPedido}
                     disabled={reanudarPedidoMutation.isPending}
                   >
                     {reanudarPedidoMutation.isPending ? "REANUDANDO..." : "REANUDAR"}
                   </Button>
-                  
-                  <Button 
-                    className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 text-lg"
-                    onClick={() => window.location.href = "/armador"}
-                  >
-                    VOLVER AL TABLERO
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              // Interfaz normal de armado cuando no está pausado
-              <div>
-                {/* Tarjeta de producto */}
-                <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
-                  <div className="mb-2">
-                    <div className="font-bold">Código SKU: {productoActual.codigo}</div>
-                  </div>
-                  
-                  <div className="mb-2">
-                    <div className="flex">
-                      <div className="font-semibold">Cantidad:</div> 
-                      <div className="ml-1">{productoActual.cantidad}</div>
-                      <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-2">
-                    <div>
-                      <div className="font-semibold">Ubicación:</div> 
-                      <div>{productoActual.ubicacion}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <div>
-                      <div className="font-semibold">Descripción:</div> 
-                      <div>{productoActual.descripcion}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Control de cantidad */}
-                  <div className="flex items-center justify-center my-4">
-                    <Button 
-                      onClick={() => handleCantidadChange(cantidad - 1)}
-                      variant="outline"
-                      className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
-                    >
-                      <span className="text-xl">-</span>
-                    </Button>
-                    <Input
-                      type="number"
-                      className="h-10 w-32 mx-4 text-center"
-                      value={cantidad}
-                      onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
-                    />
-                    <Button 
-                      onClick={() => handleCantidadChange(cantidad + 1)}
-                      variant="outline"
-                      className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
-                    >
-                      <span className="text-xl">+</span>
-                    </Button>
-                  </div>
-                  
-                  {/* Motivo de faltante - solo aparece si cantidad < requerida */}
-                  {cantidad < productoActual.cantidad && (
-                    <div className="mb-3">
-                      <div className="flex flex-col bg-amber-50 p-2 rounded border border-amber-200">
-                        <div className="font-semibold text-amber-800 mb-1">Motivo del faltante:</div>
-                        <Select 
-                          value={motivo} 
-                          onValueChange={setMotivo}
-                        >
-                          <SelectTrigger className="w-full bg-white">
-                            <SelectValue placeholder="Seleccione un motivo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {motivosFaltante.map((m) => (
-                              <SelectItem key={m} value={m}>{m}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Botón para continuar */}
-                  <Button 
-                    onClick={handleContinuar}
-                    className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2"
-                  >
-                    CONTINUAR
-                  </Button>
-                </div>
-                
-                {/* Botones adicionales */}
-                <div className="mt-4 flex flex-col gap-2 items-center">
-                  <Button 
-                    variant="outline"
-                    className="w-full bg-white text-blue-900 hover:bg-gray-100"
-                    onClick={() => setShowTodosModal(true)}
-                  >
-                    Ver todo el pedido
-                  </Button>
-                  
+                ) : (
+                  // Botón de pausar cuando no está pausado
                   <Button 
                     variant="outline"
                     className="w-full bg-white text-blue-900 hover:bg-gray-100 flex items-center justify-center gap-2"
@@ -561,9 +518,9 @@ export default function ArmadoSimplePage() {
                   >
                     <Pause className="h-4 w-4" /> Pausar armado
                   </Button>
-                </div>
+                )}
               </div>
-            )}
+            </div>
             
             {/* Información de usuario y cierre de sesión */}
             <div className="mt-8 text-center text-xs text-gray-400">
@@ -581,41 +538,27 @@ export default function ArmadoSimplePage() {
       
       {/* Modal de pausa */}
       <Dialog open={showPausaModal} onOpenChange={setShowPausaModal}>
-        <DialogContent className="bg-white p-0 overflow-hidden max-w-md">
-          <div className="bg-gray-100 p-3 border-b">
-            <DialogTitle className="text-center">Pausar armado</DialogTitle>
-          </div>
+        <DialogContent className="bg-white">
+          <DialogTitle>Pausar armado</DialogTitle>
+          <DialogDescription>
+            Seleccione un motivo para pausar el armado del pedido:
+          </DialogDescription>
           
-          <div className="p-4">
-            <DialogDescription className="text-center mb-3">
-              Seleccione el motivo por el cual desea pausar el pedido
-            </DialogDescription>
-            
-            <div className="space-y-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Motivo de la pausa:</label>
-                <Select value={pausaMotivo} onValueChange={setPausaMotivo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {motivosPausa.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {pausaMotivo === "Otro motivo" && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Detalle del motivo:</label>
-                  <Input 
-                    value={pausaDetalles}
-                    onChange={(e) => setPausaDetalles(e.target.value)}
-                    placeholder="Especifique el motivo"
-                  />
-                </div>
-              )}
+          <div className="space-y-4">
+            <div>
+              <Select 
+                value={pausaMotivo} 
+                onValueChange={(value) => setPausaMotivo(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motivosPausa.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="flex justify-end space-x-2">
@@ -639,30 +582,27 @@ export default function ArmadoSimplePage() {
       
       {/* Modal de motivo de faltante */}
       <Dialog open={showFaltanteModal} onOpenChange={setShowFaltanteModal}>
-        <DialogContent className="bg-white p-0 overflow-hidden max-w-md">
-          <div className="bg-gray-100 p-3 border-b">
-            <DialogTitle className="text-center">Motivo de faltante</DialogTitle>
-          </div>
+        <DialogContent className="bg-white">
+          <DialogTitle>Motivo de faltante</DialogTitle>
+          <DialogDescription>
+            Indique el motivo por el cual no se puede recolectar la cantidad completa:
+          </DialogDescription>
           
-          <div className="p-4">
-            <DialogDescription className="text-center mb-3">
-              Indique el motivo por el cual la cantidad recolectada es menor a la solicitada
-            </DialogDescription>
-            
-            <div className="space-y-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Motivo del faltante:</label>
-                <Select value={motivo} onValueChange={setMotivo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {motivosFaltante.map((m) => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-4">
+            <div>
+              <Select 
+                value={motivo} 
+                onValueChange={(value) => setMotivo(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motivosFaltante.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="flex justify-end space-x-2">
@@ -674,8 +614,11 @@ export default function ArmadoSimplePage() {
                 Cancelar
               </Button>
               <Button 
-                onClick={handleGuardarMotivo}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  setShowFaltanteModal(false);
+                  handleContinuar();
+                }}
+                className="bg-blue-900 hover:bg-blue-700 text-white"
               >
                 Guardar motivo
               </Button>
@@ -692,50 +635,59 @@ export default function ArmadoSimplePage() {
             ¿Está seguro que desea finalizar el armado de este pedido?
           </DialogDescription>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFinalizarModal(false)}>
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowFinalizarModal(false)}
+              className="bg-white"
+            >
               Cancelar
             </Button>
             <Button 
-              onClick={handleFinalizarPedido}
-              className="bg-green-600 hover:bg-green-700"
+              onClick={handleFinalizar}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={finalizarArmadoMutation.isPending}
             >
-              Finalizar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Modal de éxito */}
-      <Dialog open={successModal} onOpenChange={setSuccessModal}>
-        <DialogContent className="bg-white text-center">
-          <div className="flex flex-col items-center py-4">
-            <DialogTitle className="text-xl font-bold">Armado finalizado</DialogTitle>
-            <DialogDescription className="text-center mb-4">
-              Ha finalizado el armado del pedido de manera exitosa
-            </DialogDescription>
-            <Button 
-              onClick={() => {
-                setSuccessModal(false);
-                window.location.href = "/armador";
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              Volver al inicio
+              {finalizarArmadoMutation.isPending ? "Finalizando..." : "Finalizar"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
       
-      {/* Modal de ver todos los productos */}
-      <Dialog open={showTodosModal} onOpenChange={setShowTodosModal}>
-        <DialogContent className="bg-white max-w-2xl">
-          <DialogTitle>Productos del pedido {pedido.pedidoId}</DialogTitle>
+      {/* Modal de éxito */}
+      <Dialog open={successModal} onOpenChange={setSuccessModal}>
+        <DialogContent className="bg-white">
+          <DialogTitle className="text-green-600 text-center">✅ Armado Finalizado</DialogTitle>
+          <DialogDescription className="text-center">
+            Ha finalizado el armado del pedido de manera exitosa
+          </DialogDescription>
           
-          <div className="max-h-[60vh] overflow-y-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-100">
+          <div className="flex justify-center mt-4">
+            <Button 
+              onClick={() => {
+                setSuccessModal(false);
+                handleVolverTablero();
+              }}
+              className="bg-blue-900 hover:bg-blue-700 text-white"
+            >
+              Volver al tablero
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de ver todo el pedido */}
+      <Dialog open={showTodosModal} onOpenChange={setShowTodosModal}>
+        <DialogContent className="bg-white max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogTitle>Pedido {pedido.pedidoId}</DialogTitle>
+          <DialogDescription>
+            Lista completa de productos del pedido:
+          </DialogDescription>
+          
+          <div className="mt-4 max-h-[60vh] overflow-y-auto">
+            <table className="w-full border-collapse">
+              <thead className="bg-gray-100">
+                <tr>
                   <th className="py-2 px-3 text-left">Código</th>
                   <th className="py-2 px-3 text-left">Descripción</th>
                   <th className="py-2 px-3 text-left">Ubicación</th>
@@ -746,9 +698,8 @@ export default function ArmadoSimplePage() {
               </thead>
               <tbody>
                 {productos.map((producto: any) => {
-                  // Determinar el estado
                   let estado = "Pendiente";
-                  let bgColor = "bg-red-100";
+                  let bgColor = "bg-white";
                   
                   if (producto.recolectado !== null) {
                     if (producto.recolectado === producto.cantidad) {
