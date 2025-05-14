@@ -659,16 +659,13 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                   }`}>
                                     {/* CORRECCIÓN CRÍTICA: Mostrar siempre la cantidad real recolectada, NUNCA autocompletar visualmente */}
                                     {producto.recolectado !== null ? producto.recolectado : 0}/{producto.cantidad} 
-                                    {/* Si tiene motivo: texto CON FALTANTE */}
-                                    {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad
-                                      ? " (✓ Con faltante)" 
-                                      // Si tiene motivo pero cantidad completa
-                                      : producto.motivo && producto.motivo.trim() !== '' && producto.recolectado >= producto.cantidad
-                                        ? " (✓ Justificado)"
-                                        // Si no completo y sin motivo: texto FALTANTE
-                                        : producto.recolectado !== null && producto.recolectado < producto.cantidad 
-                                          ? " (Faltante)" 
-                                          : ""}
+                                    {/* Si tiene motivo: texto JUSTIFICADO */}
+                                    {producto.motivo && producto.motivo.trim() !== '' 
+                                      ? " (✓ Justificado)" 
+                                      // Si no completo y sin motivo: texto FALTANTE
+                                      : producto.recolectado !== null && producto.recolectado < producto.cantidad 
+                                        ? " (Faltante)" 
+                                        : ""}
                                   </span>
                                   
                                   {/* Mostrar mensaje de faltante de stock si aplica */}
