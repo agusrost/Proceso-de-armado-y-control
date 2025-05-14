@@ -759,19 +759,19 @@ export default function ArmadoSimplePage() {
           </DialogTitle>
           
           <DialogDescription className="text-center text-gray-600">
-            Todos los productos han sido recolectados correctamente.
+            Todos los productos fueron recolectados
           </DialogDescription>
           
           <div className="flex justify-center my-6">
-            <div className="rounded-full bg-green-100 p-5">
+            <div className="rounded-full bg-green-100 p-5 border-2 border-green-500">
               <svg width="50" height="50" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" stroke="#22c55e" strokeWidth="2" fill="none"/>
+                <circle cx="12" cy="12" r="10" fill="#22c55e" fillOpacity="0.2" stroke="#22c55e" strokeWidth="2"/>
                 <path d="M8 12L11 15L16 9" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
           </div>
           
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-center mt-4">
             <Button 
               onClick={() => {
                 setSuccessModal(false);
