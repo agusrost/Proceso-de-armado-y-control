@@ -411,7 +411,7 @@ export default function ArmadoSimplePage() {
                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-2" 
                 onClick={() => {
                   setShowSuccessDialog(false);
-                  window.location.href = "/armador"; // Redirigir al dashboard
+                  window.location.href = "/"; // Redirigir a la página de inicio
                 }}
               >
                 Continuar

@@ -1902,7 +1902,7 @@ export default function ArmadoPage() {
                 <Button 
                   onClick={() => {
                     setMostrarModalExito(false);
-                    window.location.href = "/armador"; // Redirigir al dashboard
+                    window.location.href = "/"; // Redirigir a la página de inicio
                   }}
                   className="bg-green-500 hover:bg-green-600 text-white"
                 >
