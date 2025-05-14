@@ -76,14 +76,12 @@ export default function ArmadorPage() {
   });
   
   const handleStartArmado = () => {
-    // Verificar si el pedido está pausado antes de continuar
+    // Si el pedido está pausado, mostrar un toast informativo pero permitir continuar
     if (pedidoPausado) {
       toast({
         title: "Pedido pausado",
-        description: "No se puede continuar con un pedido que está pausado. Debe ser reanudado desde la administración.",
-        variant: "destructive"
+        description: "El pedido está pausado. Podrás reanudarlo desde la pantalla de armado.",
       });
-      return;
     }
     startPedidoMutation.mutate();
   };
@@ -183,12 +181,14 @@ export default function ArmadorPage() {
         ) : pedido ? (
           <>
             {pedidoPausado ? (
-              // Botón de pedido pausado (no clickeable)
-              <div className="bg-amber-700 text-white px-12 py-6 rounded-lg mb-4 text-center">
-                <p className="text-xl font-medium">NO DISPONIBLE - PAUSADO</p>
-                <p className="text-sm mt-1">Este pedido está actualmente pausado</p>
-                <p className="text-sm mt-1">Debe ser reanudado desde la pantalla de armado.</p>
-              </div>
+              // Botón de pedido pausado (clickeable pero con advertencia)
+              <Button
+                onClick={handleStartArmado}
+                className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-amber-700 hover:bg-amber-800 text-white"
+                disabled={startPedidoMutation.isPending}
+              >
+                IR A PEDIDO PAUSADO
+              </Button>
             ) : (
               // Botón normal para comenzar armado
               <Button
