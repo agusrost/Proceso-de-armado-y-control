@@ -3512,6 +3512,160 @@ export async function registerRoutes(app: Application): Promise<Server> {
       });
     }
   });
+  
+  // Endpoint para reanudar una pausa
+  app.post("/api/pausas/:id/reanudar", requireAuth, async (req, res, next) => {
+    try {
+      console.log("🔄 SOLICITUD RECIBIDA para reanudar pausa:", req.params.id);
+      
+      const pausaId = parseInt(req.params.id);
+      if (isNaN(pausaId)) {
+        console.log("❌ Error: ID de pausa inválido:", req.params.id);
+        return res.status(400).json({ 
+          success: false,
+          message: "ID de pausa inválido" 
+        });
+      }
+      
+      // Verificar que la pausa existe
+      console.log("🔍 Buscando pausa con ID:", pausaId);
+      const pausa = await storage.getPausaById(pausaId);
+      
+      if (!pausa) {
+        console.log("❌ Error: Pausa no encontrada con ID:", pausaId);
+        return res.status(404).json({ 
+          success: false,
+          message: "Pausa no encontrada" 
+        });
+      }
+      
+      if (pausa.fin) {
+        console.log("⚠️ Advertencia: Intentando reanudar una pausa que ya tiene fin:", pausa.fin);
+        return res.status(400).json({ 
+          success: false,
+          message: "Esta pausa ya fue finalizada anteriormente" 
+        });
+      }
+      
+      // Obtener información del último producto procesado
+      let ultimoProductoId = null;
+      
+      // Verificar si la pausa tiene un campo ultimoProductoId
+      if (pausa.ultimoProductoId) {
+        ultimoProductoId = pausa.ultimoProductoId;
+        console.log(`✅ Pausa ${pausaId} tiene último producto ID: ${ultimoProductoId}`);
+      } else if (pausa['ultimo_producto_id']) {
+        // Compatibilidad con ambos formatos de nombres de campo
+        ultimoProductoId = pausa['ultimo_producto_id'];
+        console.log(`✅ Pausa ${pausaId} tiene último producto ID (formato alternativo): ${ultimoProductoId}`);
+      }
+      
+      // Calcular la duración hasta ahora
+      const inicio = new Date(pausa.inicio);
+      const fechaFin = new Date();
+      const duracionMs = fechaFin.getTime() - inicio.getTime();
+      
+      // Convertir a formato HH:MM:SS
+      const horas = Math.floor(duracionMs / 3600000);
+      const minutos = Math.floor((duracionMs % 3600000) / 60000);
+      const segundos = Math.floor((duracionMs % 60000) / 1000);
+      const duracionFormateada = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+      
+      console.log(`⏱️ Duración calculada para pausa ${pausaId}: ${duracionFormateada}`);
+      
+      try {
+        // Usar una transacción para asegurar que todo se realiza correctamente
+        const resultado = await db.transaction(async (tx) => {
+          // Actualizar la pausa con fecha de fin y duración
+          const actualizada = await tx.execute(sql`
+            UPDATE pausas 
+            SET fin = NOW(), duracion = ${duracionFormateada}
+            WHERE id = ${pausaId}
+            RETURNING id, fin, duracion
+          `);
+          
+          // Verificar que realmente se actualizó
+          if (!actualizada.rows[0].fin) {
+            console.log(`⚠️ Primera actualización no estableció fin. Reintentando...`);
+            
+            // Reintentar la actualización
+            await tx.execute(sql`
+              UPDATE pausas 
+              SET fin = NOW(), duracion = ${duracionFormateada}
+              WHERE id = ${pausaId}
+            `);
+            
+            // Verificar nuevamente
+            const verificacion = await tx.execute(sql`
+              SELECT id, fin, duracion FROM pausas 
+              WHERE id = ${pausaId}
+            `);
+            
+            if (!verificacion.rows[0].fin) {
+              throw new Error("La pausa no pudo ser finalizada después de dos intentos");
+            }
+          }
+          
+          return actualizada.rows[0];
+        });
+        
+        console.log("✅ Transacción completada exitosamente:", resultado);
+        
+        // Obtener la pausa actualizada con todos sus datos
+        const pausaActualizada = await storage.getPausaById(pausaId);
+        
+        if (!pausaActualizada.fin) {
+          console.log("⚠️ ADVERTENCIA: La pausa no tiene fin a pesar de la actualización exitosa");
+          // Último intento fuera de la transacción
+          await db.execute(sql`
+            UPDATE pausas 
+            SET fin = NOW(), duracion = ${duracionFormateada}
+            WHERE id = ${pausaId}
+          `);
+        }
+        
+        // Devolver la pausa actualizada
+        res.json({
+          success: true,
+          message: "Pausa reanudada correctamente",
+          pausa: pausaActualizada,
+          ultimoProductoId: ultimoProductoId
+        });
+      } catch (err) {
+        console.error("❌ ERROR en la transacción al reanudar pausa:", err);
+        
+        // Intentar determinar si realmente la pausa se actualizó a pesar del error
+        try {
+          const pausaVerificacion = await storage.getPausaById(pausaId);
+          if (pausaVerificacion.fin) {
+            console.log("✅ A pesar del error, la pausa sí tiene fin:", pausaVerificacion.fin);
+            return res.json({
+              success: true,
+              message: "Pausa reanudada correctamente (recuperado de error)",
+              pausa: pausaVerificacion,
+              ultimoProductoId: ultimoProductoId
+            });
+          }
+        } catch (error) {
+          console.error("Error adicional al verificar estado de pausa:", error);
+        }
+        
+        // Si llegamos aquí, realmente falló la actualización
+        res.status(500).json({ 
+          success: false,
+          message: "Error en la transacción al reanudar la pausa" 
+        });
+      }
+    } catch (error) {
+      console.error("❌ ERROR GENERAL al reanudar pausa:", error);
+      
+      // Intentar devolver una respuesta controlada incluso en caso de error
+      res.status(500).json({ 
+        success: false,
+        message: "Error interno al procesar la reanudación de pausa" 
+      });
+    }
+  });
 
   // Iniciar un pedido (para armadores)
   app.post("/api/pedidos/:id/iniciar", requireAuth, async (req, res, next) => {
