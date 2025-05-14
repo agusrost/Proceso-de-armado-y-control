@@ -1519,7 +1519,7 @@ export default function ArmadoPage() {
               ? 'PAUSADO - REANUDAR PRIMERO' 
               : currentProductoIndex >= productos.length - 1 
                 ? 'FINALIZAR ARMADO' 
-                : 'CONTINUAR'
+                : 'GUARDAR Y CONTINUAR'
             }
           </button>
         </div>
