@@ -85,14 +85,23 @@ export default function ArmadorPage() {
 
   // Verificar si hay un pedido en proceso
   const [buttonText, setButtonText] = useState("COMENZAR");
+  const [pedidoPausado, setPedidoPausado] = useState(false);
   
   useEffect(() => {
     // Actualizar texto del botón
     if (pedido) {
       // @ts-ignore - Ignoramos el error de tipo
       if (pedido.estado === 'en-proceso') {
-        setButtonText("CONTINUAR ARMADO");
+        // @ts-ignore - Verificar si el pedido tiene pausas activas
+        if (pedido.pausaActiva) {
+          setPedidoPausado(true);
+          setButtonText("NO DISPONIBLE - PAUSADO");
+        } else {
+          setPedidoPausado(false);
+          setButtonText("CONTINUAR ARMADO");
+        }
       } else {
+        setPedidoPausado(false);
         setButtonText("COMENZAR");
       }
     }
@@ -163,13 +172,27 @@ export default function ArmadorPage() {
         {isLoading ? (
           <p className="text-xl mb-10">Cargando...</p>
         ) : pedido ? (
-          <Button 
-            onClick={handleStartArmado}
-            className="bg-white hover:bg-gray-200 text-slate-900 font-semibold text-xl px-12 py-6 h-auto rounded-lg mb-16"
-            disabled={startPedidoMutation.isPending}
-          >
-            {buttonText}
-          </Button>
+          <>
+            <Button 
+              onClick={handleStartArmado}
+              className={`text-xl px-12 py-6 h-auto rounded-lg mb-4 ${
+                pedidoPausado 
+                  ? 'bg-amber-200 text-amber-800 hover:bg-amber-200 cursor-not-allowed' 
+                  : 'bg-white hover:bg-gray-200 text-slate-900'
+              }`}
+              disabled={startPedidoMutation.isPending || pedidoPausado}
+            >
+              {buttonText}
+            </Button>
+            
+            {/* Mensaje informativo cuando el pedido está pausado */}
+            {pedidoPausado && (
+              <div className="text-amber-300 text-sm mb-16 max-w-xs text-center">
+                <p>Este pedido está actualmente pausado.</p>
+                <p>Debe ser reanudado desde la pantalla de armado.</p>
+              </div>
+            )}
+          </>
         ) : (
           <div className="bg-blue-900/50 p-6 rounded-lg mb-16 max-w-md">
             <p className="text-xl font-medium mb-2">No hay pedidos pendientes</p>
