@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, CheckCircle, PauseCircle, X, Check, AlertTriangle } from "lucide-react";
+import { Plus, Minus, CheckCircle, PauseCircle, AlertTriangle } from "lucide-react";
 import proceso from "@/utils/proceso";
 import {
   Dialog,
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Componente para mostrar el resumen de productos
+// Componente para mostrar el resumen de productos en el panel izquierdo
 interface ProductoResumenProps {
   producto: any;
   isActive: boolean;
@@ -25,42 +25,42 @@ interface ProductoResumenProps {
 
 function ProductoResumen({ producto, isActive, onSelect }: ProductoResumenProps) {
   // Determinar el estado del producto
-  let estadoColor = "bg-red-100 border-red-300 text-red-700"; // Por defecto: pendiente (rojo)
+  let estadoColor = "bg-red-200"; // Por defecto: pendiente (rojo)
   let estadoTexto = "Pendiente";
   
   if (producto.recolectado !== null) {
     if (producto.recolectado === producto.cantidad) {
       // Producto completamente recolectado
-      estadoColor = "bg-green-100 border-green-300 text-green-700";
+      estadoColor = "bg-green-200";
       estadoTexto = "Completo";
     } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
       // Producto parcialmente recolectado con motivo
-      estadoColor = "bg-amber-100 border-amber-300 text-amber-700";
+      estadoColor = "bg-amber-200";
       estadoTexto = "Parcial";
     }
   }
   
   return (
     <div 
-      className={`p-3 border rounded-md mb-2 cursor-pointer transition-all ${
+      className={`p-2 mb-1 cursor-pointer transition-all ${
         isActive 
-        ? "border-blue-500 bg-blue-50" 
-        : `border ${estadoColor}`
+        ? "border-blue-500 bg-blue-50 border-2 rounded" 
+        : estadoColor
       }`}
       onClick={onSelect}
     >
       <div className="flex justify-between items-center">
         <span className="font-medium">{producto.codigo}</span>
-        <span className={`text-sm px-2 py-0.5 rounded-full ${estadoColor}`}>
+        <span className="text-xs">
           {estadoTexto}
         </span>
       </div>
       <div className="text-sm truncate">{producto.descripcion}</div>
-      <div className="text-sm mt-1">
+      <div className="text-sm mt-0.5">
         Recolectado: {producto.recolectado === null ? "0" : producto.recolectado}/{producto.cantidad}
         {producto.motivo && producto.motivo.trim() !== "" && (
-          <span className="ml-2 text-amber-600">
-            <AlertTriangle className="inline h-3 w-3 mr-1" />
+          <span className="ml-1 text-amber-600 text-xs">
+            <AlertTriangle className="inline h-3 w-3 mr-0.5" />
             {producto.motivo}
           </span>
         )}
@@ -76,10 +76,9 @@ export default function ArmadoSimplePage() {
   const [motivo, setMotivo] = useState("");
   const [motivoPausa, setMotivoPausa] = useState("");
   const [detallePausa, setDetallePausa] = useState("");
-  const [mostrarResumen, setMostrarResumen] = useState(false);
-  const [pausaActiva, setPausaActiva] = useState(false);
   const [mostrarPausaModal, setMostrarPausaModal] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [pausaActiva, setPausaActiva] = useState(false);
   
   // Fetch current pedido assigned to armador
   const { data: pedido, isLoading: isLoadingPedido } = useQuery({
@@ -397,9 +396,6 @@ export default function ArmadoSimplePage() {
     }
   }, [productos, currentProductoIndex]);
   
-  // Estado para mostrar controles
-  const [showMotivoInput, setShowMotivoInput] = useState(false);
-  
   // Lista de motivos predefinidos para faltantes
   const motivosFaltante = [
     "Faltante de stock",
@@ -562,55 +558,52 @@ export default function ArmadoSimplePage() {
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
       {/* Header con logo y botones principales */}
-      <div className="bg-blue-950 p-4 shadow-md">
+      <div className="bg-blue-950 p-2 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-3xl font-bold">KONECTA</h1>
           <div className="flex space-x-2">
+            <Button 
+              onClick={handleFinalizarArmado} 
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              Finalizar armado
+            </Button>
             {!pausaActiva ? (
               <Button 
                 variant="outline" 
-                className="bg-amber-500 hover:bg-amber-600 text-white border-amber-700"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => setMostrarPausaModal(true)}
               >
-                <PauseCircle className="h-4 w-4 mr-2" /> Pausar armado
+                Pausar armado
               </Button>
             ) : (
               <Button 
                 variant="outline" 
-                className="bg-green-500 hover:bg-green-600 text-white border-green-700"
+                className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={handleReanudarArmado}
               >
-                <CheckCircle className="h-4 w-4 mr-2" /> Reanudar armado
+                Reanudar armado
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              className="bg-red-600 hover:bg-red-700 text-white border-red-800"
-              onClick={handleFinalizarArmado}
-            >
-              Finalizar armado
-            </Button>
           </div>
         </div>
       </div>
       
-      <div className="container mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Columna izquierda: Lista de productos (visible en móvil con toggle) */}
-        <div className={`${mostrarResumen ? "block" : "hidden md:block"} md:col-span-1`}>
-          <div className="bg-white rounded-lg shadow-md p-4 text-black">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Productos del pedido</h2>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="md:hidden text-blue-600" 
-                onClick={() => setMostrarResumen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <div className="container mx-auto p-2">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold my-2">
+            Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}
+          </h2>
+        </div>
+      </div>
+      
+      <div className="container mx-auto p-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Columna izquierda: Lista de productos */}
+        <div className="md:col-span-1">
+          <div className="bg-white rounded-md shadow p-3 text-black">
+            <h3 className="font-semibold mb-2 text-lg">Productos del pedido</h3>
             
-            <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
+            <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
               {productos?.map((producto: any, index: number) => (
                 <ProductoResumen
                   key={producto.id}
@@ -623,24 +616,11 @@ export default function ArmadoSimplePage() {
           </div>
         </div>
         
-        {/* Columna derecha: Detalles del producto actual y controles */}
-        <div className={`${mostrarResumen ? "hidden md:block" : "block"} md:col-span-2`}>
-          <div className="bg-white rounded-lg shadow-md p-6 text-black">
-            {/* Botón para mostrar resumen en móvil */}
-            <div className="flex justify-between items-center mb-4 md:hidden">
-              <h2 className="text-lg font-bold">Producto {currentProductoIndex + 1} de {productos?.length}</h2>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="text-blue-600" 
-                onClick={() => setMostrarResumen(true)}
-              >
-                Ver todos
-              </Button>
-            </div>
-            
+        {/* Columna derecha: Detalle del producto actual */}
+        <div className="md:col-span-2">
+          <div className="bg-white rounded-md shadow-md p-4 text-black">
             {pausaActiva ? (
-              <div className="text-center py-10">
+              <div className="text-center py-8">
                 <PauseCircle className="h-16 w-16 mx-auto mb-4 text-amber-500" />
                 <h2 className="text-xl font-bold mb-2">Armado en pausa</h2>
                 <p className="mb-4">El pedido está actualmente pausado.</p>
@@ -653,36 +633,33 @@ export default function ArmadoSimplePage() {
               </div>
             ) : (
               <>
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-1">
-                    <h2 className="text-xl font-bold">Código: {currentProducto.codigo}</h2>
+                <div className="mb-4">
+                  <div className="mb-3">
+                    <span className="font-bold">Código:</span> {currentProducto.codigo}
                   </div>
-                  <p className="text-lg mb-3"><span className="font-medium">Ubicación:</span> {currentProducto.ubicacion || 'Sin ubicación'}</p>
-                  <p className="text-lg mb-5"><span className="font-medium">Descripción:</span> {currentProducto.descripcion || 'Sin descripción'}</p>
+                  <div className="mb-2">
+                    <span className="font-bold">Ubicación:</span> {currentProducto.ubicacion || '1-1-C'}
+                  </div>
+                  <div className="mb-3">
+                    <span className="font-bold">Descripción:</span> {currentProducto.descripcion || 'Tapa de arranque'}
+                  </div>
                   
-                  <div className="bg-gray-100 p-4 rounded-md mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">Cantidad solicitada:</span>
-                      <span className="text-lg font-bold">{currentProducto.cantidad}</span>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label htmlFor="cantidad-input" className="block text-sm font-medium mb-1">
-                        Cantidad recolectada:
-                      </label>
-                      <div className="flex items-center">
+                  <div className="mb-3">
+                    <div className="mb-1"><span className="font-bold">Cantidad solicitada:</span> {currentProducto.cantidad}</div>
+                    <div>
+                      <span className="font-bold">Cantidad recolectada:</span>
+                      <div className="flex items-center mt-1">
                         <Button 
                           variant="outline" 
                           size="sm"
-                          className="h-10 w-10"
+                          className="h-8 w-8 p-0"
                           onClick={() => cantidad > 0 && setCantidad(cantidad - 1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
                         <Input
-                          id="cantidad-input"
                           type="number"
-                          className="mx-2 text-center"
+                          className="mx-2 text-center h-8"
                           value={cantidad}
                           min={0}
                           max={currentProducto.cantidad}
@@ -691,49 +668,47 @@ export default function ArmadoSimplePage() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          className="h-10 w-10"
+                          className="h-8 w-8 p-0"
                           onClick={() => cantidad < currentProducto.cantidad && setCantidad(cantidad + 1)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                    
-                    {/* Motivo de faltante - obligatorio si cantidad < solicitada */}
-                    {cantidad < currentProducto.cantidad && (
-                      <div className="mb-4">
-                        <label htmlFor="motivo-select" className="block text-sm font-medium mb-1">
-                          Motivo del faltante:
-                        </label>
-                        <Select 
-                          value={motivo} 
-                          onValueChange={setMotivo}
-                        >
-                          <SelectTrigger id="motivo-select" className="w-full">
-                            <SelectValue placeholder="Seleccione un motivo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {motivosFaltante.map((m) => (
-                              <SelectItem key={m} value={m}>{m}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        {motivo === "Otro motivo" && (
-                          <Input
-                            className="mt-2"
-                            placeholder="Especifique el motivo"
-                            value={motivo === "Otro motivo" ? "" : motivo}
-                            onChange={(e) => setMotivo(e.target.value)}
-                          />
-                        )}
-                      </div>
-                    )}
                   </div>
+                  
+                  {/* Motivo de faltante - obligatorio si cantidad < solicitada */}
+                  {cantidad < currentProducto.cantidad && (
+                    <div className="mb-4">
+                      <div className="mb-1"><span className="font-bold">Motivo del faltante:</span></div>
+                      <Select 
+                        value={motivo} 
+                        onValueChange={setMotivo}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Seleccione un motivo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {motivosFaltante.map((m) => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      {motivo === "Otro motivo" && (
+                        <Input
+                          className="mt-2"
+                          placeholder="Especifique el motivo"
+                          value={motivo === "Otro motivo" ? "" : motivo}
+                          onChange={(e) => setMotivo(e.target.value)}
+                        />
+                      )}
+                    </div>
+                  )}
                   
                   <Button 
                     onClick={handleContinuar}
-                    className="w-full py-6 text-lg bg-green-600 hover:bg-green-700 text-white"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
                     disabled={actualizarProductoMutation.isPending}
                   >
                     {actualizarProductoMutation.isPending ? (
@@ -784,14 +759,14 @@ export default function ArmadoSimplePage() {
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="pausa-select" className="block text-sm font-medium mb-1">
+              <label className="block text-sm font-medium mb-1">
                 Motivo de la pausa:
               </label>
               <Select 
                 value={motivoPausa} 
                 onValueChange={setMotivoPausa}
               >
-                <SelectTrigger id="pausa-select" className="w-full">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccione un motivo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -804,11 +779,10 @@ export default function ArmadoSimplePage() {
             
             {motivoPausa === "Otro: especificar" && (
               <div>
-                <label htmlFor="detalle-pausa" className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1">
                   Especifique el motivo:
                 </label>
                 <Input
-                  id="detalle-pausa"
                   placeholder="Detalle del motivo de pausa"
                   value={detallePausa}
                   onChange={(e) => setDetallePausa(e.target.value)}
