@@ -91,9 +91,15 @@ export default function ArmadoSimplePage() {
     mutationFn: async (params: { pedidoId: number, motivo: string }) => {
       try {
         console.log("Intentando pausar pedido:", params);
-        const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/pausar`, { motivo: params.motivo });
+        // Usar el endpoint /api/pausas para crear la pausa
+        const res = await apiRequest("POST", `/api/pausas`, { 
+          pedidoId: params.pedidoId, 
+          motivo: params.motivo,
+          tipo: "armado" // Especificar que es una pausa de armado
+        });
         if (!res.ok) {
-          throw new Error(`Error al pausar pedido: ${res.status} ${res.statusText}`);
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || `Error al pausar pedido: ${res.status} ${res.statusText}`);
         }
         return await res.json();
       } catch (error) {
