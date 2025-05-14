@@ -163,6 +163,12 @@ export default function ArmadoSimplePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
       queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
       
+      // MANTENER LA CANTIDAD ACTUAL INTRODUCIDA
+      // Esto es crítico para prevenir que la cantidad se resetee a 0
+      // cuando se presiona "CONTINUAR"
+      console.log(`⚠️ Manteniendo cantidad recolectada en: ${data.recolectado}`);
+      setCantidad(data.recolectado);
+      
       // Verificar finalización automática
       await verificarFinalizacionAutomatica();
       
@@ -175,9 +181,6 @@ export default function ArmadoSimplePage() {
           description: "Has procesado todos los productos del pedido."
         });
       }
-      
-      // Resetear cantidad
-      setCantidad(0);
     },
     onError: (error: Error) => {
       toast({
