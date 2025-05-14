@@ -741,8 +741,8 @@ export default function ArmadoSimplePage() {
       <Dialog open={successModal} onOpenChange={setSuccessModal}>
         <DialogContent className="bg-white">
           <DialogTitle className="text-green-600 text-center">✅ Armado Finalizado</DialogTitle>
-          <DialogDescription className="text-center">
-            Ha finalizado el armado del pedido de manera exitosa
+          <DialogDescription className="text-center text-lg font-medium">
+            Ha finalizado el armado del pedido con éxito!
           </DialogDescription>
           
           <div className="flex justify-center mt-4">
@@ -753,7 +753,7 @@ export default function ArmadoSimplePage() {
               }}
               className="bg-blue-900 hover:bg-blue-700 text-white"
             >
-              Volver al tablero
+              Continuar
             </Button>
           </div>
         </DialogContent>
