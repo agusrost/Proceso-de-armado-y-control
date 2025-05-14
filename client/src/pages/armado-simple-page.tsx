@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pause } from "lucide-react";
@@ -19,6 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function ArmadoSimplePage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  // Para redirecciones
+  const [, setLocation] = useLocation();
+  
   const [cantidad, setCantidad] = useState(0);
   const [motivo, setMotivo] = useState("");
   const [pausaMotivo, setPausaMotivo] = useState("");
@@ -415,9 +419,9 @@ export default function ArmadoSimplePage() {
     logoutMutation.mutate();
   };
   
-  // Volver al tablero
+  // Volver al tablero usando wouter en lugar de window.location
   const handleVolverTablero = () => {
-    window.location.href = "/armador";
+    setLocation("/armador");
   };
   
   // Lista de motivos de pausa
