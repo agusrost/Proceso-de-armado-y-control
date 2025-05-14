@@ -4226,7 +4226,16 @@ export async function registerRoutes(app: Application): Promise<Server> {
       else if ((req.body.motivo && req.body.motivo.trim() !== '' && req.body.recolectado !== undefined) || 
                (req.body.prevenAutocompletar === true)) {
         
-        console.log(`🔒 PROTECCIÓN ADICIONAL MEJORADA (v2.0): La cantidad recolectada ${req.body.recolectado} ${req.body.motivo ? `con motivo "${req.body.motivo}"` : 'con flag prevenAutocompletar=true'} será respetada y NO auto-completada.`);
+        // VERIFICACIÓN DE TODOS LOS FLAGS DE PROTECCIÓN V3.0
+        console.log(`🔍 DEBUG V3.0 -> TODOS LOS FLAGS DE PROTECCIÓN:
+          prevenAutocompletar: ${req.body.prevenAutocompletar ? 'TRUE' : 'FALSE'}
+          preservarFaltante: ${req.body.preservarFaltante ? 'TRUE' : 'FALSE'}
+          proteccionDoble: ${req.body.proteccionDoble ? 'TRUE' : 'FALSE'}
+          motivo: "${req.body.motivo || 'NO ENVIADO'}"
+          recolectado: ${req.body.recolectado}/${productoExistente.cantidad}
+        `);
+        
+        console.log(`🔒 PROTECCIÓN ADICIONAL MEJORADA (v3.0): La cantidad recolectada ${req.body.recolectado} ${req.body.motivo ? `con motivo "${req.body.motivo}"` : 'con flag prevenAutocompletar=true'} será respetada y NO auto-completada.`);
         
         // CORRECCIÓN IMPORTANTE v2.0: 
         // Si tenemos un motivo de faltante, FORZAR el flag prevenAutocompletar = true
