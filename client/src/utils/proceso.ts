@@ -1,7 +1,7 @@
 // Proceso - Utilidades para depuración y validación
 
 export const proceso = {
-  VERSION: '1.3.0', // Versión para rastrear cambios
+  VERSION: '2.0.0', // Versión para rastrear cambios
   DEBUG: true, // Habilitar depuración
   log: (...args: any[]) => {
     if (proceso.DEBUG) {
@@ -9,7 +9,13 @@ export const proceso = {
     }
   },
 
-  // Función para determinar si un producto está completado
+  /**
+   * Determina si un producto está completado (con cualquier cantidad)
+   * Un producto se considera procesado si:
+   * 1. Tiene un valor recolectado igual a la cantidad solicitada
+   * 2. O bien, tiene un valor recolectado menor a la cantidad solicitada pero con motivo
+   * 3. O bien, tiene recolectado=0 pero con motivo de faltante
+   */
   esProductoProcesado: (producto: any): boolean => {
     // Si recolectado es null, no está procesado
     if (producto.recolectado === null) return false;
@@ -18,11 +24,17 @@ export const proceso = {
     if (producto.recolectado === producto.cantidad) return true;
     
     // Si es una recolección parcial pero tiene motivo, se considera completado
-    if (producto.recolectado < producto.cantidad && producto.motivo && producto.motivo.trim() !== '') return true;
+    if (producto.recolectado < producto.cantidad && producto.motivo && producto.motivo.trim() !== '') {
+      console.log(`[PRODUCTO ${producto.codigo}]: Marcado como PROCESADO con ${producto.recolectado}/${producto.cantidad} y motivo="${producto.motivo}"`);
+      return true;
+    }
     
-    // NUEVA REGLA: Si recolectado es 0 pero el usuario lo ha registrado Y tiene motivo,
+    // REGLA ESPECIAL: Si recolectado es 0 pero el usuario lo ha registrado Y tiene motivo,
     // se considera procesado completamente
-    if (producto.recolectado === 0 && producto.motivo && producto.motivo.trim() !== '') return true;
+    if (producto.recolectado === 0 && producto.motivo && producto.motivo.trim() !== '') {
+      console.log(`[PRODUCTO ${producto.codigo}]: Marcado como PROCESADO con cantidad CERO y motivo="${producto.motivo}"`);
+      return true;
+    }
     
     // En cualquier otro caso, no está completado
     return false;

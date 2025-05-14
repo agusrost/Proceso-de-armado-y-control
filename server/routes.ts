@@ -4221,17 +4221,51 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
       } 
       
-      // NUEVA REGLA CRÍTICA: Si se envía un motivo de faltante o el flag prevenAutocompletar,
+      // NUEVA REGLA CRÍTICA MEJORADA: Si se envía un motivo de faltante o el flag prevenAutocompletar,
       // asegurarnos de no autocompletar la cantidad y respetar la cantidad recolectada que envía el usuario
       else if ((req.body.motivo && req.body.motivo.trim() !== '' && req.body.recolectado !== undefined) || 
                (req.body.prevenAutocompletar === true)) {
-        console.log(`🔒 PROTECCIÓN ADICIONAL: La cantidad recolectada ${req.body.recolectado} ${req.body.motivo ? `con motivo "${req.body.motivo}"` : 'con flag prevenAutocompletar=true'} será respetada y NO auto-completada.`);
         
-        // Se respeta la cantidad enviada por el cliente, que debería ser menor o igual a la requerida total
+        console.log(`🔒 PROTECCIÓN ADICIONAL MEJORADA (v2.0): La cantidad recolectada ${req.body.recolectado} ${req.body.motivo ? `con motivo "${req.body.motivo}"` : 'con flag prevenAutocompletar=true'} será respetada y NO auto-completada.`);
         
-        // Si envían flag prevenAutocompletar, agregamos un log especial
+        // CORRECCIÓN IMPORTANTE v2.0: 
+        // Si tenemos un motivo de faltante, FORZAR el flag prevenAutocompletar = true
+        // para asegurar múltiples capas de protección
+        if (req.body.motivo && req.body.motivo.trim() !== '') {
+          console.log(`🔒 PROTECCIÓN RETROACTIVA: Se detectó motivo "${req.body.motivo}" y se FUERZA flag prevenAutocompletar=true`);
+          req.body.prevenAutocompletar = true;
+        }
+        
+        // Si envían flag prevenAutocompletar, asegurarnos que nunca se auto-complete
+        // al valor máximo si hay un motivo especificado
         if (req.body.prevenAutocompletar === true) {
-          console.log(`🛡️ FLAG ESPECIAL ENVIADO: prevenAutocompletar=true - Se respetará estrictamente la cantidad ${req.body.recolectado}`);
+          console.log(`🛡️ FLAG ESPECIAL ENVIADO v2.0: prevenAutocompletar=true - Se respetará ESTRICTAMENTE la cantidad ${req.body.recolectado}/${productoExistente.cantidad}`);
+          
+          // VERIFICACIÓN ADICIONAL DE SEGURIDAD:
+          // Si hay un motivo pero intentaban completar la cantidad, volvemos a la cantidad original
+          // Esto es un nivel extra de protección
+          if (req.body.motivo && req.body.motivo.trim() !== '' && 
+              req.body.recolectado >= productoExistente.cantidad) {
+            
+            console.log(`⚠️ ALERTA CRÍTICA: Se detectó intento de completar cantidad con motivo.`);
+            console.log(`⚠️ Valor enviado: ${req.body.recolectado}, Valor requerido: ${productoExistente.cantidad}`);
+            
+            // Si ya se había registrado una cantidad parcial anteriormente
+            if (productoExistente.recolectado !== null && 
+                productoExistente.recolectado < productoExistente.cantidad) {
+              
+              // Mantenemos la cantidad parcial anterior
+              console.log(`✅ CORRECCIÓN APLICADA: Manteniendo valor parcial previo: ${productoExistente.recolectado}`);
+              req.body.recolectado = productoExistente.recolectado;
+            } 
+            // Si no tenía cantidad parcial, pero queremos evitar que se auto-complete
+            else {
+              // Reducimos en 1 para indicar claramente que hay un faltante
+              const cantidadCorregida = Math.max(0, productoExistente.cantidad - 1);
+              console.log(`✅ CORRECCIÓN APLICADA: Ajustando a valor parcial: ${cantidadCorregida}`);
+              req.body.recolectado = cantidadCorregida;
+            }
+          }
           
           // Eliminamos el flag para que no se almacene en la base de datos
           delete req.body.prevenAutocompletar;

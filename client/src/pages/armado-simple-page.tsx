@@ -75,9 +75,39 @@ export default function ArmadoSimplePage() {
       const res = await apiRequest("GET", `/api/productos/pedido/${pedido?.id}`);
       const productosActualizados = await res.json();
       
+      console.log("RESUMEN PRODUCTOS PROCESADOS:");
+      productosActualizados.forEach((p: any, index: number) => {
+        console.log(`[${index+1}/${productosActualizados.length}] Producto ${p.codigo}: ${p.recolectado}/${p.cantidad} ${p.motivo ? `- Motivo: "${p.motivo}"` : ''}`);
+      });
+      
       // Verificar si todos los productos están procesados
       if (proceso.debeFinalizar(productosActualizados)) {
         console.log("✅ Todos los productos procesados, finalizando pedido automáticamente");
+        
+        // Verificar explícitamente cada producto procesado para mostrar logs claros
+        console.log("📋 VERIFICACIÓN FINAL DE PRODUCTOS:");
+        let hayErroresCriticos = false;
+        
+        productosActualizados.forEach((p: any, index: number) => {
+          const esProcesado = proceso.esProductoProcesado(p);
+          console.log(`[${index+1}/${productosActualizados.length}] Producto ${p.codigo}: ${p.recolectado}/${p.cantidad} - ${esProcesado ? '✅ PROCESADO' : '❌ NO PROCESADO'} ${p.motivo ? `- Motivo: "${p.motivo}"` : ''}`);
+          
+          // Si hay cantidad parcial sin motivo, esto es un error crítico
+          if (p.recolectado !== null && p.recolectado < p.cantidad && (!p.motivo || p.motivo.trim() === '')) {
+            console.error(`⛔ ERROR CRÍTICO: Producto ${p.codigo} con cantidad parcial ${p.recolectado}/${p.cantidad} SIN MOTIVO DE FALTANTE`);
+            hayErroresCriticos = true;
+          }
+        });
+        
+        if (hayErroresCriticos) {
+          console.error("⛔ HAY ERRORES CRÍTICOS QUE IMPIDEN LA FINALIZACIÓN. SE CANCELARÁ LA OPERACIÓN.");
+          toast({
+            title: "Error en los productos",
+            description: "Hay productos con cantidades parciales sin motivo de faltante. Revisa todos los productos.",
+            variant: "destructive"
+          });
+          return;
+        }
         
         // Mostrar primero el diálogo de éxito
         setShowSuccessDialog(true);
@@ -371,7 +401,7 @@ export default function ArmadoSimplePage() {
               <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
             <DialogTitle className="text-xl mb-4">
-              Ha finalizado el armado del pedido con éxito!
+              Ha finalizado el armado del pedido de manera exitosa!
             </DialogTitle>
             <p className="text-gray-600 mb-6">
               Todos los productos han sido procesados correctamente.
