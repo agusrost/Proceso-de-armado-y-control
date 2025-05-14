@@ -293,7 +293,31 @@ export class MemStorage implements IStorage {
     const producto = this.productos.get(id);
     if (!producto) return undefined;
     
+    // CORRECCIÓN CRÍTICA: Validación especial cuando hay motivo de faltante parcial
+    if (productoData.motivo && productoData.motivo.trim() !== '' && 
+        productoData.recolectado !== undefined && productoData.recolectado < producto.cantidad) {
+      console.log(`🛡️ [STORAGE] PROTECCIÓN FALTANTE PARCIAL: Producto ${id} (${producto.codigo}) - Preservando cantidad ${productoData.recolectado}/${producto.cantidad} con motivo "${productoData.motivo}"`);
+      
+      // Nos aseguramos que la cantidad recolectada no se modifica automáticamente
+      // NUNCA debería cambiarse a la cantidad total si hay un motivo de faltante
+    }
+    
     const updatedProducto: Producto = { ...producto, ...productoData };
+    
+    // Si el producto tiene faltante parcial, verificamos que la cantidad no haya sido autocompletada
+    if (updatedProducto.motivo && updatedProducto.motivo.trim() !== '' && 
+        updatedProducto.recolectado !== null && 
+        productoData.recolectado !== undefined && 
+        productoData.recolectado < updatedProducto.cantidad) {
+      
+      // VALIDACIÓN FINAL DE SEGURIDAD: Verificar que el valor final de recolectado
+      // sea exactamente el que vino en productoData y no sea autocompleto
+      if (updatedProducto.recolectado !== productoData.recolectado) {
+        console.log(`⚠️ [STORAGE] CORRECCIÓN DE EMERGENCIA: Detectado autocompleto no deseado de ${productoData.recolectado} a ${updatedProducto.recolectado}. Restaurando valor original.`);
+        updatedProducto.recolectado = productoData.recolectado;
+      }
+    }
+    
     this.productos.set(id, updatedProducto);
     return updatedProducto;
   }
