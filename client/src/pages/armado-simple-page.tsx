@@ -34,15 +34,24 @@ export default function ArmadoSimplePage() {
   const [mensajePausa, setMensajePausa] = useState("");
   
   // Obtener el pedido asignado al armador
-  const { data: pedido = {} } = useQuery({
+  const { data: pedido = {}, isLoading: isLoadingPedido, error: pedidoError } = useQuery({
     queryKey: ["/api/pedido-para-armador"],
     enabled: !!user,
+    onSuccess: (data) => {
+      console.log("🔍 ARMADO-SIMPLE - Pedido recibido:", data);
+    },
+    onError: (error) => {
+      console.error("❌ ARMADO-SIMPLE - Error obteniendo pedido para armador:", error);
+    }
   });
   
   // Obtener los productos del pedido
-  const { data: productosRaw = [] } = useQuery({
+  const { data: productosRaw = [], isLoading: isLoadingProductos } = useQuery({
     queryKey: [`/api/productos/pedido/${pedido?.id}`],
     enabled: !!pedido?.id,
+    onSuccess: (data) => {
+      console.log(`🔍 ARMADO-SIMPLE - Productos recibidos para pedido ${pedido?.id}:`, data);
+    }
   });
   
   // Filtrar productos para mostrar solo los pendientes cuando se reanuda un pedido pausado
