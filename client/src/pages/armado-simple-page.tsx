@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, AlertCircle } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import proceso from "@/utils/proceso";
 import {
   Dialog,
@@ -15,56 +15,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-// Interfaz para producto
-interface Producto {
-  id: number;
-  codigo: string;
-  descripcion: string;
-  ubicacion: string;
-  cantidad: number;
-  recolectado: number | null;
-  motivo: string | null;
-}
-
-// Componente para mostrar un producto en la lista izquierda
-interface ProductoItemProps {
-  producto: Producto;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-const ProductoItem: React.FC<ProductoItemProps> = ({ producto, isActive, onClick }) => {
-  // Determinar el estado del producto
-  let estado = "Pendiente";
-  let bgColor = "bg-red-200";
-  
-  if (producto.recolectado !== null) {
-    if (producto.recolectado === producto.cantidad) {
-      estado = "Completo";
-      bgColor = "bg-green-200";
-    } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
-      estado = "Parcial";
-      bgColor = "bg-amber-200";
-    }
-  }
-  
-  return (
-    <div 
-      className={`p-2 ${isActive ? "border-blue-500 bg-blue-50" : bgColor} cursor-pointer`}
-      onClick={onClick}
-    >
-      <div className="flex justify-between mb-1">
-        <span className="font-semibold">{producto.codigo}</span>
-        <span className="text-xs">{estado}</span>
-      </div>
-      <div className="text-sm">{producto.descripcion}</div>
-      <div className="text-xs mt-1">
-        Recolectado: {producto.recolectado === null ? "0" : producto.recolectado}/{producto.cantidad}
-      </div>
-    </div>
-  );
-};
 
 export default function ArmadoSimplePage() {
   const { user } = useAuth();
@@ -306,126 +256,158 @@ export default function ArmadoSimplePage() {
   // Obtener el producto actual
   const productoActual = productos[currentProductoIndex];
   
-  return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
-      {/* Header */}
-      <div className="bg-blue-950 p-2 shadow">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-white">KONECTA</h1>
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => setShowFinalizarModal(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-white"
-            >
-              Finalizar armado
-            </Button>
-            <Button 
-              variant="outline" 
-              className="bg-red-500 hover:bg-red-600 text-white"
-              onClick={() => setShowPausaModal(true)}
-            >
-              Pausar armado
-            </Button>
-          </div>
+  // Función para renderizar un producto en la lista
+  const renderProducto = (producto: any, index: number) => {
+    // Determinar el estado del producto
+    let estado = "Pendiente";
+    let bgColor = "bg-red-200";
+    
+    if (producto.recolectado !== null) {
+      if (producto.recolectado === producto.cantidad) {
+        estado = "Completo";
+        bgColor = "bg-green-200";
+      } else if (producto.recolectado > 0 || (producto.motivo && producto.motivo.trim() !== "")) {
+        estado = "Parcial";
+        bgColor = "bg-amber-200";
+      }
+    }
+    
+    return (
+      <div 
+        key={producto.id}
+        className={`${bgColor} p-2 mb-1`}
+        onClick={() => setCurrentProductoIndex(index)}
+      >
+        <div className="flex justify-between items-center">
+          <span className="font-bold">{producto.codigo}</span>
+          <span className="text-xs">{estado}</span>
+        </div>
+        <div className="text-sm">{producto.descripcion}</div>
+        <div className="text-xs mt-1">
+          Recolectado: {producto.recolectado === null ? "0" : producto.recolectado}/{producto.cantidad}
         </div>
       </div>
-      
-      {/* Contenido */}
-      <div className="container mx-auto p-4 text-white">
-        <h2 className="text-center text-lg mb-4">
-          Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Lista de productos */}
-          <div className="bg-white rounded-md shadow p-3 text-black">
-            <h3 className="font-bold mb-2">Productos del pedido</h3>
-            <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-              {productos.map((producto: any, index: number) => (
-                <ProductoItem 
-                  key={producto.id}
-                  producto={producto}
-                  isActive={index === currentProductoIndex}
-                  onClick={() => setCurrentProductoIndex(index)}
-                />
-              ))}
+    );
+  };
+  
+  return (
+    <>
+      <div className="min-h-screen bg-slate-900 flex flex-col">
+        {/* Header */}
+        <header className="bg-blue-950 p-2 shadow">
+          <div className="container mx-auto">
+            <h1 className="text-3xl font-bold text-white text-center">KONECTA</h1>
+            <div className="flex justify-end mt-2 gap-2">
+              <Button 
+                onClick={() => setShowFinalizarModal(true)}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white"
+              >
+                Finalizar armado
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => setShowPausaModal(true)}
+              >
+                Pausar armado
+              </Button>
             </div>
           </div>
+        </header>
+        
+        {/* Contenido */}
+        <div className="container mx-auto p-2 text-white">
+          <h2 className="text-center text-lg mb-2">
+            Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}
+          </h2>
           
-          {/* Detalle del producto actual */}
-          <div className="bg-white rounded-md shadow p-4 text-black">
-            <div className="mb-3">
-              <div className="mb-2">
-                <strong>Código:</strong> {productoActual.codigo}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Lista de productos */}
+            <div className="bg-white rounded-md shadow p-3 text-black">
+              <h3 className="font-bold mb-2">Productos del pedido</h3>
+              <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+                {productos.map(renderProducto)}
               </div>
-              <div className="mb-2">
-                <strong>Ubicación:</strong> {productoActual.ubicacion}
-              </div>
-              <div className="mb-3">
-                <strong>Descripción:</strong> {productoActual.descripcion}
-              </div>
-              
-              <div className="mb-3">
-                <div className="mb-1">
-                  <strong>Cantidad solicitada:</strong> {productoActual.cantidad}
+            </div>
+            
+            {/* Detalle del producto actual */}
+            <div className="bg-white rounded-md shadow p-4 text-black">
+              <div>
+                <div className="mb-2">
+                  <strong>Código:</strong> {productoActual.codigo}
                 </div>
-                <div>
-                  <strong>Cantidad recolectada:</strong>
-                  <div className="flex items-center mt-1">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-l-md"
-                      onClick={() => handleCantidadChange(cantidad - 1)}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Input
-                      type="number"
-                      className="h-8 border-x-0 rounded-none text-center w-16"
-                      value={cantidad}
-                      onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-r-md"
-                      onClick={() => handleCantidadChange(cantidad + 1)}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="mb-2">
+                  <strong>Ubicación:</strong> {productoActual.ubicacion}
                 </div>
-              </div>
-              
-              {/* Motivo de faltante - solo mostrar si cantidad < solicitada */}
-              {cantidad < productoActual.cantidad && (
-                <div className="mb-4">
+                <div className="mb-3">
+                  <strong>Descripción:</strong> {productoActual.descripcion}
+                </div>
+                
+                <div className="mb-3">
                   <div className="mb-1">
-                    <strong>Motivo del faltante:</strong>
+                    <strong>Cantidad solicitada:</strong> {productoActual.cantidad}
                   </div>
-                  <Select 
-                    value={motivo} 
-                    onValueChange={setMotivo}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccione un motivo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {motivosFaltante.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div>
+                    <strong>Cantidad recolectada:</strong>
+                    <div className="flex items-center mt-1">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          className="h-8 rounded text-center w-full"
+                          value={cantidad}
+                          onChange={(e) => handleCantidadChange(parseInt(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="ml-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 w-8 p-0 rounded"
+                          onClick={() => handleCantidadChange(cantidad - 1)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 w-8 p-0 rounded ml-1"
+                          onClick={() => handleCantidadChange(cantidad + 1)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-              
-              <Button 
-                onClick={handleGuardarYContinuar}
-                className="w-full bg-green-600 hover:bg-green-700 text-white uppercase"
-              >
-                Guardar y continuar
-              </Button>
+                
+                {/* Motivo de faltante - solo mostrar si cantidad < solicitada */}
+                {cantidad < productoActual.cantidad && (
+                  <div className="mb-4">
+                    <div className="mb-1">
+                      <strong>Motivo del faltante:</strong>
+                    </div>
+                    <Select 
+                      value={motivo} 
+                      onValueChange={setMotivo}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Seleccione un motivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {motivosFaltante.map((m) => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                <Button 
+                  onClick={handleGuardarYContinuar}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white uppercase"
+                >
+                  GUARDAR Y CONTINUAR
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -506,7 +488,6 @@ export default function ArmadoSimplePage() {
       <Dialog open={successModal} onOpenChange={setSuccessModal}>
         <DialogContent className="bg-white text-center">
           <div className="flex flex-col items-center py-4">
-            <AlertCircle className="h-12 w-12 text-green-500 mb-4" />
             <DialogTitle className="text-xl font-bold">Armado finalizado</DialogTitle>
             <DialogDescription className="text-center mb-4">
               Ha finalizado el armado del pedido de manera exitosa
@@ -523,6 +504,6 @@ export default function ArmadoSimplePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
