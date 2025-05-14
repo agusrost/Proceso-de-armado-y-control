@@ -427,12 +427,24 @@ export default function ArmadoPage() {
           // Establecer valor inicial a la cantidad solicitada o al valor ya recolectado si existe
           const siguienteProducto = productos[currentProductoIndex + 1];
           if (siguienteProducto) {
-            // CORRECCIÓN CRÍTICA: Siempre preservar el valor recolectado actual, nunca autocompletar
-          // Inicializar con la cantidad total para facilitar al usuario
-          setRecolectados(siguienteProducto.cantidad);
+            // CORRECCIÓN CRÍTICA: Inicializar con la cantidad recolectada real, o con 0 si no está definida
+          // No usar automáticamente el valor total requerido
+          if (siguienteProducto.recolectado !== null && siguienteProducto.recolectado !== undefined) {
+            console.log(`Inicializando con cantidad ya recolectada: ${siguienteProducto.recolectado}`);
+            setRecolectados(siguienteProducto.recolectado);
           } else {
-            // Inicializa con cantidad requerida si no hay producto
-            setRecolectados(productos[0]?.cantidad || 0);
+            // Inicializar con 0, no con la cantidad requerida
+            console.log(`Inicializando con 0 (en vez de ${siguienteProducto.cantidad}) para evitar autocompletes`);
+            setRecolectados(0);
+          }
+          } else {
+            // Inicializa con la cantidad ya recolectada o con 0, NUNCA con la cantidad total requerida
+            const primerProducto = productos[0];
+            if (primerProducto && primerProducto.recolectado !== null && primerProducto.recolectado !== undefined) {
+              setRecolectados(primerProducto.recolectado);
+            } else {
+              setRecolectados(0); // Inicializamos con 0, nunca con la cantidad total
+            }
           }
           setMotivo("");
         } else {

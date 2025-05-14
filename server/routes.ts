@@ -4169,6 +4169,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // ⚠️ CORRECCIÓN CRÍTICA: Implementación robusta anti-autocompletado para productos con faltantes
       console.log(`🔍 VERIFICANDO PRODUCTO: ID=${productoId}, Código=${productoExistente.codigo}, Recolectado=${productoExistente.recolectado}/${productoExistente.cantidad}, Motivo="${productoExistente.motivo || 'ninguno'}"`);
       
+      // SUPER IMPORTANTE: Nunca permitir que una cantidad parcial con motivo se complete automáticamente
+      // Esto es el error crítico informado por el usuario
+      
+      // Primero, validamos que la cantidad recolectada nunca sea superior a la requerida
+      if (req.body.recolectado > productoExistente.cantidad) {
+        console.log(`⛔ CORRECCIÓN CRÍTICA: Limitando recolectado=${req.body.recolectado} a cantidad máxima requerida=${productoExistente.cantidad}`);
+        req.body.recolectado = productoExistente.cantidad;
+      }
+      
       // Verificamos si hay un motivo de faltante y debemos protegerlo
       const tieneMotivoDeFaltante = productoExistente.motivo && productoExistente.motivo.trim() !== '';
       
@@ -4210,6 +4219,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
         if (!req.body.motivo || req.body.motivo.trim() === '') {
           req.body.motivo = productoExistente.motivo;
         }
+      } 
+      
+      // NUEVA REGLA CRÍTICA: Si se envía un motivo de faltante, asegurarnos de no autocompletar la cantidad 
+      // Si viene con motivo, respetar la cantidad recolectada que envía el usuario
+      else if (req.body.motivo && req.body.motivo.trim() !== '' && req.body.recolectado !== undefined) {
+        console.log(`🔒 PROTECCIÓN ADICIONAL: La cantidad recolectada ${req.body.recolectado} con motivo "${req.body.motivo}" será respetada y NO auto-completada.`);
+        // Se respeta la cantidad enviada por el cliente, que debería ser menor a la requerida total
       }
       
       // Actualizar el producto con los datos posiblemente modificados
