@@ -187,7 +187,7 @@ export default function ArmadorPage() {
                 className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-amber-700 hover:bg-amber-800 text-white"
                 disabled={startPedidoMutation.isPending}
               >
-                IR A PEDIDO PAUSADO
+                CONTINUAR PEDIDO
               </Button>
             ) : (
               // Botón normal para comenzar armado

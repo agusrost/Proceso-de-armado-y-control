@@ -443,18 +443,18 @@ export default function ArmadoSimplePage() {
                 
                 <div className="flex justify-center gap-3">
                   <Button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-semibold"
                     onClick={handleReanudarPedido}
                     disabled={reanudarPedidoMutation.isPending}
                   >
-                    {reanudarPedidoMutation.isPending ? "Reanudando..." : "Reanudar pedido"}
+                    {reanudarPedidoMutation.isPending ? "REANUDANDO..." : "REANUDAR"}
                   </Button>
                   
                   <Button 
-                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                    className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 text-lg"
                     onClick={() => window.location.href = "/armador"}
                   >
-                    Volver al tablero
+                    VOLVER AL TABLERO
                   </Button>
                 </div>
               </div>
