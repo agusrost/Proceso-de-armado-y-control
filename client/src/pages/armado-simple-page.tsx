@@ -89,8 +89,17 @@ export default function ArmadoSimplePage() {
   // Pausar pedido mutation
   const pausarPedidoMutation = useMutation({
     mutationFn: async (params: { pedidoId: number, motivo: string }) => {
-      const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/pausar`, { motivo: params.motivo });
-      return await res.json();
+      try {
+        console.log("Intentando pausar pedido:", params);
+        const res = await apiRequest("POST", `/api/pedidos/${params.pedidoId}/pausar`, { motivo: params.motivo });
+        if (!res.ok) {
+          throw new Error(`Error al pausar pedido: ${res.status} ${res.statusText}`);
+        }
+        return await res.json();
+      } catch (error) {
+        console.error("Error en pausarPedidoMutation:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -100,6 +109,14 @@ export default function ArmadoSimplePage() {
       setShowPausaModal(false);
       // Redireccionar al dashboard del armador
       window.location.href = "/armador";
+    },
+    onError: (error: Error) => {
+      console.error("Error al pausar pedido:", error);
+      toast({
+        title: "Error al pausar",
+        description: error.message || "No se pudo pausar el pedido",
+        variant: "destructive"
+      });
     }
   });
   
@@ -225,6 +242,8 @@ export default function ArmadoSimplePage() {
   
   // Manejar pausar pedido
   const handlePausarPedido = () => {
+    console.log("Intentando pausar con motivo:", pausaMotivo);
+    
     if (!pausaMotivo) {
       toast({
         title: "Motivo requerido",
@@ -234,15 +253,33 @@ export default function ArmadoSimplePage() {
       return;
     }
     
+    // Si es "Otro motivo" y no hay detalles
+    if (pausaMotivo === "Otro motivo" && !pausaDetalles.trim()) {
+      toast({
+        title: "Detalle requerido",
+        description: "Debe especificar el detalle del motivo.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const motivoCompleto = pausaMotivo === "Otro motivo" 
       ? pausaDetalles 
       : pausaMotivo;
     
+    console.log("Motivo completo a enviar:", motivoCompleto);
+    
     if (pedido?.id) {
-      pausarPedidoMutation.mutate({
-        pedidoId: pedido.id,
-        motivo: motivoCompleto
-      });
+      try {
+        pausarPedidoMutation.mutate({
+          pedidoId: pedido.id,
+          motivo: motivoCompleto
+        });
+      } catch (error) {
+        console.error("Error al intentar pausar:", error);
+      }
+    } else {
+      console.error("No hay pedido ID para pausar");
     }
   };
   
@@ -422,88 +459,106 @@ export default function ArmadoSimplePage() {
       
       {/* Modal de pausa */}
       <Dialog open={showPausaModal} onOpenChange={setShowPausaModal}>
-        <DialogContent className="bg-white">
-          <DialogTitle>Pausar armado</DialogTitle>
-          <DialogDescription>
-            Seleccione el motivo por el cual desea pausar el pedido.
-          </DialogDescription>
-          
-          <div className="space-y-4 my-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Motivo de la pausa:</label>
-              <Select value={pausaMotivo} onValueChange={setPausaMotivo}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un motivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {motivosPausa.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {pausaMotivo === "Otro motivo" && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Detalle del motivo:</label>
-                <Input 
-                  value={pausaDetalles}
-                  onChange={(e) => setPausaDetalles(e.target.value)}
-                  placeholder="Especifique el motivo"
-                />
-              </div>
-            )}
+        <DialogContent className="bg-white p-0 overflow-hidden max-w-md">
+          <div className="bg-gray-100 p-3 border-b">
+            <DialogTitle className="text-center">Pausar armado</DialogTitle>
           </div>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPausaModal(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handlePausarPedido}
-              className="bg-amber-500 hover:bg-amber-600"
-            >
-              Pausar
-            </Button>
-          </DialogFooter>
+          <div className="p-4">
+            <DialogDescription className="text-center mb-3">
+              Seleccione el motivo por el cual desea pausar el pedido
+            </DialogDescription>
+            
+            <div className="space-y-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Motivo de la pausa:</label>
+                <Select value={pausaMotivo} onValueChange={setPausaMotivo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {motivosPausa.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {pausaMotivo === "Otro motivo" && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Detalle del motivo:</label>
+                  <Input 
+                    value={pausaDetalles}
+                    onChange={(e) => setPausaDetalles(e.target.value)}
+                    placeholder="Especifique el motivo"
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowPausaModal(false)}
+                className="bg-white"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handlePausarPedido}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                Pausar
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* Modal de motivo de faltante */}
       <Dialog open={showFaltanteModal} onOpenChange={setShowFaltanteModal}>
-        <DialogContent className="bg-white">
-          <DialogTitle>Motivo de faltante</DialogTitle>
-          <DialogDescription>
-            Indique el motivo por el cual la cantidad recolectada es menor a la solicitada.
-          </DialogDescription>
-          
-          <div className="space-y-4 my-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Motivo del faltante:</label>
-              <Select value={motivo} onValueChange={setMotivo}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un motivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {motivosFaltante.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <DialogContent className="bg-white p-0 overflow-hidden max-w-md">
+          <div className="bg-gray-100 p-3 border-b">
+            <DialogTitle className="text-center">Motivo de faltante</DialogTitle>
           </div>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFaltanteModal(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleGuardarMotivo}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Guardar motivo
-            </Button>
-          </DialogFooter>
+          <div className="p-4">
+            <DialogDescription className="text-center mb-3">
+              Indique el motivo por el cual la cantidad recolectada es menor a la solicitada
+            </DialogDescription>
+            
+            <div className="space-y-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Motivo del faltante:</label>
+                <Select value={motivo} onValueChange={setMotivo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione un motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {motivosFaltante.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowFaltanteModal(false)}
+                className="bg-white"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleGuardarMotivo}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Guardar motivo
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       
