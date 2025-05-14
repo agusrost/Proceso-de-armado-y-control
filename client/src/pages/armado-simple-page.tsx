@@ -312,8 +312,20 @@ export default function ArmadoSimplePage() {
         <h1 className="text-5xl font-bold mb-12">KONECTA</h1>
         
         <div className="bg-white text-black rounded-lg w-full p-6 mb-6">
-          <p className="text-xl font-bold mb-4">Código SKU: {currentProducto.codigo}</p>
-          <p className="text-lg mb-2">Cantidad: {currentProducto.cantidad}</p>
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-xl font-bold">Código SKU: {currentProducto.codigo}</p>
+            <span className={`inline-flex px-2 py-1 rounded-full text-sm font-semibold ${
+              currentProducto.recolectado !== null && (currentProducto.recolectado >= currentProducto.cantidad || currentProducto.motivo) 
+                ? 'bg-green-500 text-white' 
+                : 'bg-red-500 text-white'
+            }`}>
+              {currentProducto.recolectado !== null && (currentProducto.recolectado >= currentProducto.cantidad || currentProducto.motivo)
+                ? 'COMPLETO'
+                : `INCOMPLETO (${currentProducto.recolectado || 0}/${currentProducto.cantidad})`
+              }
+            </span>
+          </div>
+          <p className="text-lg mb-2">Cantidad: {currentProducto.cantidad} (Recolectado: {currentProducto.recolectado !== null ? currentProducto.recolectado : 0}/{currentProducto.cantidad})</p>
           <p className="text-lg mb-2">Ubicación: {currentProducto.ubicacion || "No especificada"}</p>
           <p className="text-lg mb-4">
             Descripción: {currentProducto.descripcion || currentProducto.codigo}
