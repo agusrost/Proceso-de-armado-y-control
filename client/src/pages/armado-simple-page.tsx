@@ -111,11 +111,21 @@ export default function ArmadoSimplePage() {
   
   // Actualizar producto mutation
   const actualizarProductoMutation = useMutation({
-    mutationFn: async (params: { id: number, recolectado: number, motivo?: string }) => {
-      const res = await apiRequest("PATCH", `/api/productos/${params.id}`, {
+    mutationFn: async (params: { id: number, recolectado: number, motivo?: string, prevenAutocompletar?: boolean }) => {
+      console.log(`📌 ENVIANDO ACTUALIZACIÓN: Producto ${params.id}, Recolectado=${params.recolectado}, Motivo=${params.motivo || 'ninguno'}, PrevenAutocompletar=${params.prevenAutocompletar}`);
+      
+      // Crear el cuerpo de la solicitud
+      const requestBody: any = {
         recolectado: params.recolectado,
         motivo: params.motivo
-      });
+      };
+      
+      // Agregar flag para prevenir autocompletado si está presente
+      if (params.prevenAutocompletar === true) {
+        requestBody.prevenAutocompletar = true;
+      }
+      
+      const res = await apiRequest("PATCH", `/api/productos/${params.id}`, requestBody);
       return await res.json();
     },
     onSuccess: async (data) => {
