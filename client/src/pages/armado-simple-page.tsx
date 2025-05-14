@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, Pause } from "lucide-react";
+import { Pause } from "lucide-react";
 import proceso from "@/utils/proceso";
 import {
   Dialog,
@@ -17,7 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ArmadoSimplePage() {
-  const { user } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [cantidad, setCantidad] = useState(0);
   const [motivo, setMotivo] = useState("");
@@ -27,6 +27,7 @@ export default function ArmadoSimplePage() {
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
   const [showTodosModal, setShowTodosModal] = useState(false);
+  const [showFaltanteModal, setShowFaltanteModal] = useState(false);
   
   // Obtener el pedido asignado al armador
   const { data: pedido } = useQuery({
@@ -137,10 +138,37 @@ export default function ArmadoSimplePage() {
   
   // Manejar cambio de cantidad
   const handleCantidadChange = (newValue: number) => {
-    setCantidad(Math.max(0, Math.min(newValue, productos[currentProductoIndex]?.cantidad || 0)));
+    const productoActual = productos[currentProductoIndex];
+    if (!productoActual) return;
+    
+    const cantidadActualizada = Math.max(0, Math.min(newValue, productoActual.cantidad || 0));
+    setCantidad(cantidadActualizada);
+    
+    // Si la cantidad es menor que la requerida, mostrar modal de faltante
+    if (cantidadActualizada < productoActual.cantidad) {
+      setShowFaltanteModal(true);
+    } else {
+      // Si ahora es igual a la cantidad requerida, cerrar modal y limpiar motivo
+      setShowFaltanteModal(false);
+      setMotivo("");
+    }
   };
   
-  // Manejar guardar y continuar
+  // Manejar guardar motivo faltante
+  const handleGuardarMotivo = () => {
+    if (!motivo) {
+      toast({
+        title: "Motivo requerido",
+        description: "Debe seleccionar un motivo de faltante cuando la cantidad es menor a la solicitada.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setShowFaltanteModal(false);
+  };
+  
+  // Manejar continuar
   const handleContinuar = () => {
     const productoActual = productos[currentProductoIndex];
     if (!productoActual) return;
@@ -152,6 +180,7 @@ export default function ArmadoSimplePage() {
         description: "Debe seleccionar un motivo de faltante cuando la cantidad es menor a la solicitada.",
         variant: "destructive"
       });
+      setShowFaltanteModal(true);
       return;
     }
     
@@ -217,11 +246,17 @@ export default function ArmadoSimplePage() {
     }
   };
   
+  // Cerrar sesión
+  const handleCerrarSesion = () => {
+    logoutMutation.mutate();
+  };
+  
   // Inicializar datos del producto actual
   useEffect(() => {
     if (productos && productos[currentProductoIndex]) {
       const producto = productos[currentProductoIndex];
-      setCantidad(producto.recolectado !== null ? producto.recolectado : 0);
+      // Inicializar con la cantidad requerida (en lugar de la recolectada)
+      setCantidad(producto.cantidad || 0);
       setMotivo(producto.motivo || "");
     }
   }, [productos, currentProductoIndex]);
@@ -257,14 +292,6 @@ export default function ArmadoSimplePage() {
   // Obtener el producto actual
   const productoActual = productos[currentProductoIndex];
   
-  // Obtener el estado de recolección
-  const getEstadoRecoleccion = () => {
-    if (productoActual.recolectado === null) return "";
-    if (productoActual.recolectado === productoActual.cantidad) return "COMPLETADO";
-    if (productoActual.recolectado > 0) return "INCOMPLETO";
-    return "";
-  };
-  
   return (
     <>
       <div className="min-h-screen bg-slate-900 flex flex-col">
@@ -283,35 +310,28 @@ export default function ArmadoSimplePage() {
             </div>
             
             <div className="bg-white text-black rounded-md shadow-lg p-4 w-full">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <div className="font-bold">Código SKU: {productoActual.codigo}</div>
-                </div>
-                {getEstadoRecoleccion() && (
-                  <div className={`text-xs font-semibold py-1 px-2 rounded ${getEstadoRecoleccion() === "COMPLETADO" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
-                    {getEstadoRecoleccion()}
-                  </div>
-                )}
+              <div className="mb-2">
+                <div className="font-bold">Código SKU: {productoActual.codigo}</div>
               </div>
               
               <div className="mb-2">
                 <div className="flex">
-                  <div className="w-24 font-semibold">Cantidad:</div> 
-                  <div>{productoActual.cantidad}</div>
+                  <div className="font-semibold">Cantidad:</div> 
+                  <div className="ml-1">{productoActual.cantidad}</div>
                   <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
                 </div>
               </div>
               
               <div className="mb-2">
-                <div className="flex">
-                  <div className="w-24 font-semibold">Ubicación:</div> 
+                <div>
+                  <div className="font-semibold">Ubicación:</div> 
                   <div>{productoActual.ubicacion}</div>
                 </div>
               </div>
               
               <div className="mb-4">
-                <div className="flex">
-                  <div className="w-24 font-semibold">Descripción:</div> 
+                <div>
+                  <div className="font-semibold">Descripción:</div> 
                   <div>{productoActual.descripcion}</div>
                 </div>
               </div>
@@ -320,7 +340,7 @@ export default function ArmadoSimplePage() {
                 <Button 
                   onClick={() => handleCantidadChange(cantidad - 1)}
                   variant="outline"
-                  className="h-10 w-10 rounded-full font-bold"
+                  className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
                 >
                   <span className="text-xl">-</span>
                 </Button>
@@ -333,11 +353,33 @@ export default function ArmadoSimplePage() {
                 <Button 
                   onClick={() => handleCantidadChange(cantidad + 1)}
                   variant="outline"
-                  className="h-10 w-10 rounded-full font-bold"
+                  className="h-10 w-10 rounded-full border-2 border-gray-300 font-bold"
                 >
                   <span className="text-xl">+</span>
                 </Button>
               </div>
+              
+              {/* Botón de motivo de faltante - sólo aparece si cantidad < requerida */}
+              {cantidad < productoActual.cantidad && (
+                <div className="mb-3">
+                  <div className="flex flex-col bg-amber-50 p-2 rounded border border-amber-200">
+                    <div className="font-semibold text-amber-800 mb-1">Motivo del faltante:</div>
+                    <Select 
+                      value={motivo} 
+                      onValueChange={setMotivo}
+                    >
+                      <SelectTrigger className="w-full bg-white">
+                        <SelectValue placeholder="Seleccione un motivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {motivosFaltante.map((m) => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               
               <Button 
                 onClick={handleContinuar}
@@ -367,7 +409,12 @@ export default function ArmadoSimplePage() {
             
             <div className="mt-8 text-center text-xs text-gray-400">
               <div>Usuario: {user?.username}</div>
-              <div>Cerrar sesión</div>
+              <button 
+                onClick={handleCerrarSesion}
+                className="text-gray-400 hover:text-white underline"
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
         </div>
@@ -417,6 +464,44 @@ export default function ArmadoSimplePage() {
               className="bg-amber-500 hover:bg-amber-600"
             >
               Pausar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de motivo de faltante */}
+      <Dialog open={showFaltanteModal} onOpenChange={setShowFaltanteModal}>
+        <DialogContent className="bg-white">
+          <DialogTitle>Motivo de faltante</DialogTitle>
+          <DialogDescription>
+            Indique el motivo por el cual la cantidad recolectada es menor a la solicitada.
+          </DialogDescription>
+          
+          <div className="space-y-4 my-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Motivo del faltante:</label>
+              <Select value={motivo} onValueChange={setMotivo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motivosFaltante.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFaltanteModal(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleGuardarMotivo}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Guardar motivo
             </Button>
           </DialogFooter>
         </DialogContent>
