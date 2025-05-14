@@ -436,6 +436,14 @@ export default function ArmadoSimplePage() {
             {/* Título del pedido */}
             <div className="text-center mb-4">
               <h2>Usted está armando el pedido {pedido.pedidoId} del cliente {pedido.clienteId}</h2>
+              
+              {/* Mensaje informativo cuando está pausado */}
+              {pausaActiva && (
+                <div className="mt-2 text-amber-500 bg-amber-50 p-2 rounded-md border border-amber-300">
+                  <p>Este pedido estaba pausado por motivo: <strong>{pedido.pausaActiva?.motivo}</strong></p>
+                  <p className="text-sm">Se muestran solo los productos pendientes de procesar</p>
+                </div>
+              )}
             </div>
             
             {/* Contenido principal de armado */}
@@ -725,16 +733,10 @@ export default function ArmadoSimplePage() {
         <DialogContent className="bg-white max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogTitle>Pedido {pedido.pedidoId}</DialogTitle>
           <DialogDescription>
-            {pausaActiva ? (
-              <span className="text-amber-600 font-medium">
-                Mostrando sólo productos pendientes (se han ocultado los ya procesados)
-              </span>
-            ) : (
-              "Lista completa de productos del pedido:"
-            )}
+            Lista completa de productos del pedido:
           </DialogDescription>
           
-          {/* Productos para mostrar - si está pausado, usamos la lista filtrada, si no, todos */}
+          {/* Productos para mostrar - siempre mostrar TODOS los productos en este modal */}
           <div className="mt-4 max-h-[60vh] overflow-y-auto">
             <table className="w-full border-collapse">
               <thead className="bg-gray-100">
@@ -748,8 +750,8 @@ export default function ArmadoSimplePage() {
                 </tr>
               </thead>
               <tbody>
-                {/* Al estar pausado, productos ya contiene solo los pendientes */}
-                {productos.map((producto: any) => {
+                {/* Mostrar TODOS los productos, sin filtro */}
+                {productosRaw.map((producto: any) => {
                   let estado = "Pendiente";
                   let bgColor = "bg-white";
                   
@@ -763,13 +765,29 @@ export default function ArmadoSimplePage() {
                     }
                   }
                   
+                  // Determinar si es seleccionable - solo los pendientes si está pausado
+                  const seleccionable = !pausaActiva || 
+                    (producto.recolectado === null || producto.recolectado === 0) || 
+                    (producto.recolectado < producto.cantidad && 
+                     (!producto.motivo || producto.motivo === "ninguno" || producto.motivo.trim() === ""));
+                  
                   return (
                     <tr 
                       key={producto.id}
-                      className={`${bgColor} hover:bg-gray-50 cursor-pointer`}
+                      className={`${bgColor} hover:${seleccionable ? 'bg-gray-50' : 'bg-gray-50'} ${seleccionable ? 'cursor-pointer' : 'cursor-default'}`}
                       onClick={() => {
-                        setCurrentProductoIndex(productos.findIndex((p: any) => p.id === producto.id));
-                        setShowTodosModal(false);
+                        if (seleccionable) {
+                          // Si el producto está en la lista filtrada, ir a su índice
+                          const indiceEnFiltrado = productos.findIndex((p: any) => p.id === producto.id);
+                          if (indiceEnFiltrado >= 0) {
+                            setCurrentProductoIndex(indiceEnFiltrado);
+                          } else if (!pausaActiva) {
+                            // Si no está pausado, podemos ir a cualquier producto
+                            const indiceOriginal = productosRaw.findIndex((p: any) => p.id === producto.id);
+                            setCurrentProductoIndex(indiceOriginal);
+                          }
+                          setShowTodosModal(false);
+                        }
                       }}
                     >
                       <td className="py-2 px-3">{producto.codigo}</td>
@@ -791,12 +809,10 @@ export default function ArmadoSimplePage() {
                 })}
                 
                 {/* Si no hay productos después del filtrado, mostrar mensaje */}
-                {productos.length === 0 && (
+                {productosRaw.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-4 text-center text-gray-500">
-                      {pausaActiva 
-                        ? "No hay productos pendientes para procesar" 
-                        : "No hay productos en este pedido"}
+                      No hay productos en este pedido
                     </td>
                   </tr>
                 )}
