@@ -72,7 +72,7 @@ export default function ProductoArmadoItem({
           </div>
         </div>
       </div>
-      {isCompleted && producto.recolectado < producto.cantidad && (
+      {isCompleted && cantidadRecolectada < producto.cantidad && (
         <div className="mt-1 text-xs text-red-500">
           Motivo: {producto.motivo || "No especificado"}
         </div>
