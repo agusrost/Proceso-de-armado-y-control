@@ -674,8 +674,8 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                       <span className="mr-1">⚠️</span>
                                       {/* CORRECCIÓN v2.0: Mensaje claro y sin ambigüedades sobre el faltante */}
                                     {producto.motivo.toLowerCase().includes('stock') 
-                                      ? `Faltante: Faltante de stock - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}`
-                                      : `Motivo: ${producto.motivo} - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}`}
+                                      ? `Faltante: Faltante de stock - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}${producto.completadoPor ? ` - Completado por: ${producto.completadoPor}` : ''}`
+                                      : `Motivo: ${producto.motivo} - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}${producto.completadoPor ? ` - Completado por: ${producto.completadoPor}` : ''}`}
                                     </div>
                                   )}
                                   
@@ -694,6 +694,9 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                         <TruckIcon className="h-3 w-3 text-blue-600" />
                                         <span className="font-medium text-blue-600">
                                           {unidadesTransferidas} {unidadesTransferidas === 1 ? 'unidad transferida' : 'unidades transferidas'} por Stock
+                                          {producto.completadoPor && (
+                                            <span className="ml-1">- Completado por: {producto.completadoPor}</span>
+                                          )}
                                         </span>
                                       </div>
                                     ) : null;
