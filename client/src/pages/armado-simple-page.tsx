@@ -177,12 +177,20 @@ export default function ArmadoSimplePage() {
   useEffect(() => {
     if (productos && productos[currentProductoIndex]) {
       setCurrentProducto(productos[currentProductoIndex]);
-      // Inicializar cantidad con lo que ya esté recolectado o con la cantidad solicitada
-      setCantidad(
-        productos[currentProductoIndex].recolectado !== null && productos[currentProductoIndex].recolectado !== undefined
-          ? productos[currentProductoIndex].recolectado
-          : productos[currentProductoIndex].cantidad
-      );
+      // CORRECCIÓN CRÍTICA: Inicializar cantidad con lo que ya esté recolectado o con CERO
+      // NUNCA inicializar con la cantidad solicitada para evitar autocompletado
+      const productoActual = productos[currentProductoIndex];
+      console.log(`Inicializando cantidad para producto ${productoActual.codigo}: recolectado=${productoActual.recolectado}, cantidad requerida=${productoActual.cantidad}`);
+
+      if (productoActual.recolectado !== null && productoActual.recolectado !== undefined) {
+        // Si ya tiene una cantidad recolectada, usarla
+        console.log(`Usando cantidad ya recolectada: ${productoActual.recolectado}`);
+        setCantidad(productoActual.recolectado);
+      } else {
+        // IMPORTANTE: Inicializar con 0, no con la cantidad total
+        console.log(`Inicializando con 0 en lugar de ${productoActual.cantidad} para evitar autocompletado`);
+        setCantidad(0);
+      }
     }
   }, [productos, currentProductoIndex]);
   
@@ -222,22 +230,26 @@ export default function ArmadoSimplePage() {
         return;
       }
       
-      // Actualizar producto con el motivo del faltante
+      // CORRECCIÓN CRÍTICA: Actualizar producto con motivo del faltante y flag para prevenir autocompletar
+      console.log(`⚠️ Enviando cantidad ${cantidad}/${currentProducto.cantidad} con motivo "${motivo}" y flag prevenAutocompletar=true`);
       actualizarProductoMutation.mutate({
         id: currentProducto.id,
         recolectado: cantidad,
-        motivo: motivo
+        motivo: motivo,
+        prevenAutocompletar: true
       });
       
       // Resetear estados
       setShowMotivoInput(false);
       setMotivo("");
     } else {
-      // Si la cantidad es completa, enviar sin motivo
+      // Si la cantidad es completa, enviar sin motivo (pero con el flag preventivo)
+      console.log(`Enviando cantidad exacta ${cantidad}/${currentProducto.cantidad} sin motivo, con flag prevenAutocompletar=true`);
       actualizarProductoMutation.mutate({
         id: currentProducto.id,
         recolectado: cantidad,
-        motivo: undefined
+        motivo: undefined,
+        prevenAutocompletar: true
       });
     }
   };
