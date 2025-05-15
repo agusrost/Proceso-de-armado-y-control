@@ -236,10 +236,10 @@ export async function checkAndUpdateToStockPendingStatus(pedidoNumeroId: number)
             motivo: `%${pedido.pedidoId}%`
           });
           
+          const cantidadFaltante = producto.cantidad - (producto.recolectado || 0);
+          
           if (solicitudesExistentes.length === 0) {
             actions.push(`Creando solicitud de stock para producto ${producto.codigo}`);
-            
-            const cantidadFaltante = producto.cantidad - (producto.recolectado || 0);
             
             // Crear solicitud de stock
             const solicitudData = {
@@ -256,7 +256,21 @@ export async function checkAndUpdateToStockPendingStatus(pedidoNumeroId: number)
             await storage.createStockSolicitud(solicitudData);
             actions.push(`Creada solicitud de stock para ${cantidadFaltante} unidades del producto ${producto.codigo}`);
           } else {
-            actions.push(`Ya existe una solicitud de stock para el producto ${producto.codigo}`);
+            // Ya existe una solicitud, pero actualizamos la cantidad si es necesario
+            const solicitudExistente = solicitudesExistentes[0];
+            
+            // No crear solicitudes duplicadas - consolidar en una sola con la cantidad correcta
+            if (solicitudExistente.estado === 'pendiente' && solicitudExistente.cantidad !== cantidadFaltante) {
+              await storage.updateStockSolicitud(solicitudExistente.id, {
+                cantidad: cantidadFaltante, 
+                // Actualizar fecha y hora por si acaso
+                fecha: new Date().toISOString().split('T')[0],
+                horario: new Date()
+              });
+              actions.push(`Actualizada solicitud existente ID ${solicitudExistente.id} para producto ${producto.codigo} con cantidad ${cantidadFaltante}`);
+            } else {
+              actions.push(`Ya existe una solicitud de stock para el producto ${producto.codigo} con cantidad ${solicitudExistente.cantidad}`);
+            }
           }
         } catch (error) {
           console.error(`Error al crear solicitud para el producto ${producto.codigo}:`, error);
