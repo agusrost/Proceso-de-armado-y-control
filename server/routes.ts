@@ -1411,8 +1411,18 @@ export async function registerRoutes(app: Application): Promise<Server> {
       console.log(`Pedido ${pedidoId} en estado "${pedido.estado}", verificando posibilidad de reanudar control...`);
       
       if (pedido.estado !== 'controlando') {
-        // Si está en estado armado o armado-pendiente-stock, lo convertimos a controlando
-        if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock') {
+        // Verificar si el pedido está en un estado que permite iniciar control
+        
+        if (pedido.estado === 'armado-pendiente-stock') {
+          // IMPORTANTE: Ya NO permitimos control para pedidos con pendientes de stock
+          // El control debe esperar a que stock confirme las transferencias pendientes
+          console.log(`⛔ Pedido ${pedidoId} en estado "${pedido.estado}" NO PUEDE iniciar control - Tiene transferencias pendientes de stock`);
+          return res.status(400).json({ 
+            error: 'ESTADO_INCOMPATIBLE',
+            message: 'Este pedido tiene transferencias de stock pendientes y no puede ser controlado hasta que sean confirmadas por el sector de stock.' 
+          });
+        }
+        else if (pedido.estado === 'armado') {
           console.log(`Pedido ${pedidoId} está en estado "${pedido.estado}", cambiándolo a controlando automáticamente`);
           await storage.updatePedido(pedidoId, {
             estado: 'controlando',
