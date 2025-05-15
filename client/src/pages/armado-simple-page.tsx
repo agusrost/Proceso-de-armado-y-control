@@ -30,6 +30,7 @@ export default function ArmadoSimplePage() {
   const [showPausaModal, setShowPausaModal] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
+  const [armadoFinalizadoModal, setArmadoFinalizadoModal] = useState(false);
   const [showTodosModal, setShowTodosModal] = useState(false);
   const [showFaltanteModal, setShowFaltanteModal] = useState(false);
   // Estados para manejar la pausa
@@ -414,6 +415,12 @@ export default function ArmadoSimplePage() {
     if (pedido?.id) {
       finalizarArmadoMutation.mutate(pedido.id);
     }
+  };
+  
+  // Manejar el cierre del modal de éxito de armado finalizado
+  const handleVolverDesdeArmadoFinalizado = () => {
+    setArmadoFinalizadoModal(false);
+    setLocation("/armador");
   };
   
   // Manejar clic en pausar
