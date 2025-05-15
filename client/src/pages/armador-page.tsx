@@ -115,13 +115,18 @@ export default function ArmadorPage() {
           setPedidoPausado(false);
           setButtonText("CONTINUAR ARMADO");
         }
-      } else if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock' || pedido.estado === 'controlado' || pedido.estado === 'finalizado') {
-        // Para pedidos ya finalizados o con estado de armado (con o sin pendientes de stock), no mostramos botón de continuar
+      } else if (pedido.estado === 'pendiente') {
+        // Para pedidos pendientes (no iniciados)
         setPedidoPausado(false);
         setButtonText("COMENZAR ARMADO");
-        // Simular que no hay pedido para este armador
-        // @ts-ignore
-        setPedido(null);
+      } else if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock' || pedido.estado === 'controlado' || pedido.estado === 'finalizado') {
+        // Para pedidos ya finalizados o con estado de armado (con o sin pendientes de stock), mostramos mensaje de que no hay pedidos
+        // y dejamos que la interfaz lo muestre en el área de "No hay pedidos pendientes"
+        console.log("Estado de pedido no procesable: " + pedido.estado);
+        // No mostramos este pedido al usuario, en su lugar mostraremos "No hay pedidos pendientes"
+        // Esto se maneja en el renderizado (pedido ? ... : ...)
+        // @ts-ignore - Hack para la UI, no es una solución ideal pero funciona por ahora
+        refetch();
       } else {
         // Para pedidos nuevos
         setPedidoPausado(false);
