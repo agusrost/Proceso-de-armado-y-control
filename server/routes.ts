@@ -4126,13 +4126,29 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
             const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
             
-            // IMPORTANTE: CAMBIO DE COMPORTAMIENTO - Marcar como "armado" en lugar de "armado-pendiente-stock"
-            // incluso cuando hay faltantes, siempre que tengan motivo
-            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, pero se marcará como "armado" ya que todos tienen motivo registrado`);
+            // Verificar si hay productos con motivos que requieren transferencia de stock
+            const motivosRequierenTransferencia = [
+              'Faltante de stock', 
+              'Stock no disponible', 
+              'Producto no encontrado'
+            ];
             
-            // Actualizar estado directamente a "armado" independientemente de si hay faltantes o no
+            const requiereTransferencia = productosFaltantes.some(p => 
+              motivosRequierenTransferencia.includes(p.motivo)
+            );
+            
+            // Determinar el estado final del pedido según los faltantes
+            let estadoFinal = 'armado';
+            if (requiereTransferencia) {
+              estadoFinal = 'armado-pendiente-stock';
+              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes que requieren transferencia de stock, se marcará como "${estadoFinal}"`);
+            } else {
+              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, pero se marcará como "${estadoFinal}" ya que no requieren transferencia de stock`);
+            }
+            
+            // Actualizar estado según la determinación anterior
             await storage.updatePedido(pedidoId, { 
-              estado: 'armado',
+              estado: estadoFinal,
               finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
               tiempoBruto: await calcularTiempoBruto(pedidoId),
               tiempoNeto: await calcularTiempoNeto(pedidoId)

@@ -37,6 +37,7 @@ export default function ArmadoSimplePage() {
   const [pausaActiva, setPausaActiva] = useState(false);
   const [pausaActualId, setPausaActualId] = useState<number | null>(null);
   const [mensajePausa, setMensajePausa] = useState("");
+  const [mensajeExito, setMensajeExito] = useState("");
   
   // Obtener el pedido asignado al armador
   const { data: pedido = {}, isLoading: isLoadingPedido, error: pedidoError } = useQuery({
@@ -865,6 +866,11 @@ export default function ArmadoSimplePage() {
           
           <DialogDescription className="text-center text-gray-600">
             Todos los productos han sido procesados correctamente
+            {mensajeExito && (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-left">
+                <strong>Importante:</strong> {mensajeExito}
+              </div>
+            )}
           </DialogDescription>
           
           <div className="flex justify-center my-6">
