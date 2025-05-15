@@ -3008,11 +3008,30 @@ export async function registerRoutes(app: Application): Promise<Server> {
       const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
       const hasFaltantes = productosFaltantes.length > 0;
       
-      // IMPORTANTE: CAMBIO DE COMPORTAMIENTO - Siempre marcar como "armado" en lugar de "armado-pendiente-stock"
-      // incluso cuando hay faltantes, siempre que tengan motivo
-      const estadoFinal = 'armado';
+      // Determinar el estado final del pedido
+      // Si hay faltantes que requieren transferencia de stock, marcarlo como "armado-pendiente-stock"
+      // para que no esté disponible para control hasta que stock confirme las transferencias
+      let estadoFinal = 'armado';
       
-      // Actualizar el pedido siempre como armado
+      // Verificar si alguno de los productos tiene motivo de faltante relacionado con stock
+      const motivosRequierenTransferencia = [
+        'Faltante de stock', 
+        'Stock no disponible', 
+        'Producto no encontrado'
+      ];
+      
+      const requiereTransferencia = productosFaltantes.some(p => 
+        motivosRequierenTransferencia.includes(p.motivo)
+      );
+      
+      if (hasFaltantes && requiereTransferencia) {
+        estadoFinal = 'armado-pendiente-stock';
+        console.log(`⚠️ Pedido ${pedidoId} requiere transferencias de stock - Marcado como "${estadoFinal}"`);
+      } else {
+        console.log(`✅ Pedido ${pedidoId} finalizado sin necesidad de transferencias - Marcado como "${estadoFinal}"`);
+      }
+      
+      // Actualizar el pedido con el estado correspondiente
       const pedidoActualizado = await storage.updatePedido(pedidoId, { 
         estado: estadoFinal,
         finalizado: new Date(), // Registrar la fecha/hora de finalización
