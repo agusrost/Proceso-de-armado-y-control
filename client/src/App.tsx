@@ -37,6 +37,7 @@ function Router() {
       <ProtectedRoute path="/config" component={ConfigPage} />
       <ProtectedRoute path="/armado" component={ArmadoSimplePage} />
       <ProtectedRoute path="/armado-simple" component={ArmadoSimplePage} />
+      <ProtectedRoute path="/armado-simple/:id" component={ArmadoSimplePage} />
       <ProtectedRoute path="/armado-antiguo" component={ArmadoPage} />
       <ProtectedRoute path="/armador" component={ArmadorPage} />
       
