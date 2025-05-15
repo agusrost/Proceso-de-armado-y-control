@@ -95,6 +95,7 @@ export default function ArmadorPage() {
   // Verificar si hay un pedido en proceso
   const [buttonText, setButtonText] = useState("COMENZAR");
   const [pedidoPausado, setPedidoPausado] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   
   useEffect(() => {
     // Actualizar texto del botón
@@ -193,6 +194,7 @@ export default function ArmadorPage() {
                   // Ir directamente a la página de armado simple sin reiniciar el pedido
                   if (pedido && pedido.id) {
                     console.log("🚀 Redirigiendo a armado simple del pedido pausado:", pedido.id);
+                    setIsNavigating(true);
                     setLocation(`/armado-simple/${pedido.id}`);
                   }
                 }}
