@@ -2768,24 +2768,32 @@ export async function registerRoutes(app: Application): Promise<Server> {
                   `);
                   
                   // Luego actualizamos el mensaje por separado para evitar problemas de tipos de datos
-                  const nuevoMotivo = `Faltante en ubicación [Stock: Transferencia completada - ${unidadesTransferidas} unidades]`;
+                  // Obtener información del usuario que completó la solicitud
+                  const realizador = await storage.getUser(userIdActual);
+                  const nombreRealizador = realizador ? realizador.username : 'Usuario desconocido';
+                  
+                  const nuevoMotivo = `Faltante en ubicación [Stock: Transferencia completada por ${nombreRealizador} - ${unidadesTransferidas} unidades]`;
                   await db.execute(sql`
                     UPDATE productos 
                     SET motivo = ${nuevoMotivo}
                     WHERE id = ${producto.id}
                   `);
                   
-                  console.log(`Producto ${producto.codigo} actualizado: ${unidadesTransferidas} unidades transferidas por stock, marcado como completamente recolectado`);
+                  console.log(`Producto ${producto.codigo} actualizado: ${unidadesTransferidas} unidades transferidas por stock (completado por ${nombreRealizador}), marcado como completamente recolectado`);
                 } else if (estado === 'no-hay') {
                   // Registrar que no se pudo completar la transferencia
-                  const nuevoMotivoNoHay = `Faltante en ubicación [Stock: No disponible para transferencia]`;
+                  // Obtener información del usuario que completó la solicitud
+                  const realizador = await storage.getUser(userIdActual);
+                  const nombreRealizador = realizador ? realizador.username : 'Usuario desconocido';
+                  
+                  const nuevoMotivoNoHay = `Faltante en ubicación [Stock: No disponible para transferencia - Verificado por ${nombreRealizador}]`;
                   await db.execute(sql`
                     UPDATE productos 
                     SET motivo = ${nuevoMotivoNoHay}
                     WHERE id = ${producto.id}
                   `);
                   
-                  console.log(`Producto ${producto.codigo} actualizado: no disponible para transferencia`);
+                  console.log(`Producto ${producto.codigo} actualizado: no disponible para transferencia (verificado por ${nombreRealizador})`);
                 }
               } else {
                 console.log(`No se encontró un producto con código ${solicitud.codigo} en el pedido ${pedido.id}`);
