@@ -247,6 +247,17 @@ export default function ArmadoSimplePage() {
     onSuccess: (data) => {
       console.log("✅ Pedido finalizado exitosamente:", data);
       
+      // Mensaje personalizado para mostrar en el modal de éxito
+      let mensajeAdicional = "";
+      
+      // Verificar si el pedido se marcó como "armado-pendiente-stock"
+      if (data && data.estado === "armado-pendiente-stock") {
+        mensajeAdicional = "El pedido requiere transferencias de stock. Las solicitudes han sido enviadas al equipo de stock.";
+      }
+      
+      // Guardar el mensaje para mostrarlo en el modal
+      setMensajeExito(mensajeAdicional);
+      
       // Mostrar modal de éxito SIEMPRE que se finalice correctamente
       setSuccessModal(true);
       
