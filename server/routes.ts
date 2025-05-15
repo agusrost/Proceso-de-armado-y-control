@@ -2702,26 +2702,11 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Actualizar el pedido si corresponde
-      if (solicitud.motivo && (
-          solicitud.motivo.includes('Pedido ID') || 
-          solicitud.motivo.includes('pedido P')
-      )) {
-        // Extraer el ID del pedido desde el motivo (dos formatos posibles)
-        let pedidoIdStr = null;
-        
-        // Formato 1: "Faltante en pedido PXXXX - ..."
-        const matchFormato1 = solicitud.motivo.match(/pedido (P\d+)/i);
-        if (matchFormato1 && matchFormato1[1]) {
-          pedidoIdStr = matchFormato1[1];
-        }
-        
-        // Formato 2: "Pedido ID: XXXX"
-        const matchFormato2 = solicitud.motivo.match(/Pedido ID[:\s]+(\w+)/i);
-        if (matchFormato2 && matchFormato2[1]) {
-          pedidoIdStr = matchFormato2[1];
-        }
-        
-        if (pedidoIdStr) {
+      if (solicitud.motivo && solicitud.motivo.includes('Pedido ID')) {
+        // Extraer el ID del pedido desde el motivo (formato: "Faltante en pedido PXXXX - ...")
+        const match = solicitud.motivo.match(/Pedido ID (\w+)/);
+        if (match && match[1]) {
+          const pedidoIdStr = match[1];
           console.log(`La solicitud está relacionada con el pedido: ${pedidoIdStr}`);
           
           // Buscar el pedido por su ID alfanumérico (pedido_id)
@@ -2921,11 +2906,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
-  /**
-   * Función auxiliar para manejar la finalización de pedidos
-   * Utilizada por los endpoints /api/pedidos/:id/finalizar y /api/pedidos/:id/finalizar-armado
-   */
-  async function handleFinalizarPedido(req: Request, res: Response, next: NextFunction) {
+  // Endpoint específico para finalizar pedidos forzadamente
+  app.post("/api/pedidos/:id/finalizar", requireAuth, async (req, res, next) => {
     try {
       const pedidoId = parseInt(req.params.id);
       const forzar = req.query.forzar === 'true';
@@ -3061,189 +3043,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         success: true,
         message: `Pedido finalizado como ${estadoFinal}`,
         pedido: pedidoActualizado,
-        forzado: forzar,
-        hasFaltantes: hasFaltantes
-      });
-    } catch (error) {
-      console.error('Error al finalizar pedido:', error);
-      next(error);
-    }
-  }
-
-  // Endpoint específico para finalizar pedidos desde la interfaz de armado
-  app.post("/api/pedidos/:id/finalizar", requireAuth, async (req, res, next) => {
-    return handleFinalizarPedido(req, res, next);
-  });
-
-  // Alias para mantener compatibilidad con la versión anterior de la API
-  app.post("/api/pedidos/:id/finalizar-armado", requireAuth, async (req, res, next) => {
-    return handleFinalizarPedido(req, res, next);
-  });
-  
-  // Endpoint para obtener contador de pedidos pendientes en pantalla principal
-  app.get("/api/pedidos/contador", requireAuth, async (req, res, next) => {
-    try {
-      // Contar pedidos en diferentes estados
-      const countPendientes = await db.select({ count: sql`count(*)` })
-        .from(pedidos)
-        .where(eq(pedidos.estado, 'pendiente'));
-        
-      const countEnProceso = await db.select({ count: sql`count(*)` })
-        .from(pedidos)
-        .where(eq(pedidos.estado, 'en-proceso'));
-        
-      const countPendienteStock = await db.select({ count: sql`count(*)` })
-        .from(pedidos)
-        .where(eq(pedidos.estado, 'armado-pendiente-stock'));
-      
-      console.log("Obteniendo contadores de pedidos para pantalla principal");
-      
-      // Devolver resultados
-      res.json({
-        pendientes: parseInt(countPendientes[0].count.toString()),
-        enProceso: parseInt(countEnProceso[0].count.toString()),
-        pendienteStock: parseInt(countPendienteStock[0].count.toString()),
-        total: parseInt(countPendientes[0].count.toString()) + 
-               parseInt(countEnProceso[0].count.toString()) +
-               parseInt(countPendienteStock[0].count.toString())
-      });
-    } catch (error) {
-      console.error("Error al obtener contador de pedidos:", error);
-      next(error);
-    }
-  });
-
-  // Ruta para actualizar el estado de un pedido
-  app.put("/api/pedidos/:id/estado", requireAuth, async (req, res, next) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { estado } = req.body;
-      
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "ID de pedido inválido" });
-      }
-      
-      if (!estado) {
-        return res.status(400).json({ message: "Se requiere el parámetro 'estado'" });
-      }
-      
-      // Verificar que el pedido existe
-      const pedido = await storage.getPedidoById(id);
-      if (!pedido) {
-        return res.status(404).json({ message: "Pedido no encontrado" });
-      }
-      
-      // Actualizar el estado
-      console.log(`Actualizando estado del pedido ${id} a: ${estado}`);
-      const pedidoActualizado = await storage.updatePedido(id, { estado });
-      
-      // Responder con el pedido actualizado
-      return res.json(pedidoActualizado);
-    } catch (error) {
-      console.error(`Error al actualizar estado del pedido ${req.params.id}:`, error);
-      next(error);
-    }
-  });
-
-  // Endpoint para crear un nuevo faltante
-  app.post("/api/faltantes", requireAuth, async (req, res, next) => {
-            await storage.updatePausa(pausa.id, {
-              fin: ahora,
-              duracion: duracionFormateada
-            });
-            
-            console.log(`Pausa ${pausa.id} finalizada automáticamente. Duración: ${duracionFormateada}`);
-          } catch (err) {
-            console.error(`Error al finalizar pausa ${pausa.id}:`, err);
-          }
-        }
-      }
-      
-      // Verificar si todos los productos están completados o tienen motivo de faltante
-      const productos = await storage.getProductosByPedidoId(pedidoId);
-      
-      // Verificar si todos los productos están completados
-      const todosCompletados = productos.every(esProductoCompletado);
-      
-      if (!todosCompletados && !forzar) {
-        console.log(`⛔ FINALIZACIÓN CANCELADA: El pedido ${pedidoId} tiene productos sin completar`);
-        return res.status(400).json({ 
-          message: 'No se puede finalizar el pedido porque hay productos sin completar',
-          productosIncompletos: productos.filter(p => !esProductoCompletado(p))
-        });
-      }
-      
-      if (!todosCompletados && forzar) {
-        console.log(`⚠️ FORZANDO FINALIZACIÓN: El pedido ${pedidoId} tiene productos sin completar que serán ignorados`);
-      }
-      
-      // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
-      const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
-      const hasFaltantes = productosFaltantes.length > 0;
-      
-      // Determinar el estado final del pedido
-      // Si hay faltantes que requieren transferencia de stock, marcarlo como "armado-pendiente-stock"
-      // para que no esté disponible para control hasta que stock confirme las transferencias
-      let estadoFinal = 'armado';
-      
-      // Verificar si alguno de los productos tiene motivo de faltante relacionado con stock
-      const motivosRequierenTransferencia = [
-        'Faltante de stock', 
-        'Stock no disponible', 
-        'Producto no encontrado'
-      ];
-      
-      const requiereTransferencia = productosFaltantes.some(p => 
-        motivosRequierenTransferencia.includes(p.motivo)
-      );
-      
-      if (hasFaltantes && requiereTransferencia) {
-        estadoFinal = 'armado-pendiente-stock';
-        console.log(`⚠️ Pedido ${pedidoId} requiere transferencias de stock - Marcado como "${estadoFinal}"`);
-      } else {
-        console.log(`✅ Pedido ${pedidoId} finalizado sin necesidad de transferencias - Marcado como "${estadoFinal}"`);
-      }
-      
-      // Actualizar el pedido con el estado correspondiente
-      const pedidoActualizado = await storage.updatePedido(pedidoId, { 
-        estado: estadoFinal,
-        finalizado: new Date(), // Registrar la fecha/hora de finalización
-        tiempoBruto: await calcularTiempoBruto(pedidoId),
-        tiempoNeto: await calcularTiempoNeto(pedidoId)
-      });
-      
-      console.log(`🏁 FINALIZACIÓN ${forzar ? 'FORZADA' : 'NORMAL'}: Pedido ${pedidoId} marcado como "${estadoFinal}" ${hasFaltantes ? ' a pesar de tener faltantes' : ''}`);
-      
-      // Si hay faltantes, crear solicitudes de transferencia (aunque el pedido esté en estado 'armado')
-      if (hasFaltantes) {
-        for (const producto of productosFaltantes) {
-          try {
-            // Crear solicitud de stock
-            const solicitudData = {
-              fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
-              horario: new Date(),
-              codigo: producto.codigo,
-              cantidad: producto.cantidad - (producto.recolectado || 0),
-              motivo: `Faltante en pedido ${pedido.pedidoId} - ${producto.motivo || 'Sin stock'}`,
-              estado: 'pendiente',
-              solicitadoPor: req.user?.id,
-              solicitante: req.user?.username
-            };
-            
-            console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
-            await storage.createStockSolicitud(solicitudData);
-          } catch (error) {
-            console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
-          }
-        }
-      }
-      
-      res.json({
-        success: true,
-        message: `Pedido finalizado como ${estadoFinal}`,
-        pedido: pedidoActualizado,
-        forzado: forzar,
-        hasFaltantes: hasFaltantes
+        forzado: forzar
       });
     } catch (error) {
       console.error('Error al finalizar pedido:', error);
@@ -4326,29 +4126,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
             const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
             
-            // Verificar si hay productos con motivos que requieren transferencia de stock
-            const motivosRequierenTransferencia = [
-              'Faltante de stock', 
-              'Stock no disponible', 
-              'Producto no encontrado'
-            ];
+            // IMPORTANTE: CAMBIO DE COMPORTAMIENTO - Marcar como "armado" en lugar de "armado-pendiente-stock"
+            // incluso cuando hay faltantes, siempre que tengan motivo
+            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, pero se marcará como "armado" ya que todos tienen motivo registrado`);
             
-            const requiereTransferencia = productosFaltantes.some(p => 
-              motivosRequierenTransferencia.includes(p.motivo)
-            );
-            
-            // Determinar el estado final del pedido según los faltantes
-            let estadoFinal = 'armado';
-            if (requiereTransferencia) {
-              estadoFinal = 'armado-pendiente-stock';
-              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes que requieren transferencia de stock, se marcará como "${estadoFinal}"`);
-            } else {
-              console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, pero se marcará como "${estadoFinal}" ya que no requieren transferencia de stock`);
-            }
-            
-            // Actualizar estado según la determinación anterior
+            // Actualizar estado directamente a "armado" independientemente de si hay faltantes o no
             await storage.updatePedido(pedidoId, { 
-              estado: estadoFinal,
+              estado: 'armado',
               finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
               tiempoBruto: await calcularTiempoBruto(pedidoId),
               tiempoNeto: await calcularTiempoNeto(pedidoId)

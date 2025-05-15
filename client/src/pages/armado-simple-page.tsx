@@ -37,7 +37,6 @@ export default function ArmadoSimplePage() {
   const [pausaActiva, setPausaActiva] = useState(false);
   const [pausaActualId, setPausaActualId] = useState<number | null>(null);
   const [mensajePausa, setMensajePausa] = useState("");
-  const [mensajeExito, setMensajeExito] = useState("");
   
   // Obtener el pedido asignado al armador
   const { data: pedido = {}, isLoading: isLoadingPedido, error: pedidoError } = useQuery({
@@ -247,27 +246,6 @@ export default function ArmadoSimplePage() {
     },
     onSuccess: (data) => {
       console.log("✅ Pedido finalizado exitosamente:", data);
-      
-      // Mensaje personalizado para mostrar en el modal de éxito
-      let mensajeAdicional = "";
-      
-      // Verificar si el pedido tiene estado de pendiente stock o hay mensaje sobre solicitudes de stock
-      if (data) {
-        // Caso 1: El pedido está marcado como pendiente de stock
-        if (data.pedido && data.pedido.estado === "armado-pendiente-stock") {
-          mensajeAdicional = "El pedido requiere transferencias de stock. Las solicitudes han sido enviadas al equipo de stock.";
-        } 
-        // Caso 2: El pedido está marcado como armado, pero se crearon solicitudes de stock
-        else if (data.message && data.message.includes("armado")) {
-          // Verificar si el mensaje menciona faltantes
-          if (data.hasFaltantes) {
-            mensajeAdicional = "El pedido ha sido finalizado. Se han registrado solicitudes de stock para los productos faltantes.";
-          }
-        }
-      }
-      
-      // Guardar el mensaje para mostrarlo en el modal
-      setMensajeExito(mensajeAdicional);
       
       // Mostrar modal de éxito SIEMPRE que se finalice correctamente
       setSuccessModal(true);
@@ -876,11 +854,6 @@ export default function ArmadoSimplePage() {
           
           <DialogDescription className="text-center text-gray-600">
             Todos los productos han sido procesados correctamente
-            {mensajeExito && (
-              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-700 text-left">
-                <strong>Importante:</strong> {mensajeExito}
-              </div>
-            )}
           </DialogDescription>
           
           <div className="flex justify-center my-6">
