@@ -4126,20 +4126,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
             // Verificar si hay productos faltantes (consideramos faltante cualquier producto con motivo)
             const productosFaltantes = productos.filter(p => p.motivo && p.motivo.trim() !== '');
             
-            // IMPORTANTE: CAMBIO DE COMPORTAMIENTO - Marcar como "armado" en lugar de "armado-pendiente-stock"
-            // incluso cuando hay faltantes, siempre que tengan motivo
-            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, pero se marcará como "armado" ya que todos tienen motivo registrado`);
+            // CORREGIDO: Cuando hay faltantes, marcar como "armado-pendiente-stock"
+            // para evitar que aparezca como disponible en control
+            const nuevoEstado = productosFaltantes.length > 0 ? 'armado-pendiente-stock' : 'armado';
             
-            // Actualizar estado directamente a "armado" independientemente de si hay faltantes o no
+            console.log(`El pedido ${pedidoId} tiene ${productosFaltantes.length} productos faltantes, se marcará como "${nuevoEstado}"`);
+            
+            // Actualizar estado según si hay faltantes o no
             await storage.updatePedido(pedidoId, { 
-              estado: 'armado',
+              estado: nuevoEstado,
               finalizado: new Date(), // Registrar la fecha/hora de finalización (como objeto Date)
               tiempoBruto: await calcularTiempoBruto(pedidoId),
               tiempoNeto: await calcularTiempoNeto(pedidoId)
             });
             
-            // Notificar finalización (armado completo)
-            console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} marcado como "armado" aunque tiene ${productosFaltantes.length} productos con faltantes registrados`);
+            // Notificar finalización
+            console.log(`🏁 FINALIZACIÓN AUTOMÁTICA (getProductos): Pedido ${pedidoId} marcado como "${nuevoEstado}" ${productosFaltantes.length > 0 ? 'porque tiene productos con faltantes registrados' : 'sin faltantes'}`);
+            
             
             // Si hay faltantes, crear solicitudes de transferencia para cada uno
             // aunque el pedido esté marcado como armado

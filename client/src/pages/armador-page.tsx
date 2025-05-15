@@ -112,11 +112,12 @@ export default function ArmadorPage() {
           setPedidoPausado(false);
           setButtonText("CONTINUAR ARMADO");
         }
-      } else if (pedido.estado === 'armado' || pedido.estado === 'controlado' || pedido.estado === 'finalizado') {
-        // Para pedidos ya finalizados, no mostramos botón de continuar
+      } else if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock' || pedido.estado === 'controlado' || pedido.estado === 'finalizado') {
+        // Para pedidos ya finalizados o con estado de armado (con o sin pendientes de stock), no mostramos botón de continuar
         setPedidoPausado(false);
         setButtonText("COMENZAR");
         // Simular que no hay pedido para este armador
+        // @ts-ignore
         setPedido(null);
       } else {
         // Para pedidos nuevos
