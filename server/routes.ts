@@ -7,6 +7,7 @@ import { WebSocketServer } from 'ws';
 import { sql, eq } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import { pedidos, StockSolicitud } from '@shared/schema';
+import stockRouter from './routes/stock-endpoints';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
