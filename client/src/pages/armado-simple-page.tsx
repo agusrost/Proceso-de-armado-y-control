@@ -227,17 +227,33 @@ export default function ArmadoSimplePage() {
   // Finalizar armado mutation
   const finalizarArmadoMutation = useMutation({
     mutationFn: async (pedidoId: number) => {
-      const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar-armado`, {});
-      return await res.json();
+      console.log("🏁 Ejecutando finalización manual del pedido:", pedidoId);
+      try {
+        const res = await apiRequest("POST", `/api/pedidos/${pedidoId}/finalizar-armado`, {});
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || `Error al finalizar pedido: ${res.status} ${res.statusText}`);
+        }
+        
+        const data = await res.json();
+        return data;
+      } catch (error) {
+        console.error("Error finalizando pedido:", error);
+        throw error;
+      }
     },
-    onSuccess: () => {
-      // Mostrar modal de éxito
+    onSuccess: (data) => {
+      console.log("✅ Pedido finalizado exitosamente:", data);
+      
+      // Mostrar modal de éxito SIEMPRE que se finalice correctamente
       setSuccessModal(true);
       
       // Recargar datos
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     },
     onError: (error: Error) => {
+      console.error("❌ Error al finalizar armado:", error);
       toast({
         title: "Error al finalizar",
         description: error.message,
@@ -267,13 +283,18 @@ export default function ArmadoSimplePage() {
       // Un producto está procesado si:
       // - Ha sido recolectado completamente, O
       // - Tiene una cantidad recolectada menor y un motivo de faltante
-      return (
+      const procesado = (
         producto.recolectado === producto.cantidad || 
         (producto.recolectado < producto.cantidad && producto.motivo && producto.motivo.trim() !== "")
       );
+      console.log(`Verificando producto ${producto.codigo}: ${procesado ? 'Procesado' : 'Pendiente'}`);
+      return procesado;
     });
     
+    console.log(`Todos los productos procesados: ${todosProcesados}, Pausa activa: ${pausaActiva}`);
+    
     if (todosProcesados && !pausaActiva) {
+      console.log("⚠️ Todos los productos están procesados - Mostrando opción para finalizar");
       // Si no hay productos pendientes de procesar, mostrar modal para finalizar armado
       setShowFinalizarModal(true);
     }
@@ -333,6 +354,27 @@ export default function ArmadoSimplePage() {
       setPausaActualId(null);
     }
   }, [pedido]);
+  
+  // Effect para detectar cuando un pedido ha sido finalizado automáticamente 
+  // (cambiado de estado 'en-proceso' o 'armado-pendiente-stock' a 'armado')
+  const [prevPedidoEstado, setPrevPedidoEstado] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (!pedido || !pedido.estado) return;
+    
+    console.log(`Estado del pedido: ${prevPedidoEstado} -> ${pedido.estado}`);
+    
+    // Si el estado anterior existe y el estado ha cambiado a 'armado'
+    if (prevPedidoEstado && 
+        (prevPedidoEstado === 'en-proceso' || prevPedidoEstado === 'armado-pendiente-stock') && 
+        pedido.estado === 'armado') {
+      console.log("🎉 PEDIDO FINALIZADO AUTOMÁTICAMENTE - Mostrando diálogo de éxito");
+      setSuccessModal(true);
+    }
+    
+    // Actualizar el estado anterior para la próxima vez
+    setPrevPedidoEstado(pedido.estado);
+  }, [pedido?.estado]);
   
   // Verificar si se requiere motivo para continuar
   const motivoRequerido = cantidad < productoActual.cantidad && motivo === "";
