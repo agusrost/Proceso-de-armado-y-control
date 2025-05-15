@@ -88,7 +88,7 @@ export async function checkAndUpdatePendingStockOrder(pedidoNumeroId: number): P
       
       // Si no hay productos faltantes, o todos tienen unidades transferidas o marcados como no disponibles, cambiar a "armado"
       const todosFaltantesResueltos = productosFaltantes.every(p => 
-        p.unidades_transferidas > 0 || 
+        (p.unidadesTransferidas && p.unidadesTransferidas > 0) || 
         (p.motivo && (
           p.motivo.toLowerCase().includes('no disponible') || 
           p.motivo.toLowerCase().includes('transferencia completada')

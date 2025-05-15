@@ -22,7 +22,7 @@ export async function handleStockRequestUpdate(solicitudId: number, estado: stri
   }
   
   // Datos para actualizar la solicitud
-  const solicitudData = {
+  const solicitudData: any = {
     estado,
     realizadoPor: estado !== 'pendiente' ? userId : null
   };
