@@ -503,7 +503,7 @@ export class DatabaseStorage implements IStorage {
       };
       
       if (armadorId) {
-        // NUEVO: Primero buscamos pedidos pausados (armado-pendiente-stock o en-proceso) para este armador
+        // NUEVO: Primero buscamos pedidos pausados (sólo en-proceso) para este armador
         const pedidoPausado = await buscarPedidosPausados(armadorId);
         if (pedidoPausado) {
           console.log(`Encontrado pedido pausado para armador ${armadorId}: ${pedidoPausado.pedidoId} (Estado: ${pedidoPausado.estado})`);
@@ -522,7 +522,10 @@ export class DatabaseStorage implements IStorage {
           return pedidoEnProceso as Pedido;
         }
         
-        // Buscamos pedidos específicamente en estado armado-pendiente-stock para este armador
+        // YA NO BUSCAMOS pedidos con estado armado-pendiente-stock porque esos ya están armados
+        // y están solo esperando transferencia de stock
+        
+        /* El siguiente código se ha comentado para evitar mostrar pedidos ya armados
         const pedidoPendienteStock = await executeQuery(
           'armado-pendiente-stock', 
           'AND armador_id = $2', 
@@ -532,6 +535,8 @@ export class DatabaseStorage implements IStorage {
         if (pedidoPendienteStock) {
           console.log(`Encontrado pedido en estado pendiente-stock para armador ${armadorId}: ${pedidoPendienteStock.pedidoId}`);
           return pedidoPendienteStock as Pedido;
+        }
+        */
         }
         
         // Buscamos pedidos en proceso sin armador asignado
