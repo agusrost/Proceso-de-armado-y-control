@@ -2987,22 +2987,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // para que no esté disponible para control hasta que stock confirme las transferencias
       let estadoFinal = 'armado';
       
-      // Verificar si alguno de los productos tiene motivo de faltante relacionado con stock
-      const motivosRequierenTransferencia = [
-        'Faltante de stock', 
-        'Stock no disponible', 
-        'Producto no encontrado'
-      ];
-      
-      const requiereTransferencia = productosFaltantes.some(p => 
-        motivosRequierenTransferencia.includes(p.motivo)
-      );
-      
-      if (hasFaltantes && requiereTransferencia) {
+      // CORREGIDO: Cualquier pedido con productos faltantes debe marcarse como pendiente de stock
+      // independientemente del motivo específico del faltante
+      if (hasFaltantes) {
         estadoFinal = 'armado-pendiente-stock';
-        console.log(`⚠️ Pedido ${pedidoId} requiere transferencias de stock - Marcado como "${estadoFinal}"`);
+        console.log(`⚠️ Pedido ${pedidoId} tiene productos faltantes - Marcado como "${estadoFinal}"`);
       } else {
-        console.log(`✅ Pedido ${pedidoId} finalizado sin necesidad de transferencias - Marcado como "${estadoFinal}"`);
+        console.log(`✅ Pedido ${pedidoId} finalizado sin faltantes - Marcado como "${estadoFinal}"`);
       }
       
       // Actualizar el pedido con el estado correspondiente
@@ -3771,6 +3762,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         console.log(`Pedido ${pedido.pedidoId} iniciado por el armador ${req.user.username} (${req.user.id})`);
       } else if (pedido.estado === 'armado-pendiente-stock') {
         // Si está en estado "armado-pendiente-stock", lo actualizamos a "en-proceso"
+        // para que el armador pueda continuar trabajando con él
         try {
           console.log(`Cambiando estado de pedido ${pedido.pedidoId} de 'armado-pendiente-stock' a 'en-proceso'`);
           
