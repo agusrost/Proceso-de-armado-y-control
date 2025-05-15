@@ -66,6 +66,8 @@ export default function ControlPedidoSimplePage() {
     cantidad: 0,
     excedente: 0
   });
+  // Estado para rastrear los productos con excedentes ya ajustados
+  const [excentesYaAjustados, setExcentesYaAjustados] = useState<string[]>([]);
   const [pausaDialogOpen, setPausaDialogOpen] = useState(false);
   const [motivoPausa, setMotivoPausa] = useState("");
   const [motivoPausaOtro, setMotivoPausaOtro] = useState("");
@@ -197,8 +199,10 @@ export default function ControlPedidoSimplePage() {
   // Detectar productos con excedentes y mostrar el diálogo
   useEffect(() => {
     if (productosControlados.length > 0) {
-      // Buscar productos con excedentes
-      const productosExcedentes = productosControlados.filter(p => p.estado === 'excedente');
+      // Buscar productos con excedentes que no hayan sido ajustados previamente
+      const productosExcedentes = productosControlados.filter(p => 
+        p.estado === 'excedente' && !excentesYaAjustados.includes(p.codigo)
+      );
       
       if (productosExcedentes.length > 0) {
         console.log("Productos excedentes detectados:", productosExcedentes);
@@ -218,7 +222,7 @@ export default function ControlPedidoSimplePage() {
         }
       }
     }
-  }, [productosControlados, productoExcedenteDialog.open]);
+  }, [productosControlados, productoExcedenteDialog.open, excentesYaAjustados]);
 
   // Mutación para finalizar control
   const finalizarControlMutation = useMutation({
