@@ -2921,8 +2921,13 @@ export async function registerRoutes(app: Application): Promise<Server> {
     }
   });
 
-  // Endpoint específico para finalizar pedidos forzadamente
+  // Endpoint específico para finalizar pedidos desde la interfaz de armado
   app.post("/api/pedidos/:id/finalizar", requireAuth, async (req, res, next) => {
+    return handleFinalizarPedido(req, res, next);
+  });
+
+  // Alias para mantener compatibilidad con la versión anterior de la API
+  app.post("/api/pedidos/:id/finalizar-armado", requireAuth, async (req, res, next) => {
     try {
       const pedidoId = parseInt(req.params.id);
       const forzar = req.query.forzar === 'true';
@@ -3058,7 +3063,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
         success: true,
         message: `Pedido finalizado como ${estadoFinal}`,
         pedido: pedidoActualizado,
-        forzado: forzar
+        forzado: forzar,
+        hasFaltantes: hasFaltantes
       });
     } catch (error) {
       console.error('Error al finalizar pedido:', error);

@@ -251,9 +251,19 @@ export default function ArmadoSimplePage() {
       // Mensaje personalizado para mostrar en el modal de éxito
       let mensajeAdicional = "";
       
-      // Verificar si el pedido se marcó como "armado-pendiente-stock"
-      if (data && data.estado === "armado-pendiente-stock") {
-        mensajeAdicional = "El pedido requiere transferencias de stock. Las solicitudes han sido enviadas al equipo de stock.";
+      // Verificar si el pedido tiene estado de pendiente stock o hay mensaje sobre solicitudes de stock
+      if (data) {
+        // Caso 1: El pedido está marcado como pendiente de stock
+        if (data.pedido && data.pedido.estado === "armado-pendiente-stock") {
+          mensajeAdicional = "El pedido requiere transferencias de stock. Las solicitudes han sido enviadas al equipo de stock.";
+        } 
+        // Caso 2: El pedido está marcado como armado, pero se crearon solicitudes de stock
+        else if (data.message && data.message.includes("armado")) {
+          // Verificar si el mensaje menciona faltantes
+          if (data.hasFaltantes) {
+            mensajeAdicional = "El pedido ha sido finalizado. Se han registrado solicitudes de stock para los productos faltantes.";
+          }
+        }
       }
       
       // Guardar el mensaje para mostrarlo en el modal
