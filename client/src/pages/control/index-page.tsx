@@ -222,7 +222,8 @@ export default function ControlIndexPage() {
                                   <span>Advertencia: Marcado como pendiente de stock</span>
                                 </div>
                               )}
-                              <Link 
+                              {!esPendienteStock ? (
+                                <Link 
                                 to={`/control/pedido/${pedido.id}`} 
                                 className="inline-flex items-center justify-center rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90"
                               >
@@ -244,6 +245,12 @@ export default function ControlIndexPage() {
                                   </>
                                 )}
                               </Link>
+                              ) : (
+                                <Button variant="outline" disabled className="h-8 px-3 text-xs opacity-70">
+                                  <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                                  Pendiente de stock
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
