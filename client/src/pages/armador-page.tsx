@@ -103,13 +103,16 @@ export default function ArmadorPage() {
       if (pedido.estado === 'en-proceso') {
         // @ts-ignore - Verificar si el pedido tiene pausas activas
         if (pedido.pausaActiva) {
+          // Si el pedido está pausado, no mostramos el botón CONTINUAR
           setPedidoPausado(true);
           setButtonText("NO DISPONIBLE - PAUSADO");
         } else {
+          // Solo se muestra CONTINUAR ARMADO si NO está pausado
           setPedidoPausado(false);
           setButtonText("CONTINUAR ARMADO");
         }
       } else {
+        // Para pedidos nuevos
         setPedidoPausado(false);
         setButtonText("COMENZAR");
       }
@@ -182,17 +185,12 @@ export default function ArmadorPage() {
           <p className="text-xl mb-10">Cargando...</p>
         ) : pedido ? (
           <>
+            {/* IMPORTANTE: Si el pedido está pausado, NO mostrar ningún botón para CONTINUAR */}
             {pedidoPausado ? (
-              // Botón de pedido pausado (clickeable pero con advertencia)
-              <Button
-                onClick={handleStartArmado}
-                className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-amber-700 hover:bg-amber-800 text-white"
-                disabled={startPedidoMutation.isPending}
-              >
-                CONTINUAR PEDIDO
-              </Button>
+              // No mostrar botón de CONTINUAR si está pausado - solo mostramos el mensaje de información
+              null
             ) : (
-              // Botón normal para comenzar armado
+              // Botón normal para comenzar armado solo cuando NO está pausado
               <Button
                 onClick={handleStartArmado}
                 className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-white hover:bg-gray-200 text-slate-900"
