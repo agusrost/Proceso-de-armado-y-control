@@ -223,15 +223,15 @@ export default function ArmadorPage() {
             )}
           </>
         ) : (
-          <div className="bg-blue-900/50 p-6 rounded-lg mb-16 max-w-md">
-            <p className="text-xl font-medium mb-2">No hay pedidos pendientes</p>
+          <div className="bg-[#192c52] p-8 rounded-lg mb-16 max-w-md shadow-lg border border-[#2a3e69]">
+            <p className="text-xl font-bold mb-2">No hay pedidos pendientes</p>
             <p className="text-white/80 mb-4">No tienes pedidos para armar en este momento.</p>
             
             {/* Contador de próxima actualización */}
             {proximaActualizacion && !actualizando && (
               <div className="mt-4 text-sm text-blue-300">
                 <p>Buscando nuevos pedidos automáticamente en:</p>
-                <p className="font-mono text-lg">
+                <p className="font-mono text-xl mt-1">
                   {formatTiempoRestante(tiempoRestante)}
                 </p>
               </div>
@@ -248,8 +248,7 @@ export default function ArmadorPage() {
             {/* Botón de actualización manual */}
             <Button
               variant="outline"
-              size="sm"
-              className="mt-4 border-blue-400 text-blue-200 hover:bg-blue-800"
+              className="mt-6 bg-white text-[#192c52] hover:bg-gray-100 border-0 font-medium px-8 py-1"
               onClick={() => {
                 setActualizando(true);
                 refetch().finally(() => {
