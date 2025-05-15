@@ -185,12 +185,24 @@ export default function ArmadorPage() {
           <p className="text-xl mb-10">Cargando...</p>
         ) : pedido ? (
           <>
-            {/* IMPORTANTE: Si el pedido está pausado, NO mostrar ningún botón para CONTINUAR */}
+            {/* Si el pedido está pausado, mostrar botón CONTINUAR PEDIDO con estilo diferente */}
             {pedidoPausado ? (
-              // No mostrar botón de CONTINUAR si está pausado - solo mostramos el mensaje de información
-              null
+              // Botón CONTINUAR PEDIDO para pedidos pausados - con estilo amarillo
+              <Button
+                onClick={() => {
+                  // Ir directamente a la página de armado simple sin reiniciar el pedido
+                  if (pedido && pedido.id) {
+                    console.log("🚀 Redirigiendo a armado simple del pedido pausado:", pedido.id);
+                    setLocation(`/armado-simple/${pedido.id}`);
+                  }
+                }}
+                className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-amber-600 hover:bg-amber-700 text-white"
+                disabled={isNavigating}
+              >
+                CONTINUAR PEDIDO
+              </Button>
             ) : (
-              // Botón normal para comenzar armado solo cuando NO está pausado
+              // Botón normal para comenzar armado cuando NO está pausado
               <Button
                 onClick={handleStartArmado}
                 className="text-xl px-12 py-6 h-auto rounded-lg mb-4 bg-white hover:bg-gray-200 text-slate-900"
