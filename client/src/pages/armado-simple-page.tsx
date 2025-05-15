@@ -295,9 +295,9 @@ export default function ArmadoSimplePage() {
     console.log(`Todos los productos procesados: ${todosProcesados}, Pausa activa: ${pausaActiva}`);
     
     if (todosProcesados && !pausaActiva) {
-      console.log("⚠️ Todos los productos están procesados - Mostrando opción para finalizar");
-      // Si no hay productos pendientes de procesar, mostrar modal para finalizar armado
-      setShowFinalizarModal(true);
+      console.log("⚠️ Todos los productos están procesados - Mostrando modal de armado finalizado");
+      // Si no hay productos pendientes de procesar, mostrar modal de armado finalizado
+      setArmadoFinalizadoModal(true);
     }
   };
   
@@ -829,6 +829,45 @@ export default function ArmadoSimplePage() {
               className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2"
             >
               Volver a la lista
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de armado completado - aparece cuando todos los productos están procesados */}
+      <Dialog open={armadoFinalizadoModal} onOpenChange={setArmadoFinalizadoModal}>
+        <DialogContent className="bg-white p-6 text-center">
+          <div className="flex justify-end">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setArmadoFinalizadoModal(false)}
+              className="h-6 w-6"
+            >
+              ✕
+            </Button>
+          </div>
+          
+          <DialogTitle className="text-black font-semibold text-xl text-center mb-2">
+            ¡Bien hecho!
+          </DialogTitle>
+          
+          <DialogDescription className="text-center text-gray-600">
+            Todos los productos han sido procesados correctamente
+          </DialogDescription>
+          
+          <div className="flex justify-center my-6">
+            <div className="rounded-full bg-green-100 p-5 border-2 border-green-500">
+              <CheckCircle className="h-12 w-12 text-green-500" />
+            </div>
+          </div>
+          
+          <div className="flex justify-center mt-4">
+            <Button 
+              onClick={handleVolverDesdeArmadoFinalizado}
+              className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2"
+            >
+              Volver a mi lista
             </Button>
           </div>
         </DialogContent>
