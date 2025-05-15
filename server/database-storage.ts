@@ -871,7 +871,10 @@ export class DatabaseStorage implements IStorage {
             
             // Buscar por otros patrones comunes
             like(sql`LOWER(${stockSolicitudes.motivo})`, `%faltante en pedido ${pedidoNumero}%`),
-            like(sql`LOWER(${stockSolicitudes.motivo})`, `%faltante en pedido ${pedidoCodigo}%`)
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%faltante en pedido ${pedidoCodigo}%`),
+            
+            // Buscar por los nuevos patrones con formato "pedido 90"
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido ${pedidoNumero}%`)
           )
         )
         .orderBy(desc(stockSolicitudes.fecha));

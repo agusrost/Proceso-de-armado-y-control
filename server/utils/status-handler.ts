@@ -50,8 +50,30 @@ export async function checkAndUpdatePendingStockOrder(pedidoNumeroId: number): P
     
     const actions: string[] = [];
     
-    // 1. Verificar las solicitudes de stock para este pedido
-    const solicitudes = await storage.getSolicitudesByPedidoId(pedidoNumeroId);
+    // Ajuste: Obtener TODAS las solicitudes relacionadas con el pedido, no solo por ID
+    // Esto debería encontrar solicitudes como "Faltante en pedido 90" que no se estaban detectando
+    const pedidoCodigo = pedido.pedidoId; // Ej: P0147
+    const pedidoNumero = pedidoCodigo.replace(/^P/i, ''); // Ej: 0147
+    
+    // Buscar solicitudes por diferentes formatos de referencia
+    let solicitudes = await storage.getSolicitudesByPedidoId(pedidoNumeroId);
+    
+    // Buscar también por el texto "pedido X" donde X es el número sin el prefijo P
+    const motivo = `pedido ${pedidoNumero}`;
+    const solicitudesAdicionales = await db
+      .select()
+      .from(stockSolicitudes)
+      .where(like(sql`LOWER(${stockSolicitudes.motivo})`, `%${motivo.toLowerCase()}%`));
+    
+    // Combinar solicitudes encontradas, eliminando duplicados
+    const solicitudesIds = new Set(solicitudes.map(s => s.id));
+    for (const sol of solicitudesAdicionales) {
+      if (!solicitudesIds.has(sol.id)) {
+        solicitudes.push(sol);
+        solicitudesIds.add(sol.id);
+      }
+    }
+    
     actions.push(`Encontradas ${solicitudes.length} solicitudes de stock asociadas al pedido`);
     
     // 2. Verificar si hay solicitudes pendientes
