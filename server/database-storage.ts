@@ -524,54 +524,42 @@ export class DatabaseStorage implements IStorage {
         
         // YA NO BUSCAMOS pedidos con estado armado-pendiente-stock porque esos ya están armados
         // y están solo esperando transferencia de stock
+      }
+      
+      // Buscamos pedidos en proceso sin armador asignado
+      console.log("Buscando pedidos en-proceso sin armador asignado (caso especial)");
+      
+      const pedidoEnProcesoSinAsignar = await executeQuery(
+        'en-proceso', 
+        'AND (armador_id IS NULL OR armador_id = 0)', 
+        ['en-proceso']
+      );
+      
+      if (pedidoEnProcesoSinAsignar) {
+        console.log(`Encontrado pedido en-proceso sin armador: ${pedidoEnProcesoSinAsignar.pedidoId}`);
         
-        /* El siguiente código se ha comentado para evitar mostrar pedidos ya armados
-        const pedidoPendienteStock = await executeQuery(
-          'armado-pendiente-stock', 
-          'AND armador_id = $2', 
-          ['armado-pendiente-stock', armadorId]
-        );
-        
-        if (pedidoPendienteStock) {
-          console.log(`Encontrado pedido en estado pendiente-stock para armador ${armadorId}: ${pedidoPendienteStock.pedidoId}`);
-          return pedidoPendienteStock as Pedido;
-        }
-        */
-        }
-        
-        // Buscamos pedidos en proceso sin armador asignado
-        console.log("Buscando pedidos en-proceso sin armador asignado (caso especial)");
-        
-        const pedidoEnProcesoSinAsignar = await executeQuery(
-          'en-proceso', 
-          'AND (armador_id IS NULL OR armador_id = 0)', 
-          ['en-proceso']
-        );
-        
-        if (pedidoEnProcesoSinAsignar) {
-          console.log(`Encontrado pedido en-proceso sin armador: ${pedidoEnProcesoSinAsignar.pedidoId}`);
+        // Asignamos automáticamente este armador al pedido para corregir la inconsistencia
+        try {
+          console.log(`Asignando automáticamente el armador ${armadorId} al pedido ${pedidoEnProcesoSinAsignar.id} (${pedidoEnProcesoSinAsignar.pedidoId})`);
           
-          // Asignamos automáticamente este armador al pedido para corregir la inconsistencia
-          try {
-            console.log(`Asignando automáticamente el armador ${armadorId} al pedido ${pedidoEnProcesoSinAsignar.id} (${pedidoEnProcesoSinAsignar.pedidoId})`);
-            
-            await pool.query(`
-              UPDATE pedidos 
-              SET armador_id = $1
-              WHERE id = $2
-            `, [armadorId, pedidoEnProcesoSinAsignar.id]);
-            
-            // Actualizar el objeto pedido con el nuevo armadorId
-            pedidoEnProcesoSinAsignar.armadorId = armadorId;
-            
-            console.log(`Armador asignado correctamente al pedido ${pedidoEnProcesoSinAsignar.pedidoId}`);
-          } catch (error) {
-            console.error(`Error al asignar armador al pedido ${pedidoEnProcesoSinAsignar.pedidoId}:`, error);
-          }
+          await pool.query(`
+            UPDATE pedidos 
+            SET armador_id = $1
+            WHERE id = $2
+          `, [armadorId, pedidoEnProcesoSinAsignar.id]);
           
-          return pedidoEnProcesoSinAsignar as Pedido;
+          // Actualizar el objeto pedido con el nuevo armadorId
+          pedidoEnProcesoSinAsignar.armadorId = armadorId;
+          
+          console.log(`Armador asignado correctamente al pedido ${pedidoEnProcesoSinAsignar.pedidoId}`);
+        } catch (error) {
+          console.error(`Error al asignar armador al pedido ${pedidoEnProcesoSinAsignar.pedidoId}:`, error);
         }
         
+        return pedidoEnProcesoSinAsignar as Pedido;
+      }
+      
+      if (armadorId) {
         // Si no hay pedidos en proceso, buscamos pedidos pendientes asignados a este armador
         const pedidoPendiente = await executeQuery(
           'pendiente', 
@@ -588,7 +576,7 @@ export class DatabaseStorage implements IStorage {
       // IMPORTANTE: Siempre buscamos pedidos pendientes sin asignar
       // independientemente de si se especificó armadorId o no.
       // Así cualquier armador puede tomar un pedido aleatorio.
-            console.log("Buscando pedidos pendientes sin asignar para cualquier armador");
+      console.log("Buscando pedidos pendientes sin asignar para cualquier armador");
       
       const pedidoSinAsignar = await executeQuery(
         'pendiente', 
