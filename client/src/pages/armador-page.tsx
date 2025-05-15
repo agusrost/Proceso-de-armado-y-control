@@ -93,7 +93,7 @@ export default function ArmadorPage() {
   };
 
   // Verificar si hay un pedido en proceso
-  const [buttonText, setButtonText] = useState("COMENZAR");
+  const [buttonText, setButtonText] = useState("COMENZAR ARMADO");
   const [pedidoPausado, setPedidoPausado] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   
@@ -115,14 +115,14 @@ export default function ArmadorPage() {
       } else if (pedido.estado === 'armado' || pedido.estado === 'armado-pendiente-stock' || pedido.estado === 'controlado' || pedido.estado === 'finalizado') {
         // Para pedidos ya finalizados o con estado de armado (con o sin pendientes de stock), no mostramos botón de continuar
         setPedidoPausado(false);
-        setButtonText("COMENZAR");
+        setButtonText("COMENZAR ARMADO");
         // Simular que no hay pedido para este armador
         // @ts-ignore
         setPedido(null);
       } else {
         // Para pedidos nuevos
         setPedidoPausado(false);
-        setButtonText("COMENZAR");
+        setButtonText("COMENZAR ARMADO");
       }
     }
   }, [pedido]);

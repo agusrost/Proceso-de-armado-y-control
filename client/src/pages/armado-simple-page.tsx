@@ -420,6 +420,8 @@ export default function ArmadoSimplePage() {
   // Manejar el cierre del modal de éxito de armado finalizado
   const handleVolverDesdeArmadoFinalizado = () => {
     setArmadoFinalizadoModal(false);
+    // Invalidar la caché para asegurar que se actualice el estado del pedido
+    queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     setLocation("/armador");
   };
   
@@ -458,6 +460,8 @@ export default function ArmadoSimplePage() {
   
   // Volver al tablero usando wouter en lugar de window.location
   const handleVolverTablero = () => {
+    // Importante: También hay que invalidar la caché para que actualice los pedidos pendientes
+    queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
     setLocation("/armador");
   };
   
@@ -849,7 +853,7 @@ export default function ArmadoSimplePage() {
           </div>
           
           <DialogTitle className="text-black font-semibold text-xl text-center mb-2">
-            ¡Bien hecho!
+            Ha finalizado el armado con éxito!
           </DialogTitle>
           
           <DialogDescription className="text-center text-gray-600">
