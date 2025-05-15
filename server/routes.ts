@@ -2702,11 +2702,26 @@ export async function registerRoutes(app: Application): Promise<Server> {
       }
       
       // Actualizar el pedido si corresponde
-      if (solicitud.motivo && solicitud.motivo.includes('Pedido ID')) {
-        // Extraer el ID del pedido desde el motivo (formato: "Faltante en pedido PXXXX - ...")
-        const match = solicitud.motivo.match(/Pedido ID (\w+)/);
-        if (match && match[1]) {
-          const pedidoIdStr = match[1];
+      if (solicitud.motivo && (
+          solicitud.motivo.includes('Pedido ID') || 
+          solicitud.motivo.includes('pedido P')
+      )) {
+        // Extraer el ID del pedido desde el motivo (dos formatos posibles)
+        let pedidoIdStr = null;
+        
+        // Formato 1: "Faltante en pedido PXXXX - ..."
+        const matchFormato1 = solicitud.motivo.match(/pedido (P\d+)/i);
+        if (matchFormato1 && matchFormato1[1]) {
+          pedidoIdStr = matchFormato1[1];
+        }
+        
+        // Formato 2: "Pedido ID: XXXX"
+        const matchFormato2 = solicitud.motivo.match(/Pedido ID[:\s]+(\w+)/i);
+        if (matchFormato2 && matchFormato2[1]) {
+          pedidoIdStr = matchFormato2[1];
+        }
+        
+        if (pedidoIdStr) {
           console.log(`La solicitud está relacionada con el pedido: ${pedidoIdStr}`);
           
           // Buscar el pedido por su ID alfanumérico (pedido_id)
