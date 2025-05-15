@@ -123,6 +123,9 @@ export default function ControlPedidoSimplePage() {
         setTimer(segundosTranscurridos);
       }
       
+      // Limpiar la lista de excedentes ya ajustados cuando cambia el pedido
+      setExcentesYaAjustados([]);
+      
       const procesados = controlActivoQuery.data.productos.map((p: any) => {
         // Encontrar detalles de control para este producto, excluyendo los retirados
         const controlDetalles = controlActivoQuery.data.detalles.filter((d: any) => 
@@ -571,6 +574,9 @@ export default function ControlPedidoSimplePage() {
               
               // Cerrar el diálogo
               setProductoExcedenteDialog(prev => ({ ...prev, open: false }));
+              
+              // Agregar el código del producto a la lista de productos ya ajustados
+              setExcentesYaAjustados(prev => [...prev, codigoProducto]);
               
               try {
                 // Llamada al API para ajustar la cantidad después de retirar excedentes
