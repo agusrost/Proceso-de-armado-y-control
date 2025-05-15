@@ -5,8 +5,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
-// Importar funciones de middleware directamente desde routes.ts
-// Ya que no existe un archivo middleware.ts
+// Importar funciones de middleware que ahora son exportadas desde routes.ts
 import { requireAuth, requireAccess } from '../routes';
 import { checkAndUpdatePendingStockOrder, checkAndUpdateToStockPendingStatus } from '../utils/status-handler';
 import { handleStockRequestUpdate, updateAllPendingStockOrders } from '../api/stock-handler';

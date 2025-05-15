@@ -11,7 +11,7 @@ import stockRouter from './routes/stock-endpoints';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Debe iniciar sesión para acceder a esta funcionalidad" });
   }
@@ -19,7 +19,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 // Función para requerir ciertos permisos de acceso
-function requireAccess(access: string) {
+export function requireAccess(access: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Debe iniciar sesión para acceder a esta funcionalidad" });
@@ -65,6 +65,8 @@ function esProductoCompletado(p: any): boolean {
 }
 
 export async function registerRoutes(app: Application): Promise<Server> {
+  // Registrar rutas de gestión de stock
+  app.use('/api/stock', stockRouter);
   // Endpoint temporal para corregir el estado del pedido P0090
   app.get("/api/corregir-pedido-p0090", async (req, res, next) => {
     try {
