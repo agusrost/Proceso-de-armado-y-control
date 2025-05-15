@@ -840,19 +840,43 @@ export class DatabaseStorage implements IStorage {
   
   async getSolicitudesByPedidoId(pedidoId: number): Promise<StockSolicitud[]> {
     try {
-      // Consultar solicitudes de stock vinculadas a un pedido específico por motivo/descripción
-      // Ya que pedidoId no existe como columna, buscamos en motivo o descripción
+      // Consultar solicitudes de stock vinculadas a un pedido específico
+      // Buscar en los patrones comunes que usamos en el motivo:
+      // 1. "Faltante en pedido {pedidoId} - ..."
+      // 2. "Pedido ID {pedidoId}"
+      // 3. "Faltante en pedido P{pedidoId} - ..."
+      
+      // Obtener el número de pedido para diferentes formatos de búsqueda
+      const pedidoNumero = pedidoId.toString();
+      
+      // Primero intentamos obtener el pedido para saber su código (pedidoId)
+      const pedido = await this.getPedidoById(pedidoId);
+      const pedidoCodigo = pedido?.pedidoId || '';
+      
+      console.log(`Buscando solicitudes para pedido ID=${pedidoId}, Código=${pedidoCodigo}`);
+      
       const solicitudes = await db
         .select()
         .from(stockSolicitudes)
         .where(
           or(
-            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido ${pedidoId}%`),
-            like(sql`LOWER(${stockSolicitudes.descripcion})`, `%pedido ${pedidoId}%`)
+            // Buscar por ID numérico
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido ${pedidoNumero}%`),
+            like(sql`LOWER(${stockSolicitudes.descripcion})`, `%pedido ${pedidoNumero}%`),
+            
+            // Buscar por código de pedido (ej: P1587)
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido ${pedidoCodigo}%`),
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido id ${pedidoCodigo}%`),
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%pedido id: ${pedidoCodigo}%`),
+            
+            // Buscar por otros patrones comunes
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%faltante en pedido ${pedidoNumero}%`),
+            like(sql`LOWER(${stockSolicitudes.motivo})`, `%faltante en pedido ${pedidoCodigo}%`)
           )
         )
         .orderBy(desc(stockSolicitudes.fecha));
       
+      console.log(`Encontradas ${solicitudes.length} solicitudes para el pedido ID=${pedidoId}, Código=${pedidoCodigo}`);
       return solicitudes;
     } catch (error) {
       console.error(`Error al obtener solicitudes de stock para el pedido ${pedidoId}:`, error);

@@ -2728,14 +2728,26 @@ export async function registerRoutes(app: Application): Promise<Server> {
             const estadoResuelto = estado === 'realizado' || estado === 'no-hay';
             
             if (esPendienteStock && estadoResuelto) {
-              console.log(`Actualizando estado del pedido ${pedido.pedidoId} de "${pedido.estado}" a "armado" porque la solicitud de stock fue resuelta como "${estado}"`);
+              console.log(`Verificando si todas las solicitudes de stock para el pedido ${pedido.pedidoId} han sido resueltas...`);
               
-              // Actualizar el estado del pedido directamente con SQL para mayor seguridad
-              await db.execute(sql`
-                UPDATE pedidos 
-                SET estado = 'armado' 
-                WHERE id = ${pedido.id}
-              `);
+              // Verificar si hay otras solicitudes pendientes para este pedido
+              const otrasSolicitudes = await storage.getSolicitudesByPedidoId(pedido.id);
+              const otrasSolicitudesPendientes = otrasSolicitudes.filter(s => 
+                s.id !== solicitud.id && s.estado === 'pendiente'
+              );
+              
+              if (otrasSolicitudesPendientes.length === 0) {
+                console.log(`Todas las solicitudes de stock para el pedido ${pedido.pedidoId} han sido resueltas. Actualizando estado de "${pedido.estado}" a "armado"`);
+                
+                // Actualizar el estado del pedido directamente con SQL para mayor seguridad
+                await db.execute(sql`
+                  UPDATE pedidos 
+                  SET estado = 'armado' 
+                  WHERE id = ${pedido.id}
+                `);
+              } else {
+                console.log(`El pedido ${pedido.pedidoId} aún tiene ${otrasSolicitudesPendientes.length} solicitudes de stock pendientes. Se mantiene en estado "${pedido.estado}"`);
+              }
               
               // También actualizar el producto para marcarlo como recolectado y registrar las unidades transferidas
               // Primero, encontrar el producto del pedido que corresponde a esta solicitud
