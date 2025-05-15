@@ -43,9 +43,12 @@ export async function handleStockRequestUpdate(solicitudId: number, estado: stri
   // Si la solicitud está resuelta, intentar actualizar el estado del pedido relacionado
   if (estado === 'realizado' || estado === 'no-hay') {
     // Extraer el ID del pedido del motivo
-    const pedidoIdMatch = solicitud.motivo.match(/pedido[^0-9]*([0-9]+)/i) ||
-                          solicitud.motivo.match(/pedido[^P]*P([0-9]+)/i) ||
-                          solicitud.motivo.match(/P([0-9]+)/i);
+    // Intentamos primero patrones comunes de búsqueda
+    const pedidoIdMatch = solicitud.motivo.match(/pedido\s+([0-9]+)/i) || // Patrón "pedido 90"
+                          solicitud.motivo.match(/pedido\s+P([0-9]+)/i) || // Patrón "pedido P0147"
+                          solicitud.motivo.match(/pedido[^0-9]*([0-9]+)/i) || // Otros formatos de "pedido X"
+                          solicitud.motivo.match(/pedido[^P]*P([0-9]+)/i) || // Otros formatos "pedido PX"
+                          solicitud.motivo.match(/P([0-9]+)/i); // Último recurso, buscar solo "PX"
     
     if (pedidoIdMatch && pedidoIdMatch[1]) {
       const pedidoNumero = parseInt(pedidoIdMatch[1]);

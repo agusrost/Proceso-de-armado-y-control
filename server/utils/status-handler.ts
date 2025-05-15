@@ -60,14 +60,19 @@ export async function checkAndUpdatePendingStockOrder(pedidoNumeroId: number): P
     
     // Buscar también por el texto "pedido X" donde X es el número sin el prefijo P
     const motivo = `pedido ${pedidoNumero}`;
-    const solicitudesAdicionales = await db
-      .select()
-      .from(stockSolicitudes)
-      .where(like(sql`LOWER(${stockSolicitudes.motivo})`, `%${motivo.toLowerCase()}%`));
+    const solicitudesAdicionales = await db.execute(sql`
+      SELECT * FROM stock_solicitudes 
+      WHERE LOWER(motivo) LIKE LOWER(${'%' + motivo + '%'})
+    `);
     
     // Combinar solicitudes encontradas, eliminando duplicados
     const solicitudesIds = new Set(solicitudes.map(s => s.id));
-    for (const sol of solicitudesAdicionales) {
+    
+    // Convertir el resultado de db.execute a un array de objetos
+    const adicionales = solicitudesAdicionales.rows || [];
+    console.log(`Encontradas ${adicionales.length} solicitudes adicionales por motivo "${motivo}"`);
+    
+    for (const sol of adicionales) {
       if (!solicitudesIds.has(sol.id)) {
         solicitudes.push(sol);
         solicitudesIds.add(sol.id);
