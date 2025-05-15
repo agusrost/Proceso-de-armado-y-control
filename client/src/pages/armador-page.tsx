@@ -66,9 +66,12 @@ export default function ArmadorPage() {
     onSuccess: (data) => {
       console.log("Pedido iniciado con éxito, redirigiendo a armado del pedido...");
       queryClient.invalidateQueries({ queryKey: ["/api/pedido-para-armador"] });
-      // Si el pedido está pausado, llevarlo directamente a la página de armado
-      // No debería ir a /armado-simple (que es la URL en el navegador), sino a /armado (que es la ruta real del componente)
-      setLocation('/armado');
+      
+      // Redirigir al componente de armado-simple con el ID del pedido
+      if (pedido && pedido.id) {
+        console.log("🚀 Redirigiendo a armado simple del pedido:", pedido.id);
+        setLocation(`/armado-simple/${pedido.id}`);
+      }
     },
     onError: (error: Error) => {
       console.error("Error en mutación:", error);
