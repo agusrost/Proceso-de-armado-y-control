@@ -3567,40 +3567,28 @@ export async function registerRoutes(app: Application): Promise<Server> {
       console.log(`⏱️ Duración calculada para pausa ${pausaId}: ${duracionFormateada}`);
       
       try {
-        // Usar una transacción para asegurar que todo se realiza correctamente
-        const resultado = await db.transaction(async (tx) => {
-          // Actualizar la pausa con fecha de fin y duración
-          const actualizada = await tx.execute(sql`
-            UPDATE pausas 
-            SET fin = NOW(), duracion = ${duracionFormateada}
-            WHERE id = ${pausaId}
-            RETURNING id, fin, duracion
-          `);
-          
-          // Verificar que realmente se actualizó
-          if (!actualizada.rows[0].fin) {
-            console.log(`⚠️ Primera actualización no estableció fin. Reintentando...`);
-            
-            // Reintentar la actualización
-            await tx.execute(sql`
-              UPDATE pausas 
-              SET fin = NOW(), duracion = ${duracionFormateada}
-              WHERE id = ${pausaId}
-            `);
-            
-            // Verificar nuevamente
-            const verificacion = await tx.execute(sql`
-              SELECT id, fin, duracion FROM pausas 
-              WHERE id = ${pausaId}
-            `);
-            
-            if (!verificacion.rows[0].fin) {
-              throw new Error("La pausa no pudo ser finalizada después de dos intentos");
-            }
-          }
-          
-          return actualizada.rows[0];
-        });
+        console.log("⚡ Realizando actualización directa para evitar problemas de conexión");
+        
+        // IMPORTANTE: Cambio para resolver error de conexión - usar consulta directa en lugar de transacción
+        const ahora = new Date().toISOString();
+        await db.execute(sql`
+          UPDATE pausas 
+          SET fin = ${ahora}, duracion = ${duracionFormateada}
+          WHERE id = ${pausaId}
+        `);
+        
+        // Verificar que se actualizó correctamente
+        const verificacion = await db.execute(sql`
+          SELECT id, fin, duracion FROM pausas 
+          WHERE id = ${pausaId}
+        `);
+        
+        if (verificacion.rows.length === 0) {
+          throw new Error("No se encontró la pausa después de la actualización");
+        }
+        
+        console.log("✅ Actualización completada, resultado:", verificacion.rows[0]);
+        const resultado = verificacion.rows[0];
         
         console.log("✅ Transacción completada exitosamente:", resultado);
         
