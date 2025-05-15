@@ -108,10 +108,16 @@ export default function ArmadorPage() {
           setPedidoPausado(true);
           setButtonText("NO DISPONIBLE - PAUSADO");
         } else {
-          // Solo se muestra CONTINUAR ARMADO si NO está pausado
+          // Solo se muestra CONTINUAR ARMADO si NO está pausado y no está finalizado
           setPedidoPausado(false);
           setButtonText("CONTINUAR ARMADO");
         }
+      } else if (pedido.estado === 'armado' || pedido.estado === 'controlado' || pedido.estado === 'finalizado') {
+        // Para pedidos ya finalizados, no mostramos botón de continuar
+        setPedidoPausado(false);
+        setButtonText("COMENZAR");
+        // Simular que no hay pedido para este armador
+        setPedido(null);
       } else {
         // Para pedidos nuevos
         setPedidoPausado(false);
