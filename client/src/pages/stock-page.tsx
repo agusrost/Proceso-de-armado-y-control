@@ -41,6 +41,13 @@ const extractPedidoInfo = (motivo: string) => {
   return altPedidoMatch ? altPedidoMatch[1] : "-"; // Solo el número, sin P
 };
 
+// Función para renderizar valores seguros (no objetos)
+const safeRender = (value: any): string => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
+
 export default function StockPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -268,10 +275,10 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante || "-"}
+                              {safeRender(solicitud.solicitante)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizadoPor ? String(solicitud.realizadoPor) : "-"}
+                              {safeRender(solicitud.realizadoPor ? solicitud.realizadoPor : "-")}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.estado === 'pendiente' ? (
@@ -376,10 +383,10 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante || "-"}
+                              {safeRender(solicitud.solicitante)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizadoPor ? String(solicitud.realizadoPor) : "-"}
+                              {safeRender(solicitud.realizadoPor ? solicitud.realizadoPor : "-")}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               <button 
