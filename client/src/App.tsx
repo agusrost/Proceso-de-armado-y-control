@@ -33,7 +33,10 @@ function Router() {
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/pedidos/carga" component={PedidosCargaPage} />
       <ProtectedRoute path="/pedidos/estado" component={PedidosEstadoPage} />
-      <ProtectedRoute path="/stock" component={StockPage} />
+      <Route path="/stock" component={() => import("@/pages/stock-page-simple").then(m => {
+        const Component = m.default;
+        return <Component />;
+      })} />
       <ProtectedRoute path="/config" component={ConfigPage} />
       <ProtectedRoute path="/armado" component={ArmadoSimplePage} />
       <ProtectedRoute path="/armado-simple" component={ArmadoSimplePage} />
