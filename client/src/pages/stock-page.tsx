@@ -33,12 +33,12 @@ const extractPedidoInfo = (motivo: string) => {
   // Primero intentamos encontrar "Pedido: XXX" que es el identificador del pedido
   const pedidoMatch = motivo.match(/[Pp]edido:?\s+(\d+)/i);
   if (pedidoMatch) {
-    return `P${pedidoMatch[1]}`;
+    return pedidoMatch[1];
   }
   
   // Si no encontramos el patrón exacto, intentamos otros formatos comunes
   const altPedidoMatch = motivo.match(/P(\d+)/i);
-  return altPedidoMatch ? `P${altPedidoMatch[1]}` : null;
+  return altPedidoMatch ? altPedidoMatch[1] : null;
 };
 
 export default function StockPage() {
@@ -222,10 +222,10 @@ export default function StockPage() {
                               {solicitud.cantidad}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.clienteId || extractClienteInfo(solicitud.motivo) || "-"}
+                              {extractClienteInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.pedidoId || extractPedidoInfo(solicitud.motivo) || "-"}
+                              {extractPedidoInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -236,10 +236,21 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante?.firstName || solicitud.solicitante?.username || "-"}
+                              {solicitud.solicitadoPor ? (
+                                solicitud.solicitanteUser?.firstName || 
+                                solicitud.solicitanteUser?.username || 
+                                solicitud.solicitante || 
+                                "-"
+                              ) : (
+                                solicitud.solicitante || "-"
+                              )}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizador ? (solicitud.realizador.firstName || solicitud.realizador.username) : "-"}
+                              {solicitud.realizadoPor ? (
+                                solicitud.realizadorUser?.firstName || 
+                                solicitud.realizadorUser?.username || 
+                                "-"
+                              ) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.estado === 'pendiente' ? (
@@ -308,15 +319,15 @@ export default function StockPage() {
                     <tbody className="bg-white divide-y divide-neutral-200">
                       {isLoadingHistorial ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-4 text-center">Cargando historial...</td>
+                          <td colSpan={11} className="px-4 py-4 text-center">Cargando...</td>
                         </tr>
                       ) : historialSolicitudes.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-4 text-center">No hay registros en el historial</td>
+                          <td colSpan={11} className="px-4 py-4 text-center">No hay solicitudes en el historial</td>
                         </tr>
                       ) : (
                         historialSolicitudes.map((solicitud) => (
-                          <tr key={solicitud.id}>
+                          <tr key={solicitud.id} className="bg-white">
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {formatDate(solicitud.fecha)}
                             </td>
@@ -330,10 +341,10 @@ export default function StockPage() {
                               {solicitud.cantidad}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.clienteId || extractClienteInfo(solicitud.motivo) || "-"}
+                              {extractClienteInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.pedidoId || extractPedidoInfo(solicitud.motivo) || "-"}
+                              {extractPedidoInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -344,10 +355,21 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante?.firstName || solicitud.solicitante?.username || "-"}
+                              {solicitud.solicitadoPor ? (
+                                solicitud.solicitanteUser?.firstName || 
+                                solicitud.solicitanteUser?.username || 
+                                solicitud.solicitante || 
+                                "-"
+                              ) : (
+                                solicitud.solicitante || "-"
+                              )}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizador ? (solicitud.realizador.firstName || solicitud.realizador.username) : "-"}
+                              {solicitud.realizadoPor ? (
+                                solicitud.realizadorUser?.firstName || 
+                                solicitud.realizadorUser?.username || 
+                                "-"
+                              ) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               <button 
@@ -372,18 +394,17 @@ export default function StockPage() {
           </TabsContent>
         </Tabs>
       </div>
-      
+
       {/* Modals */}
-      <TransferenciaModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <TransferenciaModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
       />
-      
       {selectedSolicitudId && (
-        <SolicitudDetailModal 
-          isOpen={isDetailModalOpen} 
-          onClose={() => setIsDetailModalOpen(false)} 
-          solicitudId={selectedSolicitudId} 
+        <SolicitudDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          solicitudId={selectedSolicitudId}
         />
       )}
     </MainLayout>
