@@ -2838,35 +2838,78 @@ export async function registerRoutes(app: Application): Promise<Server> {
         solicitud => solicitud.estado === 'pendiente'
       );
       
+      // Agrupar solicitudes por código y pedido para evitar duplicados
+      const solicitudesAgrupadas = new Map();
+      
+      for (const solicitud of solicitudesPendientes) {
+        const clave = `${solicitud.codigo}-${solicitud.pedidoId || 'sin-pedido'}`;
+        
+        // Si ya existe una solicitud con la misma clave, usar la más reciente
+        if (solicitudesAgrupadas.has(clave)) {
+          const solicitudExistente = solicitudesAgrupadas.get(clave);
+          const fechaExistente = new Date(solicitudExistente.fecha);
+          const fechaNueva = new Date(solicitud.fecha);
+          
+          // Actualizar solo si la nueva solicitud es más reciente
+          if (fechaNueva > fechaExistente) {
+            solicitudesAgrupadas.set(clave, solicitud);
+          }
+        } else {
+          // Si no existe, agregar la solicitud al mapa
+          solicitudesAgrupadas.set(clave, solicitud);
+        }
+      }
+      
+      // Convertir el mapa a un array
+      const solicitudesSinDuplicados = Array.from(solicitudesAgrupadas.values());
+      
       // Enriquecer las solicitudes con información de usuario
       const solicitudesEnriquecidas = await Promise.all(
-        solicitudesPendientes.map(async (solicitud) => {
+        solicitudesSinDuplicados.map(async (solicitud) => {
           const solicitante = solicitud.solicitadoPor 
             ? await storage.getUser(solicitud.solicitadoPor) 
             : undefined;
           
-          // Extraer información de pedidos relacionados si corresponde
+          // Extraer y reformatear información de pedidos relacionados
           let pedidoRelacionado = null;
-          if (solicitud.motivo && solicitud.motivo.includes('Pedido ID')) {
-            const match = solicitud.motivo.match(/Pedido ID (\w+)/);
+          let nuevoMotivo = solicitud.motivo;
+          
+          // Buscar diferentes patrones en el motivo para extraer info del pedido
+          const patronesPedido = [
+            /Pedido ID (\w+)/i,
+            /Faltante en pedido (\w+)/i,
+            /pedido (\w+)/i
+          ];
+          
+          let pedidoId = null;
+          for (const patron of patronesPedido) {
+            const match = solicitud.motivo?.match(patron);
             if (match && match[1]) {
-              const pedidoId = match[1];
-              const pedido = await storage.getPedidoByPedidoId(pedidoId);
-              if (pedido) {
-                pedidoRelacionado = {
-                  id: pedido.id,
-                  pedidoId: pedido.pedidoId,
-                  clienteId: pedido.clienteId,
-                  estado: pedido.estado
-                };
-              }
+              pedidoId = match[1];
+              break;
+            }
+          }
+          
+          if (pedidoId) {
+            const pedido = await storage.getPedidoByPedidoId(pedidoId);
+            if (pedido) {
+              pedidoRelacionado = {
+                id: pedido.id,
+                pedidoId: pedido.pedidoId,
+                clienteId: pedido.clienteId,
+                estado: pedido.estado
+              };
+              
+              // Reformatear el motivo con el formato correcto "Número de cliente : ID de pedido"
+              nuevoMotivo = `${pedido.clienteId} : ${pedido.pedidoId}`;
             }
           }
           
           return {
             ...solicitud,
             solicitante,
-            pedidoRelacionado
+            pedidoRelacionado,
+            motivo: nuevoMotivo  // Reemplazar el motivo con el formato correcto
           };
         })
       );
@@ -2877,7 +2920,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
         return new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
       });
       
-      console.log(`Se encontraron ${solicitudesFinales.length} solicitudes de stock pendientes`);
+      console.log(`Se encontraron ${solicitudesFinales.length} solicitudes de stock pendientes (sin duplicados)`);
       res.json(solicitudesFinales);
     } catch (error) {
       console.error("Error al obtener solicitudes de stock activas:", error);
