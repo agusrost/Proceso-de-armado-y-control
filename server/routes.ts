@@ -2830,6 +2830,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
   // API para obtener solicitudes de stock activas
   app.get("/api/stock/activas", requireAuth, requireAccess('stock'), async (req, res, next) => {
     try {
+      console.log("Obteniendo solicitudes de stock activas...");
+      
       // Obtener todas las solicitudes
       const solicitudes = await storage.getStockSolicitudes({});
       
@@ -2838,10 +2840,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
         solicitud => solicitud.estado === 'pendiente'
       );
       
+      console.log(`Encontradas ${solicitudesPendientes.length} solicitudes pendientes`);
+      
+      // Crear una copia limpia de las solicitudes para procesarlas
+      const solicitudesAProcesar = JSON.parse(JSON.stringify(solicitudesPendientes));
+      
       // Agrupar solicitudes por código y pedido para evitar duplicados
       const solicitudesAgrupadas = new Map();
       
-      for (const solicitud of solicitudesPendientes) {
+      for (const solicitud of solicitudesAProcesar) {
         const clave = `${solicitud.codigo}-${solicitud.pedidoId || 'sin-pedido'}`;
         
         // Si ya existe una solicitud con la misma clave, usar la más reciente
@@ -2863,85 +2870,94 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Convertir el mapa a un array
       const solicitudesSinDuplicados = Array.from(solicitudesAgrupadas.values());
       
-      // Enriquecer las solicitudes con información de usuario
-      const solicitudesEnriquecidas = await Promise.all(
-        solicitudesSinDuplicados.map(async (solicitud) => {
-          const solicitante = solicitud.solicitadoPor 
-            ? await storage.getUser(solicitud.solicitadoPor) 
-            : undefined;
-          
-          // Extraer y reformatear información de pedidos relacionados
-          let pedidoRelacionado = null;
-          let nuevoMotivo = solicitud.motivo;
-          
-          // Buscar diferentes patrones en el motivo para extraer info del pedido
-          const patronesPedido = [
-            /Pedido ID (\w+)/i,
-            /Faltante en pedido (\w+)/i,
-            /pedido (\w+)/i
-          ];
-          
-          let pedidoId = null;
-          for (const patron of patronesPedido) {
-            const match = solicitud.motivo?.match(patron);
-            if (match && match[1]) {
-              pedidoId = match[1];
-              break;
-            }
-          }
-          
-          if (pedidoId) {
-            console.log(`Procesando solicitud para producto ${solicitud.codigo}, pedido ${pedidoId}`);
-            const pedido = await storage.getPedidoByPedidoId(pedidoId);
-            if (pedido) {
-              pedidoRelacionado = {
-                id: pedido.id,
-                pedidoId: pedido.pedidoId,
-                clienteId: pedido.clienteId,
-                estado: pedido.estado
-              };
-              
-              // Obtener el producto asociado para corregir la cantidad
-              const productos = await storage.getProductosByPedidoId(pedido.id);
-              const productoAsociado = productos.find(p => p.codigo === solicitud.codigo);
-              
-              // Si encontramos el producto, actualizamos la cantidad para reflejar el faltante real
-              if (productoAsociado) {
-                // Calcular la cantidad real faltante
-                const cantidadTotal = productoAsociado.cantidad || 0;
-                const cantidadRecolectada = productoAsociado.recolectado || 0;
-                const cantidadFaltante = cantidadTotal - cantidadRecolectada;
-                
-                console.log(`Producto ${productoAsociado.codigo}: Total=${cantidadTotal}, Recolectado=${cantidadRecolectada}, Faltante=${cantidadFaltante}`);
-                
-                // CORREGIDO: Sobreescribir directamente la cantidad de la solicitud con el faltante real
-                const solicitudActual = solicitud;
-                solicitudActual.cantidad = cantidadFaltante;
-                
-                console.log(`CORRECCIÓN: Solicitud ${solicitud.id} - Código ${solicitud.codigo} - Nueva cantidad: ${cantidadFaltante}`);
-              }
-              
-              // Reformatear el motivo con el formato correcto "Cliente: X Pedido: ID de Pedido"
-              nuevoMotivo = `Cliente: ${pedido.clienteId} Pedido: ${pedido.pedidoId}`;
-            }
-          }
-          
-          return {
-            ...solicitud,
-            solicitante,
-            pedidoRelacionado,
-            motivo: nuevoMotivo  // Reemplazar el motivo con el formato correcto
-          };
-        })
-      );
+      // Procesar las solicitudes para mostrar la información correcta
+      const solicitudesProcesadas = [];
       
+      // Procesar cada solicitud individualmente para evitar problemas de referencias
+      for (const solicitudBase of solicitudesSinDuplicados) {
+        // Crear una copia de la solicitud para no afectar la original
+        const solicitud = { ...solicitudBase };
+        
+        // Obtener datos del solicitante
+        const solicitante = solicitud.solicitadoPor 
+          ? await storage.getUser(solicitud.solicitadoPor) 
+          : undefined;
+        
+        // Información del pedido relacionado
+        let pedidoRelacionado = null;
+        let nuevoMotivo = solicitud.motivo;
+        
+        // Extraer ID del pedido del motivo usando diferentes patrones
+        const patronesPedido = [
+          /Pedido ID (\w+)/i,
+          /Faltante en pedido (\w+)/i,
+          /pedido (\w+)/i
+        ];
+        
+        let pedidoId = null;
+        for (const patron of patronesPedido) {
+          const match = solicitud.motivo?.match(patron);
+          if (match && match[1]) {
+            pedidoId = match[1];
+            break;
+          }
+        }
+        
+        if (pedidoId) {
+          console.log(`Procesando solicitud ${solicitud.id} para producto ${solicitud.codigo}, pedido ${pedidoId}`);
+          
+          // Buscar información del pedido
+          const pedido = await storage.getPedidoByPedidoId(pedidoId);
+          
+          if (pedido) {
+            pedidoRelacionado = {
+              id: pedido.id,
+              pedidoId: pedido.pedidoId,
+              clienteId: pedido.clienteId,
+              estado: pedido.estado
+            };
+            
+            // Obtener los productos del pedido para buscar el correcto
+            const productos = await storage.getProductosByPedidoId(pedido.id);
+            const productoAsociado = productos.find(p => p.codigo === solicitud.codigo);
+            
+            if (productoAsociado) {
+              console.log(`Encontrado producto ${productoAsociado.codigo} en pedido ${pedido.pedidoId}`);
+              
+              // Calcular la cantidad real faltante
+              const cantidadTotal = productoAsociado.cantidad || 0;
+              const cantidadRecolectada = productoAsociado.recolectado || 0;
+              const cantidadFaltante = cantidadTotal - cantidadRecolectada;
+              
+              console.log(`Producto ${productoAsociado.codigo}: Total=${cantidadTotal}, Recolectado=${cantidadRecolectada}, Faltante=${cantidadFaltante}`);
+              
+              // Actualizar la cantidad en la solicitud para reflejar el faltante real
+              solicitud.cantidad = cantidadFaltante;
+              
+              // Reformatear el motivo con el formato correcto
+              nuevoMotivo = `Cliente: ${pedido.clienteId} Pedido: ${pedido.pedidoId}`;
+              
+              console.log(`Solicitud corregida - ID: ${solicitud.id}, Código: ${solicitud.codigo}, Cantidad: ${solicitud.cantidad}, Motivo actualizado: "${nuevoMotivo}"`);
+            }
+          }
+        }
+        
+        // Agregar la solicitud procesada al resultado
+        solicitudesProcesadas.push({
+          ...solicitud,
+          solicitante,
+          pedidoRelacionado,
+          motivo: nuevoMotivo // Usar el motivo formateado
+        });
+      }
       // Ordenar por fecha ascendente (más antigua primero - FIFO)
-      const solicitudesFinales = solicitudesEnriquecidas.sort((a, b) => {
+      const solicitudesFinales = solicitudesProcesadas.sort((a, b) => {
         if (!a || !b || !a.fecha || !b.fecha) return 0;
         return new Date(a.fecha).getTime() - new Date(b.fecha).getTime();
       });
       
       console.log(`Se encontraron ${solicitudesFinales.length} solicitudes de stock pendientes (sin duplicados)`);
+      res.json(solicitudesFinales);
       res.json(solicitudesFinales);
     } catch (error) {
       console.error("Error al obtener solicitudes de stock activas:", error);
