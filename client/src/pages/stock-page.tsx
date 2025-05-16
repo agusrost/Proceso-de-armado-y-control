@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,28 +17,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Función para extraer información del cliente desde el motivo
 const extractClienteInfo = (motivo: string) => {
-  // Buscar el patrón "Codigo: XXXX" que es el identificador del cliente
+  // Buscar el patrón "Codigo: XXXX" en el motivo
   const clienteMatch = motivo.match(/C[oó]digo:\s*(\d+)/i);
   if (clienteMatch) {
     return clienteMatch[1];
   }
   
-  // Si no encontramos el patrón exacto, intentamos otros formatos como respaldo
+  // Si no encontramos el patrón exacto, intentamos otros formatos
   const altClienteMatch = motivo.match(/Cliente(?:\s+Nro)?[:\s]+(\d+)/i);
-  return altClienteMatch ? altClienteMatch[1] : null;
+  return altClienteMatch ? altClienteMatch[1] : "-";
 };
 
 // Función para extraer información del pedido desde el motivo
 const extractPedidoInfo = (motivo: string) => {
-  // Buscar el patrón "Pedido: XXX" que es el identificador del pedido
+  // Buscar el patrón "Pedido: XXX" en el motivo
   const pedidoMatch = motivo.match(/Pedido:\s*(\d+)/i);
   if (pedidoMatch) {
-    return pedidoMatch[1]; // Mostrar solo el número sin la P
+    return pedidoMatch[1]; // Solo el número, sin P
   }
   
-  // Si no encontramos el patrón exacto, intentamos otros formatos como respaldo
+  // Si no encontramos el patrón exacto, intentamos otros formatos
   const altPedidoMatch = motivo.match(/P(\d+)/i);
-  return altPedidoMatch ? altPedidoMatch[1] : null; // Mostrar solo el número sin la P
+  return altPedidoMatch ? altPedidoMatch[1] : "-"; // Solo el número, sin P
 };
 
 export default function StockPage() {
@@ -222,10 +222,10 @@ export default function StockPage() {
                               {solicitud.cantidad}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractClienteInfo(solicitud.motivo) || "-"}
+                              {extractClienteInfo(solicitud.motivo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractPedidoInfo(solicitud.motivo) || "-"}
+                              {extractPedidoInfo(solicitud.motivo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -239,7 +239,7 @@ export default function StockPage() {
                               {solicitud.solicitante || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizadoPor ? solicitud.realizadoPor : "-"}
+                              {solicitud.realizadoPor ? String(solicitud.realizadoPor) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.estado === 'pendiente' ? (
@@ -330,10 +330,10 @@ export default function StockPage() {
                               {solicitud.cantidad}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractClienteInfo(solicitud.motivo) || "-"}
+                              {extractClienteInfo(solicitud.motivo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractPedidoInfo(solicitud.motivo) || "-"}
+                              {extractPedidoInfo(solicitud.motivo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -347,7 +347,7 @@ export default function StockPage() {
                               {solicitud.solicitante || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizadoPor ? `ID: ${solicitud.realizadoPor}` : "-"}
+                              {solicitud.realizadoPor ? String(solicitud.realizadoPor) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               <button 
