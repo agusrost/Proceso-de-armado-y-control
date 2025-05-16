@@ -38,6 +38,8 @@ const transferSchema = z.object({
     return !isNaN(num) && num > 0;
   }, "La cantidad debe ser un número mayor a 0"),
   motivo: z.string().min(1, "El motivo es requerido"),
+  clienteId: z.string().min(1, "El número de cliente es requerido"),
+  pedidoId: z.string().min(1, "El ID del pedido es requerido"),
   solicitante: z.string().optional(),
 });
 
@@ -59,16 +61,24 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
       codigo: "",
       cantidad: "",
       motivo: "",
+      clienteId: "",
+      pedidoId: "",
       solicitante: "",
     },
   });
   
   const createSolicitudMutation = useMutation({
     mutationFn: async (data: TransferFormValues) => {
+      // Formatear el motivo para incluir el cliente y pedido
+      const motivoCompleto = `Faltante en pedido ${data.pedidoId} - Cliente Nro ${data.clienteId}`;
+      
       const solicitudData: any = {
         codigo: data.codigo,
         cantidad: parseInt(data.cantidad),
-        motivo: data.motivo,
+        // Incluir el motivo personalizado o el motivo base con la información del cliente y pedido
+        motivo: data.motivo === "Faltante en pedido" ? motivoCompleto : data.motivo,
+        clienteId: data.clienteId,
+        pedidoId: data.pedidoId,
       };
       
       // Si el motivo es facturación y hay un solicitante, lo incluimos
@@ -170,6 +180,10 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
                             setMotivoPersonalizado(false);
                             setShowSolicitante(true);
                             field.onChange(value);
+                          } else if (value === "Faltante en pedido") {
+                            setMotivoPersonalizado(false);
+                            setShowSolicitante(false);
+                            field.onChange(value);
                           } else {
                             setMotivoPersonalizado(false);
                             setShowSolicitante(false);
@@ -181,6 +195,7 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
                           <SelectValue placeholder="Seleccione un motivo" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="Faltante en pedido">Faltante en pedido</SelectItem>
                           <SelectItem value="Se necesita para facturar un pedido">Se necesita para facturar un pedido</SelectItem>
                           <SelectItem value="otro">Otro motivo</SelectItem>
                         </SelectContent>
