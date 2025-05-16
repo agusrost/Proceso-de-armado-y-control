@@ -156,10 +156,21 @@ export default function StockPage() {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/logout", {});
-      return await res.json();
+      return res;
     },
     onSuccess: () => {
-      window.location.href = "/auth";
+      // Redirigir al usuario a la página de inicio de sesión
+      toast({
+        title: "Sesión cerrada",
+        description: "Has cerrado sesión correctamente",
+      });
+      
+      // Retraso mínimo para asegurar que la sesión se cierre correctamente
+      setTimeout(() => {
+        window.location.href = "/auth";
+        // Recargar la página para asegurar que se pierda el estado
+        window.location.reload();
+      }, 500);
     },
     onError: (error: Error) => {
       toast({
@@ -175,7 +186,24 @@ export default function StockPage() {
   };
 
   const handleLogout = () => {
+    // Mostrar un mensaje de notificación
+    toast({
+      title: "Cerrando sesión...",
+      description: "Por favor espere mientras se cierra su sesión"
+    });
+    
+    // Llamar a la mutación
     logoutMutation.mutate();
+    
+    // Redirección forzada después de un breve retardo
+    setTimeout(() => {
+      // Limpiar datos de sesión locales si los hay
+      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
+      
+      // Redirigir directamente
+      window.location.href = '/auth';
+    }, 1000);
   };
 
   return (
