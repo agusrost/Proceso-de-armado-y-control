@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Plus, Eye, Check, XCircle, History } from "lucide-react";
 import TransferenciaModal from "@/components/stock/transferencia-modal";
 import SolicitudDetailModal from "@/components/stock/solicitud-detail-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/hooks/use-auth";
 
 // Función para extraer información del cliente desde el motivo
 const extractClienteInfo = (motivo: string) => {
@@ -43,10 +44,16 @@ const extractPedidoInfo = (motivo: string) => {
 
 export default function StockPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("solicitudes");
+  
+  // Para debugging
+  useEffect(() => {
+    console.log("Usuario actual:", user);
+  }, [user]);
   
   // Filter states
   const [filterFecha, setFilterFecha] = useState("");
