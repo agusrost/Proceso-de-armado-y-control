@@ -16,6 +16,121 @@ export interface PedidoStatusResult {
 }
 
 /**
+ * Verifica si un pedido específico por ID tiene solicitudes de stock pendientes
+ * y actualiza su estado según corresponda
+ */
+export async function verifyAndUpdateOrderStatus(pedidoIdentificador: string): Promise<{
+  success: boolean;
+  message: string;
+  newStatus?: string;
+}> {
+  try {
+    console.log(`🔍 Verificando estado del pedido ${pedidoIdentificador}...`);
+    
+    // 1. Buscar el pedido por su identificador
+    const pedidos = await storage.getPedidos({ pedidoId: pedidoIdentificador });
+    
+    if (!pedidos || pedidos.length === 0) {
+      return {
+        success: false,
+        message: `No se encontró el pedido ${pedidoIdentificador}`
+      };
+    }
+    
+    const pedido = pedidos[0];
+    console.log(`✅ Pedido encontrado: ID ${pedido.id}, Estado actual: ${pedido.estado}`);
+    
+    // Si el pedido no está en estado pendiente de stock, no es necesario verificar
+    if (pedido.estado !== 'armado-pendiente-stock' && 
+        pedido.estado !== 'armado, pendiente stock' && 
+        pedido.estado !== 'armado pendiente stock') {
+      return {
+        success: true,
+        message: `El pedido ${pedidoIdentificador} no está en estado pendiente de stock (${pedido.estado})`
+      };
+    }
+    
+    // 2. Obtener los productos del pedido
+    const productos = await storage.getProductosByPedidoId(pedido.id);
+    console.log(`📦 El pedido tiene ${productos.length} productos`);
+    
+    // 3. Filtrar productos con faltantes
+    const productosFaltantes = productos.filter(p => {
+      return (p.motivo && p.motivo.toLowerCase().includes('faltante')) || 
+             (p.recolectado !== null && p.cantidad > p.recolectado);
+    });
+    
+    console.log(`⚠️ Productos con faltantes: ${productosFaltantes.length}`);
+    
+    if (productosFaltantes.length === 0) {
+      // No hay productos con faltantes, actualizar estado
+      await storage.updatePedido(pedido.id, { estado: 'armado' });
+      
+      return {
+        success: true,
+        message: `El pedido ${pedidoIdentificador} no tiene productos con faltantes. Actualizado a "armado"`,
+        newStatus: 'armado'
+      };
+    }
+    
+    // 4. Verificar si hay solicitudes pendientes para estos productos
+    const todasSolicitudes = await storage.getStockSolicitudes({});
+    
+    // Filtrar solicitudes relacionadas con este pedido
+    const solicitudesRelacionadas = todasSolicitudes.filter(s => {
+      if (!s.motivo) return false;
+      
+      return (
+        s.motivo.includes(pedidoIdentificador) || 
+        s.motivo.includes(pedidoIdentificador.replace(/^P/i, '')) ||
+        s.motivo.includes(pedidoIdentificador.replace(/^P0+/i, '')) ||
+        s.motivo.toLowerCase().includes(`pedido ${pedidoIdentificador.replace(/^p0*/i, '')}`.toLowerCase()) ||
+        s.motivo.toLowerCase().includes(`pedido: ${pedidoIdentificador.replace(/^p0*/i, '')}`.toLowerCase()) ||
+        s.motivo.toLowerCase().includes(`cliente ${pedido.clienteId}`.toLowerCase()) ||
+        s.motivo.toLowerCase().includes(`cliente: ${pedido.clienteId}`.toLowerCase())
+      );
+    });
+    
+    console.log(`🔍 Solicitudes relacionadas con el pedido: ${solicitudesRelacionadas.length}`);
+    
+    // Ver si hay solicitudes pendientes
+    const solicitudesPendientes = solicitudesRelacionadas.filter(s => s.estado === 'pendiente');
+    console.log(`⏳ Solicitudes pendientes: ${solicitudesPendientes.length}`);
+    
+    // 5. Verificar si hay coincidencia entre productos faltantes y solicitudes
+    const codigosFaltantes = productosFaltantes.map(p => p.codigo);
+    const codigosSolicitudes = solicitudesRelacionadas.map(s => s.codigo);
+    
+    console.log(`📋 Códigos faltantes: ${codigosFaltantes.join(', ')}`);
+    console.log(`📋 Códigos en solicitudes: ${codigosSolicitudes.join(', ')}`);
+    
+    // Verificar si todas las solicitudes están resueltas
+    if (solicitudesPendientes.length === 0) {
+      // Todas las solicitudes resueltas, actualizar estado
+      await storage.updatePedido(pedido.id, { estado: 'armado' });
+      
+      return {
+        success: true,
+        message: `Todas las solicitudes para el pedido ${pedidoIdentificador} están resueltas. Actualizado a "armado"`,
+        newStatus: 'armado'
+      };
+    }
+    
+    return {
+      success: true,
+      message: `El pedido ${pedidoIdentificador} tiene ${solicitudesPendientes.length} solicitudes pendientes. Se mantiene como "armado-pendiente-stock"`
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error al verificar pedido ${pedidoIdentificador}:`, error);
+    return {
+      success: false,
+      message: `Error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}
+
+/**
  * Verifica todos los pedidos en estado "armado-pendiente-stock" y los actualiza a "armado"
  * si todas sus solicitudes pendientes han sido resueltas
  */
