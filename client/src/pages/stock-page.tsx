@@ -48,6 +48,18 @@ const safeRender = (value: any): string => {
   return String(value);
 };
 
+// Función para extraer solo el nombre de usuario (sin el objeto completo)
+const extractUserName = (user: any): string => {
+  if (!user) return "-";
+  if (typeof user === "string") return user;
+  if (typeof user === "object") {
+    if (user.username) return user.username;
+    if (user.firstName) return user.firstName;
+    return "Usuario ID: " + (user.id || "desconocido");
+  }
+  return String(user);
+};
+
 export default function StockPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -229,7 +241,6 @@ export default function StockPage() {
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitante</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Realizado por</th>
@@ -239,11 +250,11 @@ export default function StockPage() {
                     <tbody className="bg-white divide-y divide-neutral-200">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-4 text-center">Cargando...</td>
+                          <td colSpan={10} className="px-4 py-4 text-center">Cargando...</td>
                         </tr>
                       ) : solicitudes.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-4 text-center">No hay solicitudes que coincidan con los filtros</td>
+                          <td colSpan={10} className="px-4 py-4 text-center">No hay solicitudes que coincidan con los filtros</td>
                         </tr>
                       ) : (
                         solicitudes.map((solicitud) => (
@@ -266,19 +277,16 @@ export default function StockPage() {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
                               {extractPedidoInfo(solicitud.motivo)}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 max-w-xs truncate">
-                              {solicitud.motivo}
-                            </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(solicitud.estado)}`}>
                                 {getEstadoLabel(solicitud.estado)}
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {safeRender(solicitud.solicitante)}
+                              {extractUserName(solicitud.solicitante)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {safeRender(solicitud.realizadoPor ? solicitud.realizadoPor : "-")}
+                              {solicitud.realizadoPor ? extractUserName(solicitud.realizadoPor) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.estado === 'pendiente' ? (
@@ -337,7 +345,6 @@ export default function StockPage() {
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitante</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Realizado por</th>
@@ -347,11 +354,11 @@ export default function StockPage() {
                     <tbody className="bg-white divide-y divide-neutral-200">
                       {isLoadingHistorial ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-4 text-center">Cargando historial...</td>
+                          <td colSpan={10} className="px-4 py-4 text-center">Cargando historial...</td>
                         </tr>
                       ) : historialSolicitudes.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="px-4 py-4 text-center">No hay registros en el historial</td>
+                          <td colSpan={10} className="px-4 py-4 text-center">No hay registros en el historial</td>
                         </tr>
                       ) : (
                         historialSolicitudes.map((solicitud) => (
@@ -374,19 +381,16 @@ export default function StockPage() {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
                               {extractPedidoInfo(solicitud.motivo)}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 max-w-xs truncate">
-                              {solicitud.motivo}
-                            </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(solicitud.estado)}`}>
                                 {getEstadoLabel(solicitud.estado)}
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {safeRender(solicitud.solicitante)}
+                              {extractUserName(solicitud.solicitante)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {safeRender(solicitud.realizadoPor ? solicitud.realizadoPor : "-")}
+                              {solicitud.realizadoPor ? extractUserName(solicitud.realizadoPor) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               <button 
