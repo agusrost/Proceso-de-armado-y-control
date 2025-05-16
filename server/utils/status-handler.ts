@@ -16,6 +16,143 @@ export interface PedidoStatusResult {
 }
 
 /**
+ * Verifica todos los pedidos en estado "armado-pendiente-stock" y los actualiza a "armado"
+ * si todas sus solicitudes pendientes han sido resueltas
+ */
+export async function updateAllPendingStockOrders(): Promise<PedidoStatusResult[]> {
+  console.log(`🔍 Verificando todos los pedidos pendientes de stock...`);
+  
+  const results: PedidoStatusResult[] = [];
+  
+  try {
+    // Obtener todos los pedidos en estado pendiente de stock (considerando todas las variantes posibles)
+    const pendingStockOrders = await storage.getPedidos({ 
+      estado: 'armado-pendiente-stock' 
+    });
+    
+    // También buscar otras variantes de "armado pendiente stock"
+    const otrosFormatos = await storage.getPedidos({ 
+      estado: 'armado, pendiente stock' 
+    });
+    
+    const masFormatos = await storage.getPedidos({ 
+      estado: 'armado pendiente stock' 
+    });
+    
+    // Combinar todos los resultados
+    const todosLosPedidosPendientes = [
+      ...pendingStockOrders,
+      ...otrosFormatos,
+      ...masFormatos
+    ];
+    
+    console.log(`🔎 Encontrados ${todosLosPedidosPendientes.length} pedidos en estado pendiente de stock`);
+    
+    // Procesar cada pedido
+    for (const pedido of todosLosPedidosPendientes) {
+      console.log(`📦 Procesando pedido ${pedido.pedidoId} (ID: ${pedido.id})...`);
+      
+      try {
+        // 1. Buscar solicitudes asociadas directamente al pedido
+        const directRequests = await storage.getSolicitudesByPedidoId(pedido.id);
+        console.log(`  - Solicitudes directas: ${directRequests.length}`);
+        
+        // 2. Buscar solicitudes por menciones en el motivo
+        const allStockRequests = await storage.getStockSolicitudes({});
+        const relatedRequestsByText = allStockRequests.filter(s => {
+          if (!s.motivo) return false;
+          
+          // Buscar varias formas en que se puede mencionar el pedido
+          return (
+            s.motivo.includes(pedido.pedidoId) || // P0123
+            s.motivo.includes(pedido.pedidoId.replace(/^P/i, '')) || // 0123
+            s.motivo.includes(pedido.pedidoId.replace(/^P0+/i, '')) || // 123
+            s.motivo.toLowerCase().includes(`pedido ${pedido.pedidoId.replace(/^p0*/i, '')}`.toLowerCase()) || // pedido 123
+            s.motivo.toLowerCase().includes(`pedido: ${pedido.pedidoId.replace(/^p0*/i, '')}`.toLowerCase()) || // pedido: 123
+            s.motivo.toLowerCase().includes(`pedido ${pedido.pedidoId}`.toLowerCase()) || // pedido P0123
+            s.motivo.toLowerCase().includes(`pedido: ${pedido.pedidoId}`.toLowerCase()) || // pedido: P0123
+            s.motivo.match(new RegExp(`\\b${pedido.pedidoId.replace(/^P0*/i, '')}\\b`, 'i')) !== null // Solo el número 123
+          );
+        });
+        console.log(`  - Solicitudes encontradas por texto: ${relatedRequestsByText.length}`);
+        
+        // 3. Combinar ambas listas y eliminar duplicados
+        const allRelatedRequests = [...directRequests];
+        for (const req of relatedRequestsByText) {
+          if (!allRelatedRequests.some(r => r.id === req.id)) {
+            allRelatedRequests.push(req);
+          }
+        }
+        
+        // 4. Filtrar solo las solicitudes pendientes
+        const pendingRequests = allRelatedRequests.filter(req => req.estado === 'pendiente');
+        
+        console.log(`  - Total solicitudes relacionadas: ${allRelatedRequests.length}`);
+        console.log(`  - Solicitudes pendientes: ${pendingRequests.length}`);
+        
+        // Si no hay solicitudes pendientes, actualizar el estado del pedido
+        if (pendingRequests.length === 0) {
+          console.log(`  ✅ Todas las solicitudes para el pedido ${pedido.pedidoId} están resueltas. Actualizando estado a "armado"`);
+          
+          // Actualizar el pedido
+          await storage.updatePedido(pedido.id, { estado: 'armado' });
+          
+          results.push({
+            success: true,
+            pedidoId: pedido.pedidoId,
+            initialStatus: pedido.estado,
+            newStatus: 'armado',
+            message: `Pedido ${pedido.pedidoId} actualizado de "${pedido.estado}" a "armado"`,
+            actions: ['Estado actualizado']
+          });
+        } else {
+          console.log(`  ⏳ El pedido ${pedido.pedidoId} sigue con ${pendingRequests.length} solicitudes pendientes:`);
+          
+          // Mostrar detalles de las solicitudes pendientes para debugging
+          pendingRequests.forEach((req, i) => {
+            console.log(`    ${i+1}. ID: ${req.id}, Código: ${req.codigo}, Motivo: "${req.motivo}", Fecha: ${req.fecha}`);
+          });
+          
+          results.push({
+            success: true,
+            pedidoId: pedido.pedidoId,
+            initialStatus: pedido.estado,
+            newStatus: null,
+            message: `Pedido ${pedido.pedidoId} mantiene estado "${pedido.estado}" (${pendingRequests.length} solicitudes pendientes)`,
+            actions: ['Sin cambios']
+          });
+        }
+      } catch (err) {
+        console.error(`❌ Error procesando pedido ${pedido.pedidoId}:`, err);
+        
+        results.push({
+          success: false,
+          pedidoId: pedido.pedidoId,
+          initialStatus: pedido.estado,
+          newStatus: null,
+          message: `Error procesando pedido: ${err instanceof Error ? err.message : String(err)}`,
+          actions: ['Error']
+        });
+      }
+    }
+    
+    return results;
+  } catch (err) {
+    console.error(`❌ Error general verificando pedidos:`, err);
+    
+    // Devolver un resultado de error
+    return [{
+      success: false,
+      pedidoId: 'N/A',
+      initialStatus: 'N/A',
+      newStatus: null,
+      message: `Error general verificando pedidos: ${err instanceof Error ? err.message : String(err)}`,
+      actions: ['Error general']
+    }];
+  }
+}
+
+/**
  * Verifica si un pedido con faltantes de stock debería cambiar a estado "armado"
  * cuando todas sus solicitudes han sido resueltas
  */

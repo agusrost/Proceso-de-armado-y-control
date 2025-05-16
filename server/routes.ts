@@ -8,6 +8,7 @@ import { sql, eq } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import { pedidos, StockSolicitud } from '@shared/schema';
 import stockRouter from './routes/stock-endpoints';
+import { updateAllPendingStockOrders } from './utils/status-handler';
 // Ya no es necesario importar setupAuth porque ahora se hace en index.ts
 
 // Función para requerir autenticación
@@ -2830,52 +2831,23 @@ export async function registerRoutes(app: Application): Promise<Server> {
         
         // MÉTODO 2: Si no se encontró un pedido específico, intentar actualizar todos los pedidos pendientes de stock
         if (!pedidoNumericoId) {
-          console.log(`🔍 Ejecutando verificación general de pedidos pendientes de stock...`);
+          console.log(`🔍 Ejecutando verificación general de todos los pedidos pendientes de stock...`);
           
           try {
-            // Buscar todos los pedidos que están en estado pendiente de stock
-            const pedidos = await storage.getPedidos({ 
-              estado: ['armado-pendiente-stock', 'armado, pendiente stock', 'armado pendiente stock'] 
-            });
+            // Utilizar la función específica para verificar y actualizar todos los pedidos pendientes
+            const resultados = await updateAllPendingStockOrders();
+            console.log(`✅ Verificación general completada con ${resultados.length} pedidos procesados`);
             
-            console.log(`🔎 Encontrados ${pedidos.length} pedidos en estado pendiente de stock`);
+            // Mostrar resumen de resultados
+            const actualizados = resultados.filter(r => r.newStatus !== null).length;
+            const sinCambios = resultados.filter(r => r.success && r.newStatus === null).length;
+            const errores = resultados.filter(r => !r.success).length;
             
-            for (const pedido of pedidos) {
-              // Para cada pedido, verificar si tiene solicitudes pendientes
-              const solicitudesPedido = await storage.getSolicitudesByPedidoId(pedido.id);
-              
-              // Buscar también por texto en todas las solicitudes
-              const todasSolicitudes = await storage.getStockSolicitudes({});
-              const solicitudesRelacionadas = todasSolicitudes.filter(s => {
-                if (!s.motivo) return false;
-                return (
-                  s.motivo.includes(pedido.pedidoId) || 
-                  s.motivo.includes(pedido.pedidoId.replace(/^P/i, '')) ||
-                  s.motivo.toLowerCase().includes(`pedido ${pedido.pedidoId.replace(/^p/i, '')}`.toLowerCase())
-                );
-              });
-              
-              // Combinar ambas listas y eliminar duplicados
-              const todasSolicitudesRelacionadas = [...solicitudesPedido];
-              for (const sol of solicitudesRelacionadas) {
-                if (!todasSolicitudesRelacionadas.some(s => s.id === sol.id)) {
-                  todasSolicitudesRelacionadas.push(sol);
-                }
-              }
-              
-              // Filtrar solo solicitudes pendientes
-              const solicitudesPendientes = todasSolicitudesRelacionadas.filter(s => s.estado === 'pendiente');
-              
-              console.log(`🔍 Pedido ${pedido.pedidoId}: ${solicitudesPendientes.length} solicitudes pendientes de ${todasSolicitudesRelacionadas.length} totales`);
-              
-              // Si no hay solicitudes pendientes, actualizar el estado del pedido
-              if (solicitudesPendientes.length === 0) {
-                console.log(`✅ ¡Todas las solicitudes para pedido ${pedido.pedidoId} están resueltas! Actualizando estado a "armado"`);
-                await storage.updatePedido(pedido.id, { estado: 'armado' });
-              }
+            console.log(`📊 Resumen de actualización: ${actualizados} pedidos actualizados, ${sinCambios} sin cambios, ${errores} errores`);
+            
+            if (actualizados > 0) {
+              console.log(`🎉 Se actualizaron ${actualizados} pedidos de "armado-pendiente-stock" a "armado"`);
             }
-            
-            console.log(`✅ Verificación general de pedidos completada`);
           } catch (err) {
             console.error(`❌ Error en la verificación general de pedidos:`, err);
           }
