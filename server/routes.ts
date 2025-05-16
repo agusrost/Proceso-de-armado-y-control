@@ -4195,27 +4195,15 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       let productos = await storage.getProductosByPedidoId(pedidoId);
       
-      // ORDENAR PRODUCTOS DE FORMA ÓPTIMA:
-      // 1. Primero los no procesados (recolectado === null)
-      // 2. Luego los parcialmente procesados (recolectado < cantidad)
-      // 3. Finalmente los completamente procesados (recolectado >= cantidad)
+      // IMPORTANTE: La recolección de productos DEBE mantener exactamente el mismo orden de carga original
+      // NO ALTERAR EL ORDEN de los productos durante el armado
+      // Ordenamiento simple por ID para respetar el orden original de carga
       productos.sort((a, b) => {
-        // Primero los que tienen recolectado === null
-        if (a.recolectado === null && b.recolectado !== null) return -1;
-        if (a.recolectado !== null && b.recolectado === null) return 1;
-        
-        // Después los parcialmente procesados
-        if (a.recolectado !== null && b.recolectado !== null) {
-          const aParcial = a.recolectado < a.cantidad;
-          const bParcial = b.recolectado < b.cantidad;
-          
-          if (aParcial && !bParcial) return -1;
-          if (!aParcial && bParcial) return 1;
-        }
-        
-        // Finalmente, orden por ID para mantener consistencia
+        // Ordenar por ID para mantener el orden original
         return a.id - b.id;
       });
+      
+      console.log("⚠️ IMPORTANTE: Se mantiene el orden original de carga de los productos para recolección");
       
       // Caso especial para el pedido problemático (53)
       if (pedidoId === 53) {
