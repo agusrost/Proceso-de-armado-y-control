@@ -2694,20 +2694,116 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Crear los datos de actualización
       const datosActualizacion = { 
         estado,
-        // Si cambia a realizado o no-hay, registrar el usuario que lo realiza
-        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? userIdActual : null
+        // Si cambia a realizado o no-hay, registrar el usuario que lo realiza y la fecha
+        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? userIdActual : null,
+        realizadoEn: (estado === 'realizado' || estado === 'no-hay') ? new Date() : null
       };
       
       console.log(`Actualizando solicitud de stock ${solicitudId} a estado: ${estado}, realizadoPor: ${datosActualizacion.realizadoPor}`);
+      
+      // Actualización directa en BD para garantizar que se aplique inmediatamente
+      if (estado === 'realizado' || estado === 'no-hay') {
+        await db.execute(sql`
+          UPDATE stock_solicitudes 
+          SET 
+            estado = ${estado},
+            realizado_por = ${userIdActual},
+            realizado_en = NOW()
+          WHERE id = ${solicitudId}
+        `);
+        console.log(`🔄 Solicitud ${solicitudId} actualizada directamente en BD a estado "${estado}"`);
+      }
       
       const solicitudActualizada = await storage.updateStockSolicitud(solicitudId, datosActualizacion);
       if (!solicitudActualizada) {
         return res.status(500).json({ message: "Error al actualizar la solicitud" });
       }
       
+      // Estructura para almacenar información sobre pedidos actualizados
+      let pedidoActualizado = null;
+      
       // Verificar si tenemos que actualizar el estado de un pedido cuando se marca como resuelto
       if (estado === 'realizado' || estado === 'no-hay') {
         console.log(`💡 La solicitud ha sido marcada como "${estado}". Verificando pedidos relacionados...`);
+        
+        // VERIFICACIÓN FORZADA: Actualizar directamente el estado del pedido si está en motivo
+        if (solicitud.motivo) {
+          // Patrones más robustos para extraer CUALQUIER número de pedido
+          const pedidoPatterns = [
+            /[Pp]edido:?\s*(\d+)/i,        // "Pedido: 25842" o "pedido:25842"
+            /[Pp]edido:?\s*[Pp](\d+)/i,     // "Pedido: P25842" o "pedido:P25842"
+            /[Pp](\d+)/i,                   // Simplemente "P25842"
+            /\b(\d{4,5})\b/                 // Cualquier número de 4-5 dígitos
+          ];
+          
+          // Intentar extraer un número de pedido
+          let pedidoIdStr = null;
+          for (const pattern of pedidoPatterns) {
+            const match = solicitud.motivo.match(pattern);
+            if (match && match[1]) {
+              pedidoIdStr = match[1];
+              break;
+            }
+          }
+          
+          if (pedidoIdStr) {
+            // Normalizar a formato P12345
+            if (!pedidoIdStr.toUpperCase().startsWith('P')) {
+              pedidoIdStr = 'P' + pedidoIdStr;
+            }
+            
+            console.log(`🔍 Buscando pedido ${pedidoIdStr} para actualización directa`);
+            
+            // Buscar el pedido
+            const pedidos = await storage.getPedidos({ pedidoId: pedidoIdStr });
+            
+            if (pedidos && pedidos.length > 0) {
+              const pedido = pedidos[0];
+              console.log(`✅ Encontrado pedido ${pedidoIdStr} (ID: ${pedido.id}, Estado actual: ${pedido.estado})`);
+              
+              // Verificar si está en estado pendiente-stock
+              if (pedido.estado.includes('pendiente') && pedido.estado.includes('stock')) {
+                // Verificar si ya no hay solicitudes pendientes
+                const solicitudesActivas = await storage.getStockSolicitudes({ estado: 'pendiente' });
+                const solicitudesPendientesRelacionadas = solicitudesActivas.filter(s => 
+                  s.motivo && (
+                    s.motivo.includes(pedidoIdStr) || 
+                    s.motivo.includes(pedidoIdStr.replace('P', ''))
+                  ) && s.id !== solicitudId // Excluir la solicitud actual que estamos actualizando
+                );
+                
+                console.log(`  - Solicitudes pendientes relacionadas encontradas: ${solicitudesPendientesRelacionadas.length}`);
+                
+                // Si no quedan más solicitudes pendientes, cambiar el estado
+                if (solicitudesPendientesRelacionadas.length === 0) {
+                  const estadoAnterior = pedido.estado;
+                  
+                  // Actualización directa por SQL para garantizarla
+                  await db.execute(sql`UPDATE pedidos SET estado = 'armado' WHERE id = ${pedido.id}`);
+                  console.log(`🔄 Actualizando pedido ${pedidoIdStr} directamente a estado "armado"`);
+                  
+                  // También actualizar con storage para mantener coherencia
+                  const actualizacionRes = await storage.updatePedido(pedido.id, { estado: 'armado' });
+                  
+                  pedidoActualizado = {
+                    id: pedido.id,
+                    pedidoId: pedido.pedidoId,
+                    estadoAnterior: estadoAnterior,
+                    nuevoEstado: 'armado'
+                  };
+                  
+                  console.log(`✅ Pedido ${pedidoIdStr} actualizado a "armado"`);
+                } else {
+                  console.log(`⏳ El pedido ${pedidoIdStr} aún tiene ${solicitudesPendientesRelacionadas.length} solicitudes pendientes`);
+                }
+              } else {
+                console.log(`ℹ️ El pedido ${pedidoIdStr} no está en estado pendiente de stock (${pedido.estado})`);
+              }
+            } else {
+              console.log(`⚠️ No se encontró el pedido ${pedidoIdStr}`);
+            }
+          }
+        }
         
         // VERIFICACIÓN GENERAL: Ejecutar la función que revisa todos los pedidos pendientes
         try {
@@ -2905,11 +3001,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
         }
       }
       
-      // Enviar la respuesta al cliente
+      // Enviar la respuesta al cliente incluyendo información del pedido actualizado
       res.json({
         success: true,
         message: `Solicitud de stock actualizada correctamente a estado "${estado}"`,
-        solicitud: solicitudActualizada
+        id: solicitudId,
+        estado: estado,
+        solicitud: solicitudActualizada,
+        pedidoActualizado: pedidoActualizado // Será null si no se actualizó ningún pedido
       });
     } catch (error) {
       console.error("Error al actualizar solicitud de stock:", error);
