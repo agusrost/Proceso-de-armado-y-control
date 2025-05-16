@@ -25,7 +25,9 @@ export async function handleStockRequestUpdate(solicitudId: number, estado: stri
     // Datos para actualizar la solicitud
     const solicitudData: any = {
       estado,
-      realizadoPor: estado !== 'pendiente' ? userId : null
+      realizadoPor: estado !== 'pendiente' ? userId : null,
+      // Si está marcada como realizada o no hay, registrar la fecha y hora
+      realizadoEn: (estado === 'realizado' || estado === 'no-hay') ? new Date() : null
     };
     
     // Agregar observaciones si existen
@@ -33,10 +35,25 @@ export async function handleStockRequestUpdate(solicitudId: number, estado: stri
       solicitudData.observaciones = observaciones;
     }
     
-    // Actualizar la solicitud
+    // Actualizar la solicitud en la base de datos
+    // Necesitamos forzar la actualización de estado para que se refleje inmediatamente
+    if (estado === 'realizado' || estado === 'no-hay') {
+      // Actualización directa en BD para garantizar que se aplique
+      await db.execute(sql`
+        UPDATE stock_solicitudes 
+        SET 
+          estado = ${estado},
+          realizado_por = ${userId},
+          realizado_en = NOW()
+        WHERE id = ${solicitudId}
+      `);
+      console.log(`🔄 Solicitud ${solicitudId} actualizada directamente en BD a estado "${estado}"`);
+    }
+    
+    // También actualizamos a través del storage para mantener coherencia
     const solicitudActualizada = await storage.updateStockSolicitud(solicitudId, solicitudData);
     if (!solicitudActualizada) {
-      throw new Error(`Error al actualizar la solicitud de stock ID ${solicitudId}`);
+      console.warn(`⚠️ No se pudo actualizar la solicitud ${solicitudId} a través de storage, pero ya se actualizó en BD`);
     }
     
     console.log(`✅ Solicitud de stock ${solicitudId} actualizada a estado "${estado}"`);

@@ -199,23 +199,55 @@ export default function StockPage() {
   // Update solicitud estado mutation
   const updateEstadoMutation = useMutation({
     mutationFn: async ({ id, estado }: { id: number, estado: string }) => {
+      console.log(`🔄 Actualizando solicitud ${id} a estado "${estado}"`);
       const res = await apiRequest("PUT", `/api/stock/${id}/estado`, { estado });
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("✅ Respuesta exitosa de actualización:", data);
+      
+      // Mostrar mensaje de éxito
       toast({
         title: "Estado actualizado",
-        description: "El estado de la solicitud ha sido actualizado correctamente",
+        description: `La solicitud ha sido marcada como "${data.estado === 'realizado' ? 'Sí hay' : 'No hay'}"`,
       });
       
-      // Refrescar ambas vistas inmediatamente
-      refetchSolicitudes();
-      refetchHistorial();
+      // Si un pedido fue actualizado, mostrar mensaje adicional
+      if (data.pedidoActualizado) {
+        toast({
+          title: "Pedido actualizado",
+          description: `El pedido ${data.pedidoActualizado.pedidoId} cambió de estado "${data.pedidoActualizado.estadoAnterior}" a "${data.pedidoActualizado.nuevoEstado}"`,
+        });
+      }
       
-      // También invalidar pedidos por si un pedido cambió de estado
-      queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
+      // Implementar una pausa breve para dejar que la transición se complete
+      setTimeout(() => {
+        // Refrescar ambas vistas forzadamente usando una función async
+        const refreshData = async () => {
+          console.log("🔄 Refrescando datos después de actualizar estado...");
+          
+          // Invalidar y refrescar las consultas de solicitudes
+          await queryClient.invalidateQueries({ queryKey: ["/api/stock/activas"] });
+          await queryClient.invalidateQueries({ queryKey: ["/api/stock/historial"] });
+          
+          // También invalidar pedidos ya que el estado de un pedido puede haber cambiado
+          await queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
+          
+          // Ejecutar refetch explícito para ambas vistas
+          try {
+            await refetchSolicitudes();
+            await refetchHistorial();
+            console.log("✅ Datos actualizados correctamente");
+          } catch (error) {
+            console.error("❌ Error al refrescar datos:", error);
+          }
+        };
+        
+        refreshData();
+      }, 300);
     },
     onError: (error: Error) => {
+      console.error("❌ Error al actualizar estado:", error);
       toast({
         title: "Error al actualizar estado",
         description: error.message,
