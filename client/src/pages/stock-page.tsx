@@ -17,14 +17,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Función para extraer información del cliente desde el motivo
 const extractClienteInfo = (motivo: string) => {
-  const clienteMatch = motivo.match(/Cliente(?:\s+Nro)?[:\s]+(\d+)/i);
-  return clienteMatch ? clienteMatch[1] : null;
+  // Primero intentamos encontrar "Codigo: XXXX" que es el identificador del cliente
+  const clienteMatch = motivo.match(/[Cc][oó]digo:?\s+(\d+)/i);
+  if (clienteMatch) {
+    return clienteMatch[1];
+  }
+  
+  // Si no encontramos el patrón exacto, intentamos otros formatos comunes
+  const altClienteMatch = motivo.match(/Cliente(?:\s+Nro)?[:\s]+(\d+)/i);
+  return altClienteMatch ? altClienteMatch[1] : null;
 };
 
 // Función para extraer información del pedido desde el motivo
 const extractPedidoInfo = (motivo: string) => {
-  const pedidoMatch = motivo.match(/[Pp]edido[:\s]+(?:P)?(\d+)/i);
-  return pedidoMatch ? `P${pedidoMatch[1]}` : null;
+  // Primero intentamos encontrar "Pedido: XXX" que es el identificador del pedido
+  const pedidoMatch = motivo.match(/[Pp]edido:?\s+(\d+)/i);
+  if (pedidoMatch) {
+    return `P${pedidoMatch[1]}`;
+  }
+  
+  // Si no encontramos el patrón exacto, intentamos otros formatos comunes
+  const altPedidoMatch = motivo.match(/P(\d+)/i);
+  return altPedidoMatch ? `P${altPedidoMatch[1]}` : null;
 };
 
 export default function StockPage() {
