@@ -668,14 +668,15 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                         : ""}
                                   </span>
                                   
-                                  {/* Mostrar mensaje de faltante de stock si aplica */}
+                                  {/* Mostrar mensaje de faltante de stock si aplica - SOLO AQUÍ, SIN REPETIR */}
                                   {producto.motivo && producto.motivo.trim() !== '' && producto.recolectado < producto.cantidad && (
                                     <div className="mt-1 px-2 py-1 text-xs rounded bg-amber-100 border border-amber-300 text-amber-800 flex items-center">
                                       <span className="mr-1">⚠️</span>
-                                      {/* CORRECCIÓN v2.0: Mensaje claro y sin ambigüedades sobre el faltante */}
+                                      {/* Mensaje único y conciso sobre el faltante */}
                                     {producto.motivo.toLowerCase().includes('stock') 
-                                      ? `Faltante: Faltante de stock - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}${producto.completadoPor ? ` - Completado por: ${producto.completadoPor}` : ''}`
-                                      : `Motivo: ${producto.motivo} - Cantidad real recolectada: ${producto.recolectado}/${producto.cantidad}${producto.completadoPor ? ` - Completado por: ${producto.completadoPor}` : ''}`}
+                                      ? `Faltante: Faltante de stock - Cantidad recolectada ${producto.recolectado}/${producto.cantidad}`
+                                      : `Motivo: ${producto.motivo} - Cantidad recolectada ${producto.recolectado}/${producto.cantidad}`}
+                                      {producto.completadoPor ? <span className="ml-1 font-semibold"> - Completado por: {producto.completadoPor}</span> : ''}
                                     </div>
                                   )}
                                   
@@ -702,8 +703,8 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                     ) : null;
                                   })()}
                                   
-                                  {/* Mostrar motivo de faltante o estado de recolección parcial */}
-                                  {(producto.motivo || (producto.recolectado !== null && producto.recolectado < producto.cantidad)) && (
+                                  {/* Solo mostrar mensajes de stock específicos, no duplicar mensajes de faltantes */}
+                                  {(producto.motivo?.includes('[Stock:')) && (
                                     <div className={`mt-1 text-xs ${producto.motivo?.includes('[Stock: Transferencia completada') ? 'text-green-600' : 'text-red-600'}`}>
                                       {producto.motivo?.includes('[Stock: Transferencia completada') ? (
                                         <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded p-1">
@@ -719,20 +720,7 @@ export default function PedidoDetailModal({ pedidoId, isOpen, onClose }: PedidoD
                                             Stock no disponible para transferencia
                                           </span>
                                         </div>
-                                      ) : (
-                                        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded p-1">
-                                          <AlertCircle className="h-3 w-3 text-amber-600" />
-                                          <span className="font-medium">
-                                            {producto.motivo 
-                                              ? `Faltante: ${producto.motivo}` 
-                                              : "Faltante de stock"
-                                            }
-                                            {producto.recolectado !== null && 
-                                              ` (${producto.recolectado} de ${producto.cantidad} unidades recolectadas)`
-                                            }
-                                          </span>
-                                        </div>
-                                      )}
+                                      ) : null}
                                     </div>
                                   )}
                                 </div>
