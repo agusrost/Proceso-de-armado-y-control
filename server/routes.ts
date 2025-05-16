@@ -2839,12 +2839,14 @@ export async function registerRoutes(app: Application): Promise<Server> {
       );
       
       // Agrupar solicitudes por código y pedido para evitar duplicados
+      // y corregir las cantidades para reflejar la cantidad real faltante
       const solicitudesAgrupadas = new Map();
       
       for (const solicitud of solicitudesPendientes) {
         const clave = `${solicitud.codigo}-${solicitud.pedidoId || 'sin-pedido'}`;
         
         // Si ya existe una solicitud con la misma clave, usar la más reciente
+        // y actualizar la cantidad para reflejar la cantidad real faltante
         if (solicitudesAgrupadas.has(clave)) {
           const solicitudExistente = solicitudesAgrupadas.get(clave);
           const fechaExistente = new Date(solicitudExistente.fecha);
@@ -2900,8 +2902,25 @@ export async function registerRoutes(app: Application): Promise<Server> {
                 estado: pedido.estado
               };
               
-              // Reformatear el motivo con el formato correcto "Número de cliente : ID de pedido"
-              nuevoMotivo = `${pedido.clienteId} : ${pedido.pedidoId}`;
+              // Obtener el producto asociado para corregir la cantidad
+              const productos = await storage.getProductosByPedidoId(pedido.id);
+              const productoAsociado = productos.find(p => p.codigo === solicitud.codigo);
+              
+              // Si encontramos el producto, actualizamos la cantidad para reflejar el faltante real
+              if (productoAsociado) {
+                // Calcular la cantidad real faltante
+                const cantidadReal = productoAsociado.recolectado !== null 
+                  ? productoAsociado.cantidad - productoAsociado.recolectado 
+                  : productoAsociado.cantidad;
+                
+                // Actualizar la cantidad en la solicitud
+                solicitud.cantidad = cantidadReal;
+                
+                console.log(`Corrigiendo cantidad para solicitud de ${solicitud.codigo}: ${solicitud.cantidad} → ${cantidadReal} (cantidad real faltante)`);
+              }
+              
+              // Reformatear el motivo con el formato correcto "Cliente: X Pedido: ID de Pedido"
+              nuevoMotivo = `Cliente: ${pedido.clienteId} Pedido: ${pedido.pedidoId}`;
             }
           }
           
