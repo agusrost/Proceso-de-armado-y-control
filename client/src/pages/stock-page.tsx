@@ -15,6 +15,18 @@ import TransferenciaModal from "@/components/stock/transferencia-modal";
 import SolicitudDetailModal from "@/components/stock/solicitud-detail-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Función para extraer información del cliente desde el motivo
+const extractClienteInfo = (motivo: string) => {
+  const clienteMatch = motivo.match(/Cliente(?:\s+Nro)?[:\s]+(\d+)/i);
+  return clienteMatch ? clienteMatch[1] : null;
+};
+
+// Función para extraer información del pedido desde el motivo
+const extractPedidoInfo = (motivo: string) => {
+  const pedidoMatch = motivo.match(/[Pp]edido[:\s]+(?:P)?(\d+)/i);
+  return pedidoMatch ? `P${pedidoMatch[1]}` : null;
+};
+
 export default function StockPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -162,6 +174,8 @@ export default function StockPage() {
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Horario</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitado por</th>
@@ -172,11 +186,11 @@ export default function StockPage() {
                     <tbody className="bg-white divide-y divide-neutral-200">
                       {isLoading ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-4 text-center">Cargando...</td>
+                          <td colSpan={11} className="px-4 py-4 text-center">Cargando...</td>
                         </tr>
                       ) : solicitudes.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-4 text-center">No hay solicitudes que coincidan con los filtros</td>
+                          <td colSpan={11} className="px-4 py-4 text-center">No hay solicitudes que coincidan con los filtros</td>
                         </tr>
                       ) : (
                         solicitudes.map((solicitud) => (
@@ -192,6 +206,12 @@ export default function StockPage() {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.cantidad}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
+                              {solicitud.clienteId || extractClienteInfo(solicitud.motivo) || "-"}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
+                              {solicitud.pedidoId || extractPedidoInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -262,6 +282,8 @@ export default function StockPage() {
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Horario</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitado por</th>
@@ -272,11 +294,11 @@ export default function StockPage() {
                     <tbody className="bg-white divide-y divide-neutral-200">
                       {isLoadingHistorial ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-4 text-center">Cargando historial...</td>
+                          <td colSpan={11} className="px-4 py-4 text-center">Cargando historial...</td>
                         </tr>
                       ) : historialSolicitudes.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-4 text-center">No hay registros en el historial</td>
+                          <td colSpan={11} className="px-4 py-4 text-center">No hay registros en el historial</td>
                         </tr>
                       ) : (
                         historialSolicitudes.map((solicitud) => (
@@ -292,6 +314,12 @@ export default function StockPage() {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.cantidad}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
+                              {solicitud.clienteId || extractClienteInfo(solicitud.motivo) || "-"}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
+                              {solicitud.pedidoId || extractPedidoInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -329,21 +357,21 @@ export default function StockPage() {
             </Card>
           </TabsContent>
         </Tabs>
-
-        <TransferenciaModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-        />
-
-        {/* Modal de detalles de solicitud */}
-        {selectedSolicitudId && (
-          <SolicitudDetailModal
-            isOpen={isDetailModalOpen}
-            onClose={() => setIsDetailModalOpen(false)}
-            solicitudId={selectedSolicitudId}
-          />
-        )}
       </div>
+      
+      {/* Modals */}
+      <TransferenciaModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
+      
+      {selectedSolicitudId && (
+        <SolicitudDetailModal 
+          isOpen={isDetailModalOpen} 
+          onClose={() => setIsDetailModalOpen(false)} 
+          solicitudId={selectedSolicitudId} 
+        />
+      )}
     </MainLayout>
   );
 }
