@@ -45,11 +45,7 @@ export function ProductoStatusIndicator({
       <div>
         <div className="text-amber-600 font-medium">
           {mostrarCodigo && <span className="font-mono mr-1">{codigo}:</span>}
-          <span>Recolectado: {recolectado}/{cantidad}</span>
-          <span className="ml-1 text-xs bg-green-100 px-1 py-0.5 rounded">✓ Con faltante</span>
-        </div>
-        <div className="text-xs text-red-600 italic mt-1">
-          Motivo: {motivo}
+          <span>Faltante: {motivo} - Cantidad recolectada {recolectado}/{cantidad}</span>
         </div>
       </div>
     );
