@@ -802,7 +802,13 @@ export class DatabaseStorage implements IStorage {
     return solicitud;
   }
   
-  async getStockSolicitudes(filters: { fecha?: string, estado?: string, motivo?: string, solicitadoPor?: number }): Promise<StockSolicitud[]> {
+  async getStockSolicitudes(filters: { 
+    fecha?: string, 
+    estado?: string, 
+    motivo?: string, 
+    solicitadoPor?: number, 
+    codigo?: string // Agregamos soporte para código de producto
+  }): Promise<StockSolicitud[]> {
     let query = db.select().from(stockSolicitudes);
     
     if (filters.fecha) {
@@ -823,6 +829,11 @@ export class DatabaseStorage implements IStorage {
     
     if (filters.solicitadoPor) {
       query = query.where(eq(stockSolicitudes.solicitadoPor, filters.solicitadoPor));
+    }
+    
+    // NUEVO: Agregar filtro por código de producto
+    if (filters.codigo) {
+      query = query.where(eq(stockSolicitudes.codigo, filters.codigo));
     }
     
     // Ordenar por fecha descendente (más reciente primero)
@@ -887,6 +898,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(stockSolicitudes.id, id))
       .returning();
     return solicitud;
+  }
+  
+  async deleteStockSolicitud(id: number): Promise<boolean> {
+    try {
+      console.log(`Eliminando solicitud de stock con ID ${id}`);
+      await db
+        .delete(stockSolicitudes)
+        .where(eq(stockSolicitudes.id, id));
+      return true;
+    } catch (error) {
+      console.error(`Error al eliminar solicitud de stock ID ${id}:`, error);
+      return false;
+    }
   }
   
   // Métodos de eliminación

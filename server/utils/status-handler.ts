@@ -257,15 +257,20 @@ export async function checkAndUpdateToStockPendingStatus(pedidoNumeroId: number)
       // Verificar y crear solicitudes de stock para productos faltantes
       for (const producto of productosFaltantes) {
         try {
-          // Verificar si ya existe una solicitud para este producto y pedido
-          const solicitudesExistentes = await storage.getStockSolicitudes({
-            codigo: producto.codigo,
-            motivo: `%${pedido.pedidoId}%`
-          });
+          // Obtener todas las solicitudes para este pedido
+          const todasSolicitudesPedido = await storage.getSolicitudesByPedidoId(pedidoNumeroId);
+          console.log(`Encontradas ${todasSolicitudesPedido.length} solicitudes totales para el pedido ${pedido.pedidoId}`);
+            
+          // Filtrar para encontrar solicitudes para este código de producto específico
+          const solicitudesExistentesMismoProducto = todasSolicitudesPedido.filter(s => 
+            s.codigo === producto.codigo && s.estado === 'pendiente'
+          );
+          
+          console.log(`Solicitudes existentes para el producto ${producto.codigo} en pedido ${pedido.pedidoId}: ${solicitudesExistentesMismoProducto.length}`);
           
           const cantidadFaltante = producto.cantidad - (producto.recolectado || 0);
           
-          if (solicitudesExistentes.length === 0) {
+          if (solicitudesExistentesMismoProducto.length === 0) {
             actions.push(`Creando solicitud de stock para producto ${producto.codigo}`);
             
             // Crear solicitud de stock
@@ -283,20 +288,34 @@ export async function checkAndUpdateToStockPendingStatus(pedidoNumeroId: number)
             await storage.createStockSolicitud(solicitudData);
             actions.push(`Creada solicitud de stock para ${cantidadFaltante} unidades del producto ${producto.codigo}`);
           } else {
-            // Ya existe una solicitud, pero actualizamos la cantidad si es necesario
-            const solicitudExistente = solicitudesExistentes[0];
+            // Ya existe al menos una solicitud para este producto en este pedido
+            // Actualizamos la primera y mantenemos solo una, eliminando cualquier duplicado
+            const solicitudExistente = solicitudesExistentesMismoProducto[0];
             
-            // No crear solicitudes duplicadas - consolidar en una sola con la cantidad correcta
-            if (solicitudExistente.estado === 'pendiente' && solicitudExistente.cantidad !== cantidadFaltante) {
+            // Actualizar la cantidad en la solicitud existente
+            if (solicitudExistente.cantidad !== cantidadFaltante) {
               await storage.updateStockSolicitud(solicitudExistente.id, {
                 cantidad: cantidadFaltante, 
-                // Actualizar fecha y hora por si acaso
+                // Actualizar fecha y hora
                 fecha: new Date().toISOString().split('T')[0],
                 horario: new Date()
               });
               actions.push(`Actualizada solicitud existente ID ${solicitudExistente.id} para producto ${producto.codigo} con cantidad ${cantidadFaltante}`);
             } else {
               actions.push(`Ya existe una solicitud de stock para el producto ${producto.codigo} con cantidad ${solicitudExistente.cantidad}`);
+            }
+            
+            // Si hay más de una solicitud para el mismo producto y pedido (duplicados), eliminamos el resto
+            if (solicitudesExistentesMismoProducto.length > 1) {
+              // Mantenemos la primera (ya actualizada arriba) y eliminamos el resto
+              for (let i = 1; i < solicitudesExistentesMismoProducto.length; i++) {
+                const duplicatedRequest = solicitudesExistentesMismoProducto[i];
+                if (duplicatedRequest.estado === 'pendiente') {
+                  console.log(`Eliminando solicitud duplicada ID ${duplicatedRequest.id} para producto ${producto.codigo} en pedido ${pedido.pedidoId}`);
+                  await storage.deleteStockSolicitud(duplicatedRequest.id);
+                  actions.push(`Eliminada solicitud duplicada ID ${duplicatedRequest.id} para el producto ${producto.codigo}`);
+                }
+              }
             }
           }
         } catch (error) {
