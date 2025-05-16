@@ -61,12 +61,20 @@ export default function ArmadoSimplePage() {
   });
   
   // Filtrar productos para mostrar solo los que están pendientes de procesar
+  // IMPORTANTE: Mantenemos exactamente el orden original de los productos según su ID
   const productos = React.useMemo(() => {
     // Si no hay productos, retornar un array vacío
     if (!productosRaw.length) return [];
     
-    // Siempre mostrar solo los productos pendientes (no completados y no parciales)
-    return productosRaw.filter((producto: any) => {
+    console.log("ORDEN ORIGINAL DE PRODUCTOS:", productosRaw.map(p => `${p.codigo} (ID: ${p.id})`));
+    
+    // 1. Primero aseguramos que los productos estén ordenados por ID para respetar el orden original de carga
+    const productosOrdenados = [...productosRaw].sort((a, b) => a.id - b.id);
+    
+    console.log("PRODUCTOS ORDENADOS POR ID:", productosOrdenados.map(p => `${p.codigo} (ID: ${p.id})`));
+    
+    // 2. Luego filtramos solo los pendientes, manteniendo siempre el orden original por ID
+    return productosOrdenados.filter((producto: any) => {
       // Un producto se considera pendiente si:
       // 1. No tiene cantidad recolectada
       const sinRecolectar = producto.recolectado === null || producto.recolectado === 0;
