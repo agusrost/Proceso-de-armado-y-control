@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProductoStatusIndicator } from "@/components/pedidos/producto-status-indicator";
 
 export default function ArmadoSimplePage() {
   const { user, logoutMutation } = useAuth();
@@ -533,10 +534,18 @@ export default function ArmadoSimplePage() {
                 </div>
                 
                 <div className="mb-2">
-                  <div className="flex">
-                    <div className="font-semibold">Cantidad:</div> 
-                    <div className="ml-1">{productoActual.cantidad}</div>
-                    <div className="ml-1 text-gray-600">(Recolectado: {productoActual.recolectado || 0}/{productoActual.cantidad})</div>
+                  <div className="flex justify-between">
+                    <div className="flex">
+                      <div className="font-semibold">Cantidad:</div> 
+                      <div className="ml-1">{productoActual.cantidad}</div>
+                    </div>
+                    {/* Usar componente común para mostrar estado */}
+                    <ProductoStatusIndicator 
+                      codigo={productoActual.codigo}
+                      recolectado={productoActual.recolectado}
+                      cantidad={productoActual.cantidad}
+                      motivo={productoActual.motivo}
+                    />
                   </div>
                 </div>
                 
@@ -894,7 +903,6 @@ export default function ArmadoSimplePage() {
                   <th className="py-2 px-3 text-left">Descripción</th>
                   <th className="py-2 px-3 text-left">Ubicación</th>
                   <th className="py-2 px-3 text-right">Cantidad</th>
-                  <th className="py-2 px-3 text-right">Recolectado</th>
                   <th className="py-2 px-3 text-center">Estado</th>
                 </tr>
               </thead>
@@ -943,15 +951,15 @@ export default function ArmadoSimplePage() {
                       <td className="py-2 px-3">{producto.descripcion}</td>
                       <td className="py-2 px-3">{producto.ubicacion}</td>
                       <td className="py-2 px-3 text-right">{producto.cantidad}</td>
-                      <td className="py-2 px-3 text-right">{producto.recolectado === null ? 0 : producto.recolectado}</td>
-                      <td className="py-2 px-3 text-center">
-                        <span className={`inline-block px-2 py-1 rounded text-xs font-semibold
-                          ${estado === 'Completo' ? 'bg-green-600 text-white' : 
-                            estado === 'Parcial' ? 'bg-amber-600 text-white' : 
-                            'bg-red-600 text-white'}`}
-                        >
-                          {estado}
-                        </span>
+                      <td className="py-2 px-3">
+                        {/* Usar nuestro componente para mostrar el estado de manera consistente */}
+                        <ProductoStatusIndicator 
+                          codigo={producto.codigo}
+                          recolectado={producto.recolectado}
+                          cantidad={producto.cantidad}
+                          motivo={producto.motivo}
+                          mostrarCodigo={false}
+                        />
                       </td>
                     </tr>
                   );
