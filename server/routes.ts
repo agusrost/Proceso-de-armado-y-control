@@ -2694,9 +2694,8 @@ export async function registerRoutes(app: Application): Promise<Server> {
       // Crear los datos de actualización
       const datosActualizacion = { 
         estado,
-        // Si cambia a realizado o no-hay, registrar el usuario que lo realiza y la fecha
-        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? userIdActual : null,
-        realizadoEn: (estado === 'realizado' || estado === 'no-hay') ? new Date() : null
+        // Si cambia a realizado o no-hay, registrar el usuario que lo realiza
+        realizadoPor: (estado === 'realizado' || estado === 'no-hay') ? userIdActual : null
       };
       
       console.log(`Actualizando solicitud de stock ${solicitudId} a estado: ${estado}, realizadoPor: ${datosActualizacion.realizadoPor}`);
@@ -2707,8 +2706,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
           UPDATE stock_solicitudes 
           SET 
             estado = ${estado},
-            realizado_por = ${userIdActual},
-            realizado_en = NOW()
+            realizado_por = ${userIdActual}
           WHERE id = ${solicitudId}
         `);
         console.log(`🔄 Solicitud ${solicitudId} actualizada directamente en BD a estado "${estado}"`);

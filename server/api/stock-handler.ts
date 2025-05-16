@@ -43,8 +43,7 @@ export async function handleStockRequestUpdate(solicitudId: number, estado: stri
         UPDATE stock_solicitudes 
         SET 
           estado = ${estado},
-          realizado_por = ${userId},
-          realizado_en = NOW()
+          realizado_por = ${userId}
         WHERE id = ${solicitudId}
       `);
       console.log(`🔄 Solicitud ${solicitudId} actualizada directamente en BD a estado "${estado}"`);
