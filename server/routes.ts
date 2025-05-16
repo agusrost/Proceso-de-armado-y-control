@@ -2709,6 +2709,16 @@ export async function registerRoutes(app: Application): Promise<Server> {
       if (estado === 'realizado' || estado === 'no-hay') {
         console.log(`💡 La solicitud ha sido marcada como "${estado}". Verificando pedidos relacionados...`);
         
+        // VERIFICACIÓN GENERAL: Ejecutar la función que revisa todos los pedidos pendientes
+        try {
+          console.log(`🔄 Iniciando verificación general de todos los pedidos pendientes de stock...`);
+          const resultados = await updateAllPendingStockOrders();
+          const actualizados = resultados.filter(r => r.newStatus !== null).length;
+          console.log(`✅ Verificación completa: ${actualizados} pedidos actualizados de ${resultados.length} revisados`);
+        } catch (err) {
+          console.error(`❌ Error en la verificación general de pedidos:`, err);
+        }
+        
         // BÚSQUEDA MEJORADA: Patrones de pedidos en el motivo
         // Extraer ID del pedido del motivo usando diferentes patrones
         const patronesPedido = [
