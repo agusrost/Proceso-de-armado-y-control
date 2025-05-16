@@ -222,10 +222,10 @@ export default function StockPage() {
                               {solicitud.cantidad}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.clienteId || extractClienteInfo(solicitud.motivo) || "-"}
+                              {extractClienteInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.pedidoId || extractPedidoInfo(solicitud.motivo) || "-"}
+                              {extractPedidoInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -236,10 +236,10 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante?.firstName || solicitud.solicitante?.username || "-"}
+                              {solicitud.solicitante || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizador ? (solicitud.realizador.firstName || solicitud.realizador.username) : "-"}
+                              {solicitud.realizadoPor ? solicitud.realizadoPor : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.estado === 'pendiente' ? (
@@ -330,10 +330,10 @@ export default function StockPage() {
                               {solicitud.cantidad}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.clienteId || extractClienteInfo(solicitud.motivo) || "-"}
+                              {extractClienteInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {solicitud.pedidoId || extractPedidoInfo(solicitud.motivo) || "-"}
+                              {extractPedidoInfo(solicitud.motivo) || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.motivo}
@@ -344,10 +344,10 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante?.firstName || solicitud.solicitante?.username || "-"}
+                              {solicitud.solicitante || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.realizador ? (solicitud.realizador.firstName || solicitud.realizador.username) : "-"}
+                              {solicitud.realizadoPor || "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               <button 
