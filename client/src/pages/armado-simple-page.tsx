@@ -111,15 +111,72 @@ export default function ArmadoSimplePage() {
       return await res.json();
     },
     onSuccess: async (data) => {
-      // Recargar datos
-      queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
+      // Guardar el código del producto que acabamos de procesar para buscar el siguiente en secuencia
+      const productoActualCodigo = productos[currentProductoIndex]?.codigo;
+      const productoActualId = productos[currentProductoIndex]?.id;
+      console.log(`✅ Producto procesado: ${productoActualCodigo} (ID: ${productoActualId})`);
       
-      // Si es el último producto y todos están procesados, mostrar mensaje
-      if (currentProductoIndex === productos.length - 1) {
+      // Recargar datos ANTES de determinar el siguiente producto
+      await queryClient.invalidateQueries({ queryKey: [`/api/productos/pedido/${pedido?.id}`] });
+      
+      // Obtener lista actualizada de productos directamente desde la caché
+      const productosActualizados: any[] = queryClient.getQueryData([`/api/productos/pedido/${pedido?.id}`]) || [];
+      
+      console.log("🔍 OBTENIENDO PRODUCTOS ACTUALIZADA DEL SERVIDOR:", 
+        productosActualizados.map(p => `${p.codigo} (ID: ${p.id}, recolectado: ${p.recolectado}/${p.cantidad})`));
+      
+      // Ordenar exactamente por ID para mantener el orden original de carga
+      const productosOrdenadosPorID = [...productosActualizados].sort((a, b) => a.id - b.id);
+      
+      console.log("🔄 PRODUCTOS ORDENADOS POR ID:", 
+        productosOrdenadosPorID.map(p => `${p.codigo} (ID: ${p.id}, recolectado: ${p.recolectado}/${p.cantidad})`));
+      
+      // Encontrar productos pendientes que mantienen el orden original
+      const productosPendientes = productosOrdenadosPorID.filter(producto => {
+        // Un producto está pendiente si no está completado ni tiene motivo de faltante
+        const sinRecolectar = producto.recolectado === null || producto.recolectado === 0;
+        const parcialSinMotivo = 
+          producto.recolectado > 0 && 
+          producto.recolectado < producto.cantidad && 
+          (!producto.motivo || producto.motivo === "ninguno" || producto.motivo.trim() === "");
+        
+        return sinRecolectar || parcialSinMotivo;
+      });
+      
+      console.log("🔄 PRODUCTOS PENDIENTES DESPUÉS DE LA ACTUALIZACIÓN:", 
+        productosPendientes.map(p => `${p.codigo} (ID: ${p.id})`));
+      
+      // Verificar si hay productos pendientes
+      if (productosPendientes.length === 0) {
+        console.log("✅ No hay más productos pendientes. Verificando finalización...");
         await verificarFinalizacion();
+        setCurrentProductoIndex(0); // Reiniciar el índice por si acaso
       } else {
-        // Avanzar al siguiente producto
-        setCurrentProductoIndex(currentProductoIndex + 1);
+        // Buscar el producto que sigue en la secuencia original según su ID
+        // Queremos el producto con el ID más pequeño que sea mayor que el ID actual
+        const siguienteProducto = productosOrdenadosPorID.find(p => 
+          p.id > productoActualId && 
+          (p.recolectado === null || p.recolectado === 0 || 
+            (p.recolectado < p.cantidad && (!p.motivo || p.motivo === "ninguno" || p.motivo.trim() === "")))
+        );
+        
+        if (siguienteProducto) {
+          console.log(`✅ Siguiente producto en secuencia: ${siguienteProducto.codigo} (ID: ${siguienteProducto.id})`);
+          
+          // Encontrar el índice de este producto en la lista filtrada actual
+          const nuevoIndice = productosPendientes.findIndex(p => p.id === siguienteProducto.id);
+          
+          if (nuevoIndice !== -1) {
+            console.log(`✅ Nuevo índice en la lista filtrada: ${nuevoIndice}`);
+            setCurrentProductoIndex(nuevoIndice);
+          } else {
+            console.log("⚠️ No se encontró el producto en la lista filtrada. Reiniciando a índice 0");
+            setCurrentProductoIndex(0);
+          }
+        } else {
+          console.log("⚠️ No se encontró un siguiente producto en secuencia. Reiniciando a índice 0");
+          setCurrentProductoIndex(0);
+        }
       }
       
       // Resetear el formulario
