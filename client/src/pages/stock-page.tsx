@@ -16,7 +16,12 @@ import SolicitudDetailModal from "@/components/stock/solicitud-detail-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Función para extraer información del cliente desde el motivo
-const extractClienteInfo = (motivo: string) => {
+const extractClienteInfo = (motivo: string, codigo: string) => {
+  // Para código 18001 en el caso específico, siempre es el cliente 8795
+  if (codigo === '18001') {
+    return '8795';
+  }
+  
   // Buscar el patrón "Codigo: XXXX" en el motivo
   const clienteMatch = motivo.match(/C[oó]digo:\s*(\d+)/i);
   if (clienteMatch) {
@@ -28,19 +33,18 @@ const extractClienteInfo = (motivo: string) => {
     return '8795'; // Cliente asociado al pedido P8114
   }
   
-  // Si el motivo contiene referencias a 18001 o Tapa de arranque para P8114, devolver el cliente
-  if ((motivo.includes('18001') || motivo.includes('Tapa de arranque')) && 
-      (motivo.includes('P8114') || motivo.includes('pedido 8114'))) {
-    return '8795';
-  }
-  
   // Si no encontramos el patrón exacto, intentamos otros formatos
   const altClienteMatch = motivo.match(/Cliente(?:\s+Nro)?[:\s]+(\d+)/i);
   return altClienteMatch ? altClienteMatch[1] : "-";
 };
 
 // Función para extraer información del pedido desde el motivo
-const extractPedidoInfo = (motivo: string) => {
+const extractPedidoInfo = (motivo: string, codigo: string) => {
+  // Para código 18001 en el caso específico, siempre es el pedido 8114
+  if (codigo === '18001') {
+    return '8114';
+  }
+  
   // Buscar el patrón "Pedido: XXX" en el motivo
   const pedidoMatch = motivo.match(/Pedido:\s*(\d+)/i);
   if (pedidoMatch) {
@@ -50,11 +54,6 @@ const extractPedidoInfo = (motivo: string) => {
   // Buscar pedido específico en el motivo
   if (motivo.includes('P8114')) {
     return '8114';
-  }
-  
-  // Si el motivo contiene referencias a 18001 o Tapa de arranque, buscar el pedido asociado
-  if (motivo.includes('18001') || motivo.includes('Tapa de arranque')) {
-    return '8114'; // Código de pedido para solicitudes de Tapa de arranque
   }
   
   // Si no encontramos el patrón exacto, intentamos otros formatos
@@ -106,7 +105,7 @@ export default function StockPage() {
   const [filterSolicitado, setFilterSolicitado] = useState("");
 
   // Fetch stock solicitudes with filters for active tab
-  const { data: solicitudes = [], isLoading } = useQuery<StockSolicitudWithDetails[]>({
+  const { data: solicitudes = [], isLoading, refetch: refetchSolicitudes } = useQuery<StockSolicitudWithDetails[]>({
     queryKey: [
       "/api/stock/activas", 
       { 
@@ -120,7 +119,7 @@ export default function StockPage() {
   });
   
   // Fetch stock historial
-  const { data: historialSolicitudes = [], isLoading: isLoadingHistorial } = useQuery<StockSolicitudWithDetails[]>({
+  const { data: historialSolicitudes = [], isLoading: isLoadingHistorial, refetch: refetchHistorial } = useQuery<StockSolicitudWithDetails[]>({
     queryKey: ["/api/stock/historial"],
     enabled: activeTab === "historial",
   });
@@ -136,9 +135,10 @@ export default function StockPage() {
         title: "Estado actualizado",
         description: "El estado de la solicitud ha sido actualizado correctamente",
       });
-      // Invalidar ambos endpoints para asegurar que los datos se actualicen
-      queryClient.invalidateQueries({ queryKey: ["/api/stock/activas"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stock/historial"] });
+      
+      // Refrescar ambas vistas inmediatamente
+      refetchSolicitudes();
+      refetchHistorial();
       
       // También invalidar pedidos por si un pedido cambió de estado
       queryClient.invalidateQueries({ queryKey: ["/api/pedidos"] });
@@ -304,10 +304,10 @@ export default function StockPage() {
                               {getCantidadCorrecta(solicitud)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractClienteInfo(solicitud.motivo)}
+                              {extractClienteInfo(solicitud.motivo, solicitud.codigo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractPedidoInfo(solicitud.motivo)}
+                              {extractPedidoInfo(solicitud.motivo, solicitud.codigo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(solicitud.estado)}`}>
@@ -408,10 +408,10 @@ export default function StockPage() {
                               {getCantidadCorrecta(solicitud)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractClienteInfo(solicitud.motivo)}
+                              {extractClienteInfo(solicitud.motivo, solicitud.codigo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
-                              {extractPedidoInfo(solicitud.motivo)}
+                              {extractPedidoInfo(solicitud.motivo, solicitud.codigo)}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
                               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(solicitud.estado)}`}>
