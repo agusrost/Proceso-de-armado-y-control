@@ -2839,14 +2839,12 @@ export async function registerRoutes(app: Application): Promise<Server> {
       );
       
       // Agrupar solicitudes por código y pedido para evitar duplicados
-      // y corregir las cantidades para reflejar la cantidad real faltante
       const solicitudesAgrupadas = new Map();
       
       for (const solicitud of solicitudesPendientes) {
         const clave = `${solicitud.codigo}-${solicitud.pedidoId || 'sin-pedido'}`;
         
         // Si ya existe una solicitud con la misma clave, usar la más reciente
-        // y actualizar la cantidad para reflejar la cantidad real faltante
         if (solicitudesAgrupadas.has(clave)) {
           const solicitudExistente = solicitudesAgrupadas.get(clave);
           const fechaExistente = new Date(solicitudExistente.fecha);
@@ -2893,6 +2891,7 @@ export async function registerRoutes(app: Application): Promise<Server> {
           }
           
           if (pedidoId) {
+            console.log(`Procesando solicitud para producto ${solicitud.codigo}, pedido ${pedidoId}`);
             const pedido = await storage.getPedidoByPedidoId(pedidoId);
             if (pedido) {
               pedidoRelacionado = {
@@ -2909,14 +2908,17 @@ export async function registerRoutes(app: Application): Promise<Server> {
               // Si encontramos el producto, actualizamos la cantidad para reflejar el faltante real
               if (productoAsociado) {
                 // Calcular la cantidad real faltante
-                const cantidadReal = productoAsociado.recolectado !== null 
-                  ? productoAsociado.cantidad - productoAsociado.recolectado 
-                  : productoAsociado.cantidad;
+                const cantidadTotal = productoAsociado.cantidad || 0;
+                const cantidadRecolectada = productoAsociado.recolectado || 0;
+                const cantidadFaltante = cantidadTotal - cantidadRecolectada;
                 
-                // Actualizar la cantidad en la solicitud
-                solicitud.cantidad = cantidadReal;
+                console.log(`Producto ${productoAsociado.codigo}: Total=${cantidadTotal}, Recolectado=${cantidadRecolectada}, Faltante=${cantidadFaltante}`);
                 
-                console.log(`Corrigiendo cantidad para solicitud de ${solicitud.codigo}: ${solicitud.cantidad} → ${cantidadReal} (cantidad real faltante)`);
+                // CORREGIDO: Sobreescribir directamente la cantidad de la solicitud con el faltante real
+                const solicitudActual = solicitud;
+                solicitudActual.cantidad = cantidadFaltante;
+                
+                console.log(`CORRECCIÓN: Solicitud ${solicitud.id} - Código ${solicitud.codigo} - Nueva cantidad: ${cantidadFaltante}`);
               }
               
               // Reformatear el motivo con el formato correcto "Cliente: X Pedido: ID de Pedido"
