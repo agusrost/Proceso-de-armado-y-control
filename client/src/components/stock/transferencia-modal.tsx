@@ -222,6 +222,37 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
               )}
             />
             
+            {form.watch("motivo") === "Faltante en pedido" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="clienteId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número de Cliente</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: 8795" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pedidoId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ID del Pedido</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: P8114" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+            
             {showSolicitante && (
               <FormField
                 control={form.control}
