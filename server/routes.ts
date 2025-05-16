@@ -3031,24 +3031,57 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       // Si hay faltantes, crear solicitudes de transferencia (aunque el pedido esté en estado 'armado')
       if (hasFaltantes) {
+        // Obtener todas las solicitudes actuales para este pedido para evitar duplicados
+        const solicitudesExistentes = await storage.getSolicitudesByPedidoId(pedidoId);
+        console.log(`Encontradas ${solicitudesExistentes.length} solicitudes existentes para el pedido ${pedido.pedidoId}`);
+        
         for (const producto of productosFaltantes) {
           try {
-            // Crear solicitud de stock
-            const solicitudData = {
-              fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
-              horario: new Date(),
-              codigo: producto.codigo,
-              cantidad: producto.cantidad - (producto.recolectado || 0),
-              motivo: `Faltante en pedido ${pedido.pedidoId} - ${producto.motivo || 'Sin stock'}`,
-              estado: 'pendiente',
-              solicitadoPor: req.user?.id,
-              solicitante: req.user?.username
-            };
+            // Buscar si ya existe una solicitud pendiente para este producto
+            const solicitudesParaProducto = solicitudesExistentes.filter(s => 
+              s.codigo === producto.codigo && s.estado === 'pendiente'
+            );
             
-            console.log(`Creando solicitud de stock para producto ${producto.codigo}:`, solicitudData);
-            await storage.createStockSolicitud(solicitudData);
+            const cantidadFaltante = producto.cantidad - (producto.recolectado || 0);
+            
+            if (solicitudesParaProducto.length === 0) {
+              // No existe solicitud previa, crear una nueva
+              const solicitudData = {
+                fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+                horario: new Date(),
+                codigo: producto.codigo,
+                cantidad: cantidadFaltante,
+                motivo: `Faltante en pedido ${pedido.pedidoId} - ${producto.motivo || 'Sin stock'}`,
+                estado: 'pendiente',
+                solicitadoPor: req.user?.id,
+                solicitante: req.user?.username
+              };
+              
+              console.log(`Creando nueva solicitud de stock para producto ${producto.codigo}:`, solicitudData);
+              await storage.createStockSolicitud(solicitudData);
+            } else {
+              // Ya existe al menos una solicitud para este producto, actualizar la primera
+              const solicitudExistente = solicitudesParaProducto[0];
+              
+              await storage.updateStockSolicitud(solicitudExistente.id, {
+                cantidad: cantidadFaltante,
+                fecha: new Date().toISOString().split('T')[0],
+                horario: new Date()
+              });
+              
+              console.log(`Actualizada solicitud existente ID ${solicitudExistente.id} para producto ${producto.codigo} con cantidad ${cantidadFaltante}`);
+              
+              // Eliminar solicitudes duplicadas si hay más de una
+              if (solicitudesParaProducto.length > 1) {
+                for (let i = 1; i < solicitudesParaProducto.length; i++) {
+                  const duplicado = solicitudesParaProducto[i];
+                  console.log(`Eliminando solicitud duplicada ID ${duplicado.id} para producto ${producto.codigo}`);
+                  await storage.deleteStockSolicitud(duplicado.id);
+                }
+              }
+            }
           } catch (error) {
-            console.error(`Error al crear solicitud de stock para producto ${producto.codigo}:`, error);
+            console.error(`Error al gestionar solicitud de stock para producto ${producto.codigo}:`, error);
           }
         }
       }
