@@ -662,7 +662,8 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(productos)
-      .where(eq(productos.pedidoId, pedidoId));
+      .where(eq(productos.pedidoId, pedidoId))
+      .orderBy(asc(productos.id)); // Ordenar por ID ascendente para mantener el orden original de carga
   }
   
   async getProductoByCodigo(codigo: string): Promise<Producto | undefined> {
