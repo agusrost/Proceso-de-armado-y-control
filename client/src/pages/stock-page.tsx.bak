@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -236,10 +236,21 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante || "-"}
+                              {solicitud.solicitadoPor ? (
+                                solicitud.solicitanteUser?.firstName || 
+                                solicitud.solicitanteUser?.username || 
+                                solicitud.solicitante || 
+                                "-"
+                              ) : (
+                                solicitud.solicitante || "-"
+                              )}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {"-"}
+                              {solicitud.realizadoPor ? (
+                                solicitud.realizadorUser?.firstName || 
+                                solicitud.realizadorUser?.username || 
+                                "-"
+                              ) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               {solicitud.estado === 'pendiente' ? (
@@ -344,10 +355,21 @@ export default function StockPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {solicitud.solicitante || "-"}
+                              {solicitud.solicitadoPor ? (
+                                solicitud.solicitanteUser?.firstName || 
+                                solicitud.solicitanteUser?.username || 
+                                solicitud.solicitante || 
+                                "-"
+                              ) : (
+                                solicitud.solicitante || "-"
+                              )}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
-                              {"-"}
+                              {solicitud.realizadoPor ? (
+                                solicitud.realizadorUser?.firstName || 
+                                solicitud.realizadorUser?.username || 
+                                "-"
+                              ) : "-"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
                               <button 
