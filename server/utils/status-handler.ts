@@ -282,7 +282,7 @@ export async function checkAndUpdateToStockPendingStatus(pedidoNumeroId: number)
               motivo: `Faltante en pedido ${pedido.pedidoId} - ${producto.motivo || 'Sin stock'}`,
               estado: 'pendiente',
               solicitadoPor: pedido.armadorId,
-              solicitante: pedido.armador?.username || 'Sistema'
+              solicitante: 'Sistema' // El nombre del armador se resolverá desde el ID si es necesario
             };
             
             await storage.createStockSolicitud(solicitudData);

@@ -49,8 +49,9 @@ export interface IStorage {
   // Stock methods
   createStockSolicitud(solicitud: InsertStockSolicitud): Promise<StockSolicitud>;
   getStockSolicitudById(id: number): Promise<StockSolicitud | undefined>;
-  getStockSolicitudes(filters: { fecha?: string, estado?: string, motivo?: string, solicitadoPor?: number }): Promise<StockSolicitud[]>;
+  getStockSolicitudes(filters: { fecha?: string, estado?: string, motivo?: string, solicitadoPor?: number, codigo?: string }): Promise<StockSolicitud[]>;
   updateStockSolicitud(id: number, solicitudData: Partial<StockSolicitud>): Promise<StockSolicitud | undefined>;
+  deleteStockSolicitud(id: number): Promise<boolean>;
   
   // Control methods
   createControlHistorico(controlHistorico: InsertControlHistorico): Promise<ControlHistorico>;
@@ -395,6 +396,10 @@ export class MemStorage implements IStorage {
     const updatedSolicitud: StockSolicitud = { ...solicitud, ...solicitudData };
     this.stockSolicitudes.set(id, updatedSolicitud);
     return updatedSolicitud;
+  }
+  
+  async deleteStockSolicitud(id: number): Promise<boolean> {
+    return this.stockSolicitudes.delete(id);
   }
   
   // Métodos de eliminación
