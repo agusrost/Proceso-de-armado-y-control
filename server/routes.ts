@@ -2958,7 +2958,6 @@ export async function registerRoutes(app: Application): Promise<Server> {
       
       console.log(`Se encontraron ${solicitudesFinales.length} solicitudes de stock pendientes (sin duplicados)`);
       res.json(solicitudesFinales);
-      res.json(solicitudesFinales);
     } catch (error) {
       console.error("Error al obtener solicitudes de stock activas:", error);
       next(error);
