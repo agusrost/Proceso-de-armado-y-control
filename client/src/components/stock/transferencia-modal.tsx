@@ -69,8 +69,8 @@ export default function TransferenciaModal({ isOpen, onClose }: TransferenciaMod
   
   const createSolicitudMutation = useMutation({
     mutationFn: async (data: TransferFormValues) => {
-      // Formatear el motivo para incluir el cliente y pedido de manera estructurada
-      const motivoCompleto = `Faltante en pedido - Codigo: ${data.clienteId}\nPedido: ${data.pedidoId}`;
+      // Formatear el motivo para incluir el cliente y pedido
+      const motivoCompleto = `Faltante en pedido ${data.pedidoId} - Cliente Nro ${data.clienteId}`;
       
       const solicitudData: any = {
         codigo: data.codigo,
