@@ -88,13 +88,12 @@ export async function checkAndUpdatePendingStockOrder(pedidoNumeroId: number): P
       // Todas las solicitudes están resueltas, cambiar a "armado"
       actions.push(`Todas las ${solicitudes.length} solicitudes de stock han sido resueltas`);
       
-      // Actualizar el estado del pedido
-      await db.execute(sql`
-        UPDATE pedidos 
-        SET estado = 'armado' 
-        WHERE id = ${pedidoNumeroId}
-      `);
+      // Actualizar el estado del pedido usando la interfaz de storage
+      await storage.updatePedido(pedidoNumeroId, {
+        estado: 'armado'
+      });
       
+      console.log(`[StatusHandler] Pedido ${pedido.pedidoId} (ID: ${pedidoNumeroId}) actualizado de estado "${pedido.estado}" a "armado"`);
       actions.push(`Actualizado estado del pedido de "${pedido.estado}" a "armado"`);
       
       return {
@@ -125,13 +124,12 @@ export async function checkAndUpdatePendingStockOrder(pedidoNumeroId: number): P
       if (todosFaltantesResueltos || productosFaltantes.length === 0) {
         actions.push(`Todos los productos faltantes han sido resueltos o marcados como no disponibles`);
         
-        // Actualizar el estado del pedido
-        await db.execute(sql`
-          UPDATE pedidos 
-          SET estado = 'armado' 
-          WHERE id = ${pedidoNumeroId}
-        `);
+        // Actualizar el estado del pedido usando la interfaz de storage
+        await storage.updatePedido(pedidoNumeroId, {
+          estado: 'armado'
+        });
         
+        console.log(`[StatusHandler] Pedido ${pedido.pedidoId} (ID: ${pedidoNumeroId}) actualizado de estado "${pedido.estado}" a "armado" (todos los faltantes resueltos)`);
         actions.push(`Actualizado estado del pedido de "${pedido.estado}" a "armado"`);
         
         return {

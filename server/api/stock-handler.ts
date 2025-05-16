@@ -42,50 +42,88 @@ export async function handleStockRequestUpdate(solicitudId: number, estado: stri
   
   // Si la solicitud está resuelta, intentar actualizar el estado del pedido relacionado
   if (estado === 'realizado' || estado === 'no-hay') {
-    // Extraer el ID del pedido del motivo
-    // Intentamos primero patrones comunes de búsqueda
+    console.log(`⚙️ Procesando solicitud resuelta. Código de producto: ${solicitud.codigo}, Motivo: "${solicitud.motivo}"`);
+    
+    // MÉTODO 1: Extraer el ID del pedido del motivo usando expresiones regulares
     const pedidoIdMatch = solicitud.motivo.match(/pedido\s+([0-9]+)/i) || // Patrón "pedido 90"
                           solicitud.motivo.match(/pedido\s+P([0-9]+)/i) || // Patrón "pedido P0147"
                           solicitud.motivo.match(/pedido[^0-9]*([0-9]+)/i) || // Otros formatos de "pedido X"
                           solicitud.motivo.match(/pedido[^P]*P([0-9]+)/i) || // Otros formatos "pedido PX"
                           solicitud.motivo.match(/P([0-9]+)/i); // Último recurso, buscar solo "PX"
     
+    let pedido = null;
+    
+    // Si encontramos un número de pedido en el motivo
     if (pedidoIdMatch && pedidoIdMatch[1]) {
       const pedidoNumero = parseInt(pedidoIdMatch[1]);
-      console.log(`Encontrado número de pedido: ${pedidoNumero}`);
+      console.log(`Método 1: Encontrado número de pedido: ${pedidoNumero}`);
       
       // Buscar el pedido por número o por código
-      let pedido = await storage.getPedidoById(pedidoNumero);
+      pedido = await storage.getPedidoById(pedidoNumero);
       
       if (!pedido) {
         // Intentar buscar por pedidoId (ej: P1234)
         const codigo = `P${pedidoNumero}`;
         pedido = await storage.getPedidoByPedidoId(codigo);
       }
+    }
+    
+    // MÉTODO 2: Si no encontramos el pedido por el método 1, 
+    // buscamos por solicitudes de código de producto relacionadas
+    if (!pedido) {
+      console.log(`Método 2: Buscando pedidos con productos de código ${solicitud.codigo}`);
       
-      if (pedido) {
-        console.log(`Encontrado pedido ID: ${pedido.id} - Código: ${pedido.pedidoId}`);
+      // Buscar pedidos con estado armado-pendiente-stock
+      const pedidosPendientes = await storage.getPedidos({
+        estado: 'armado-pendiente-stock'
+      });
+      
+      console.log(`Encontrados ${pedidosPendientes.length} pedidos con estado armado-pendiente-stock`);
+      
+      // Para cada pedido, verificar si tiene algún producto con el mismo código
+      for (const candidato of pedidosPendientes) {
+        const productos = await storage.getProductosByPedidoId(candidato.id);
+        const producto = productos.find(p => p.codigo === solicitud.codigo);
         
-        // Verificar si todas las solicitudes están resueltas
-        const resultado = await checkAndUpdatePendingStockOrder(pedido.id);
-        
-        return {
-          success: true,
-          solicitudId,
-          estado,
-          pedidoActualizado: resultado.newStatus ? {
-            id: pedido.id,
-            pedidoId: pedido.pedidoId,
-            estadoAnterior: resultado.initialStatus,
-            nuevoEstado: resultado.newStatus,
-            mensaje: resultado.message
-          } : null
-        };
-      } else {
-        console.log(`No se encontró un pedido relacionado con el número ${pedidoNumero}`);
+        if (producto) {
+          console.log(`Encontrado producto ${solicitud.codigo} en pedido ${candidato.pedidoId}`);
+          pedido = candidato;
+          break;
+        }
       }
+    }
+    
+    // Si encontramos un pedido relacionado, verificar si todas sus solicitudes están resueltas
+    if (pedido) {
+      console.log(`🎯 Pedido relacionado encontrado! ID: ${pedido.id}, Código: ${pedido.pedidoId}, Estado actual: ${pedido.estado}`);
+      
+      // Verificar si todas las solicitudes están resueltas
+      const resultado = await checkAndUpdatePendingStockOrder(pedido.id);
+      
+      return {
+        success: true,
+        solicitudId,
+        estado,
+        pedidoActualizado: resultado.newStatus ? {
+          id: pedido.id,
+          pedidoId: pedido.pedidoId,
+          estadoAnterior: resultado.initialStatus,
+          nuevoEstado: resultado.newStatus,
+          mensaje: resultado.message
+        } : {
+          id: pedido.id,
+          pedidoId: pedido.pedidoId,
+          estadoActual: pedido.estado,
+          mensaje: resultado.message
+        }
+      };
     } else {
-      console.log(`No se pudo extraer un ID de pedido del motivo: "${solicitud.motivo}"`);
+      console.log(`❌ No se encontró un pedido relacionado con la solicitud de producto ${solicitud.codigo}`);
+      
+      // MÉTODO 3: Verificar todos los pedidos en estado pendiente de stock
+      // ya que no sabemos cuál está relacionado específicamente
+      console.log(`Método 3: Verificando todos los pedidos en estado armado-pendiente-stock`);
+      await updateAllPendingStockOrders();
     }
   }
   
