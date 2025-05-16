@@ -9,7 +9,8 @@ import AuthPage from "@/pages/auth-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import PedidosCargaPage from "@/pages/pedidos/carga-page";
 import PedidosEstadoPage from "@/pages/pedidos/estado-page";
-import StockPage from "@/pages/stock-page";
+// import StockPage from "@/pages/stock-page";
+import StockPageSimple from "@/pages/stock-page-simple";
 import ConfigPage from "@/pages/config-page";
 import ArmadoPage from "@/pages/armado-page";
 import ArmadorPage from "@/pages/armador-page";
@@ -33,10 +34,7 @@ function Router() {
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/pedidos/carga" component={PedidosCargaPage} />
       <ProtectedRoute path="/pedidos/estado" component={PedidosEstadoPage} />
-      <Route path="/stock" component={() => import("@/pages/stock-page-simple").then(m => {
-        const Component = m.default;
-        return <Component />;
-      })} />
+      <Route path="/stock" component={StockPageSimple} />
       <ProtectedRoute path="/config" component={ConfigPage} />
       <ProtectedRoute path="/armado" component={ArmadoSimplePage} />
       <ProtectedRoute path="/armado-simple" component={ArmadoSimplePage} />
