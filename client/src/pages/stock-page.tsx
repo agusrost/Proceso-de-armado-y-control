@@ -10,7 +10,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { StockSolicitudWithDetails } from "@shared/types";
 import { getEstadoColor, getEstadoLabel, formatDate } from "@/lib/utils";
-import { Plus, Eye, Check, XCircle, History } from "lucide-react";
+import { Plus, Eye, Check, XCircle, History, LogOut } from "lucide-react";
 import TransferenciaModal from "@/components/stock/transferencia-modal";
 import SolicitudDetailModal from "@/components/stock/solicitud-detail-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -101,8 +101,30 @@ export default function StockPage() {
     },
   });
 
+  // Logout mutation
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/logout", {});
+      return await res.json();
+    },
+    onSuccess: () => {
+      window.location.href = "/auth";
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al cerrar sesión",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleEstadoChange = (id: number, estado: string) => {
     updateEstadoMutation.mutate({ id, estado });
+  };
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
   };
 
   return (
@@ -110,13 +132,23 @@ export default function StockPage() {
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Gestión de Stock</h2>
-          <Button 
-            className="flex items-center gap-2"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            <span>Nueva Transferencia</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              className="flex items-center gap-2"
+              onClick={() => setIsModalOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              <span>Nueva Transferencia</span>
+            </Button>
+            <Button 
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Cerrar Sesión</span>
+            </Button>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -185,14 +217,14 @@ export default function StockPage() {
                     <thead className="bg-neutral-100">
                       <tr>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fecha</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Horario</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Hora</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitado por</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitante</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Realizado por</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acción</th>
                       </tr>
@@ -227,7 +259,7 @@ export default function StockPage() {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
                               {extractPedidoInfo(solicitud.motivo)}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 max-w-xs truncate">
                               {solicitud.motivo}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
@@ -249,7 +281,7 @@ export default function StockPage() {
                                     onClick={() => handleEstadoChange(solicitud.id, 'realizado')}
                                   >
                                     <Check className="h-4 w-4" />
-                                    Realizado
+                                    Sí hay
                                   </button>
                                   <button 
                                     className="text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
@@ -293,14 +325,14 @@ export default function StockPage() {
                     <thead className="bg-neutral-100">
                       <tr>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Fecha</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Horario</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Hora</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Código</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cantidad</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Cliente</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Pedido</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Motivo</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Estado</th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitado por</th>
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Solicitante</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Realizado por</th>
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Acción</th>
                       </tr>
@@ -335,7 +367,7 @@ export default function StockPage() {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 font-medium">
                               {extractPedidoInfo(solicitud.motivo)}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-800 max-w-xs truncate">
                               {solicitud.motivo}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm">
