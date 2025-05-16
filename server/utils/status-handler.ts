@@ -37,7 +37,10 @@ export async function checkAndUpdatePendingStockOrder(pedidoNumeroId: number): P
     }
     
     // Si el pedido no está en estado "armado-pendiente-stock", no hay nada que hacer
-    if (pedido.estado !== 'armado-pendiente-stock' && pedido.estado !== 'armado, pendiente stock') {
+    // Se consideran ambas variantes del estado para mayor compatibilidad
+    if (pedido.estado !== 'armado-pendiente-stock' && 
+        pedido.estado !== 'armado, pendiente stock' && 
+        pedido.estado !== 'armado pendiente stock') {
       return {
         success: true,
         pedidoId: pedido.pedidoId,
