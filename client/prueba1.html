@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Sistema de Gestión de Pedidos - PRUEBA1</title>
+    <meta name="theme-color" content="#000000" />
+    <meta name="app-version" content="prueba1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Estilos para tema oscuro -->
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      
+      body {
+        background-color: hsl(224, 71%, 4%);
+        color: hsl(213, 31%, 91%);
+      }
+      
+      /* Estilos para todas las páginas */
+      .bg-background, [class*="bg-background"] {
+        background-color: hsl(224, 71%, 4%) !important;
+      }
+      
+      /* Cambiar colores de tarjetas y paneles */
+      .bg-card, [class*="bg-card"] {
+        background-color: hsl(224, 71%, 8%) !important;
+      }
+      
+      /* Destacar encabezados */
+      h1, h2, h3, h4, h5, h6 {
+        color: hsl(210, 100%, 80%) !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/prueba1-dark-theme.js"></script>
+    <!-- Badge indicador de versión Prueba1 -->
+    <div id="prueba1-badge" style="position: fixed; bottom: 10px; right: 10px; background-color: rgba(0, 0, 0, 0.7); color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 9999;">
+      PRUEBA1
+    </div>
+  </body>
+</html>

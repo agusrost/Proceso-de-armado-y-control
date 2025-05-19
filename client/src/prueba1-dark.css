@@ -1,0 +1,60 @@
+/* Tema oscuro para la versión Prueba1 */
+:root {
+  --background: 224 71% 4%;
+  --foreground: 213 31% 91%;
+  
+  --card: 224 71% 4%;
+  --card-foreground: 213 31% 91%;
+  
+  --popover: 224 71% 4%;
+  --popover-foreground: 215 20.2% 65.1%;
+  
+  --primary: 210 40% 98%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  
+  --secondary: 222.2 47.4% 11.2%;
+  --secondary-foreground: 210 40% 98%;
+  
+  --muted: 223 47% 11%;
+  --muted-foreground: 215.4 16.3% 56.9%;
+  
+  --accent: 216 34% 17%;
+  --accent-foreground: 210 40% 98%;
+  
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  
+  --border: 216 34% 17%;
+  --input: 216 34% 17%;
+  --ring: 213 31% 91%;
+}
+
+/* Aplicar forzosamente el tema oscuro */
+body {
+  background-color: hsl(224, 71%, 4%);
+  color: hsl(213, 31%, 91%);
+}
+
+/* Estilos para todas las páginas */
+.bg-background, [class*="bg-background"] {
+  background-color: hsl(224, 71%, 4%);
+}
+
+/* Cambiar colores de tarjetas y paneles */
+.bg-card, [class*="bg-card"] {
+  background-color: hsl(224, 71%, 8%);
+}
+
+/* Agregar indicador de versión Prueba1 */
+body::after {
+  content: 'PRUEBA1';
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+}
